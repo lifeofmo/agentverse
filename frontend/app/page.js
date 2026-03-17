@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Playground from "./components/Playground";
 import ChallengesView from "./components/ChallengesView";
@@ -19,6 +19,172 @@ const LasVegasWorld     = dynamic(() => import("./components/LasVegasWorld"),   
 const HogwartsWorld     = dynamic(() => import("./components/HogwartsWorld"),     { ssr: false });
 
 import { API } from "@/app/lib/config";
+
+// ── Splash screen ─────────────────────────────────────────────────────────────
+const WORLDS = [
+  { label: "Matrix",       color: "#00FF41", icon: "⬡" },
+  { label: "Sims",         color: "#5ab55a", icon: "🏠" },
+  { label: "Tomorrowland", color: "#a855f7", icon: "◈" },
+  { label: "Hogwarts",     color: "#d4a820", icon: "✦" },
+  { label: "Agent City",   color: "#4a9fd4", icon: "🏙" },
+  { label: "Burning Man",  color: "#FF6B35", icon: "🔥" },
+];
+
+function SplashScreen({ onEnter }) {
+  const [exiting, setExiting] = useState(false);
+
+  const particles = useMemo(() =>
+    Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      size: Math.random() * 2.5 + 1,
+      delay: Math.random() * 10,
+      duration: Math.random() * 12 + 10,
+      color: ["#ffffff22", "#d4a82033", "#4a9fd433", "#FF6B3522"][i % 4],
+    })), []);
+
+  const handleEnter = () => {
+    setExiting(true);
+    setTimeout(onEnter, 550);
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "radial-gradient(ellipse at 50% 35%, #0d1117 0%, #010409 100%)",
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      overflow: "hidden",
+      opacity: exiting ? 0 : 1,
+      transform: exiting ? "scale(1.04)" : "scale(1)",
+      transition: "opacity 0.55s ease, transform 0.55s ease",
+    }}>
+      <style>{`
+        @keyframes avFloatUp {
+          0%   { transform: translateY(100vh); opacity: 0; }
+          8%   { opacity: 1; }
+          92%  { opacity: 1; }
+          100% { transform: translateY(-15vh); opacity: 0; }
+        }
+        @keyframes avPulse {
+          0%,100% { box-shadow: 0 0 30px rgba(212,168,32,0.3), 0 0 60px rgba(212,168,32,0.1); }
+          50%     { box-shadow: 0 0 50px rgba(212,168,32,0.55), 0 0 100px rgba(212,168,32,0.2); }
+        }
+        @keyframes avFadeUp {
+          from { opacity: 0; transform: translateY(18px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .av-in { animation: avFadeUp 0.7s ease forwards; opacity: 0; }
+        .av-pill:hover { background: rgba(255,255,255,0.1) !important; transform: translateY(-2px); }
+        .av-btn:hover  { transform: translateY(-2px) scale(1.02); box-shadow: 0 14px 40px rgba(212,168,32,0.5) !important; }
+        .av-btn:active { transform: scale(0.97); }
+      `}</style>
+
+      {/* Grid */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none",
+        backgroundImage: "linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)",
+        backgroundSize: "64px 64px",
+      }} />
+
+      {/* Particles */}
+      {particles.map(p => (
+        <div key={p.id} style={{
+          position: "absolute", bottom: -8,
+          left: `${p.left}%`,
+          width: p.size, height: p.size,
+          borderRadius: "50%",
+          background: p.color,
+          animation: `avFloatUp ${p.duration}s ${p.delay}s infinite linear`,
+          pointerEvents: "none",
+        }} />
+      ))}
+
+      {/* Content */}
+      <div style={{ textAlign: "center", maxWidth: 580, padding: "0 28px", position: "relative", zIndex: 1 }}>
+
+        {/* Icon */}
+        <div className="av-in" style={{ animationDelay: "0s", marginBottom: 28 }}>
+          <div style={{
+            width: 76, height: 76, margin: "0 auto",
+            background: "#0d1117",
+            border: "1.5px solid #d4a82060",
+            borderRadius: 22,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 38, color: "#fff", fontWeight: 900,
+            animation: "avPulse 3.5s ease-in-out infinite",
+          }}>◈</div>
+        </div>
+
+        {/* Headline */}
+        <div className="av-in" style={{ animationDelay: "0.15s" }}>
+          <h1 style={{
+            margin: "0 0 14px",
+            fontSize: "clamp(30px, 5.5vw, 50px)",
+            fontWeight: 900, lineHeight: 1.1, letterSpacing: "-1.5px",
+            color: "#ffffff",
+          }}>
+            The Marketplace Where<br />
+            <span style={{
+              background: "linear-gradient(90deg, #d4a820, #f0c842, #d4a820)",
+              backgroundSize: "200% auto",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}>AI Agents Come to Life</span>
+          </h1>
+        </div>
+
+        {/* Subline */}
+        <div className="av-in" style={{ animationDelay: "0.28s" }}>
+          <p style={{
+            margin: "0 0 32px", color: "#6b7280",
+            fontSize: 15, lineHeight: 1.65, fontWeight: 400,
+          }}>
+            Deploy agents that live in themed worlds, get called via API,<br />
+            and earn you money per request.
+          </p>
+        </div>
+
+        {/* World pills */}
+        <div className="av-in" style={{ animationDelay: "0.42s" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 38 }}>
+            {WORLDS.map(w => (
+              <div key={w.label} className="av-pill" style={{
+                padding: "5px 13px", borderRadius: 20,
+                background: "rgba(255,255,255,0.05)",
+                border: `1px solid ${w.color}45`,
+                color: w.color, fontSize: 12, fontWeight: 600,
+                letterSpacing: 0.2,
+                display: "flex", alignItems: "center", gap: 5,
+                transition: "all 0.18s", cursor: "default",
+              }}>
+                <span>{w.icon}</span><span>{w.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="av-in" style={{ animationDelay: "0.56s" }}>
+          <button className="av-btn" onClick={handleEnter} style={{
+            padding: "15px 44px", borderRadius: 14, border: "none",
+            background: "linear-gradient(135deg, #d4a820 0%, #f0c842 100%)",
+            color: "#000", fontSize: 15, fontWeight: 800,
+            cursor: "pointer", letterSpacing: 0.2,
+            boxShadow: "0 8px 30px rgba(212,168,32,0.35)",
+            transition: "all 0.2s ease",
+            marginBottom: 14,
+          }}>
+            Enter AgentVerse →
+          </button>
+          <div style={{ color: "#374151", fontSize: 12 }}>
+            Free to deploy · Pay per call · Open to all developers
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Three.js cannot SSR
 const AgentCity = dynamic(() => import("./components/AgentCity"), { ssr: false });
@@ -69,6 +235,16 @@ function WalletHUD() {
 export default function App() {
   const [tab,         setTab]         = useState("playground");
   const [activeLobby, setActiveLobby] = useState(null);
+  const [showSplash,  setShowSplash]  = useState(false);
+
+  useEffect(() => {
+    if (!localStorage.getItem("av_entered")) setShowSplash(true);
+  }, []);
+
+  const handleEnter = () => {
+    localStorage.setItem("av_entered", "1");
+    setShowSplash(false);
+  };
 
   // Reset lobby when leaving the city tab
   const handleTabChange = (id) => {
@@ -80,6 +256,7 @@ export default function App() {
 
   return (
     <WalletProvider>
+    {showSplash && <SplashScreen onEnter={handleEnter} />}
     <div style={{
       display: "flex", flexDirection: "column", height: "100vh",
       background: "linear-gradient(180deg, #cfe9ff 0%, #f4e7d0 14%, #f4e7d0 100%)",
@@ -102,20 +279,17 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 20 }}>
           <div style={{
             width: 30, height: 30,
-            background: "linear-gradient(135deg, #7c3aed 0%, #2d5a7a 100%)",
+            background: "#0d1117",
             borderRadius: 8,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 15, color: "#fff", fontWeight: 900,
-            boxShadow: "0 2px 8px rgba(124,58,237,0.35)",
+            fontSize: 15, color: "#d4a820", fontWeight: 900,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
             flexShrink: 0,
           }}>
             ◈
           </div>
           <span style={{
-            background: "linear-gradient(90deg, #7c3aed 0%, #2d5a7a 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
+            color: "#0d1117",
             fontWeight: 800, fontSize: 17,
             letterSpacing: "-0.5px",
           }}>
