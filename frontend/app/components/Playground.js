@@ -11,28 +11,6 @@ import "reactflow/dist/style.css";
 
 import { API, WS } from "@/app/lib/config";
 
-// ── Fallback demo data (shown when backend is offline) ────────────────────────
-
-const FALLBACK_AGENTS = [
-  { id: "fb-1",  name: "MomentumAgent",     category: "trading",  price_per_request: 0.004, description: "BUY/SELL/HOLD signal with confidence score." },
-  { id: "fb-2",  name: "ArbitrageAgent",    category: "trading",  price_per_request: 0.006, description: "Cross-exchange arbitrage opportunity detector." },
-  { id: "fb-3",  name: "SentimentAgent",    category: "trading",  price_per_request: 0.003, description: "Fear & Greed score from social + on-chain data." },
-  { id: "fb-4",  name: "VolatilityScanner", category: "trading",  price_per_request: 0.005, description: "Implied/realized volatility + hedging recommendation." },
-  { id: "fb-5",  name: "PriceFeedAgent",    category: "data",     price_per_request: 0.001, description: "Real-time price feed with 24h stats." },
-  { id: "fb-6",  name: "NewsFeedAgent",     category: "data",     price_per_request: 0.002, description: "Crypto headlines with sentiment impact scores." },
-  { id: "fb-7",  name: "MarketDepthAgent",  category: "data",     price_per_request: 0.003, description: "Order book depth, bid-ask spread & liquidity." },
-  { id: "fb-8",  name: "TrendAnalyzer",     category: "analysis", price_per_request: 0.004, description: "Multi-timeframe trend via EMA crossovers & ADX." },
-  { id: "fb-9",  name: "PatternDetector",   category: "analysis", price_per_request: 0.005, description: "Chart patterns (flags, triangles, H&S) detector." },
-  { id: "fb-10", name: "CorrelationAgent",  category: "analysis", price_per_request: 0.003, description: "Cross-asset correlations & risk-on/off regime." },
-  { id: "fb-11", name: "RiskAgent",         category: "risk",     price_per_request: 0.005, description: "VaR, max drawdown & position sizing." },
-  { id: "fb-12", name: "PortfolioOptimizer",category: "risk",     price_per_request: 0.008, description: "Mean-variance optimization & Sharpe ratio." },
-];
-
-const FALLBACK_PIPELINE = {
-  id: "fb-pipe-1",
-  name: "MarketPulse",
-  agent_ids: ["fb-5", "fb-3", "fb-1"], // PriceFeed → Sentiment → Momentum
-};
 
 // ── Category palette ──────────────────────────────────────────────────────────
 
@@ -728,12 +706,10 @@ let dropId = 0;
 function PlaygroundCanvas() {
   const wrapperRef = useRef(null);
   const [rf, setRf]                            = useState(null);
-  const [allAgents, setAllAgents]              = useState(FALLBACK_AGENTS);
-  const [allPipelines, setAllPipelines]        = useState([FALLBACK_PIPELINE]);
-  const fbAgentMap = Object.fromEntries(FALLBACK_AGENTS.map(a => [a.id, a]));
-  const fbCanvas   = buildDemoCanvas(FALLBACK_PIPELINE, fbAgentMap);
-  const [nodes, setNodes, onNodesChange]       = useNodesState(fbCanvas.nodes);
-  const [edges, setEdges, onEdgesChange]       = useEdgesState(fbCanvas.edges);
+  const [allAgents, setAllAgents]              = useState([]);
+  const [allPipelines, setAllPipelines]        = useState([]);
+  const [nodes, setNodes, onNodesChange]       = useNodesState([]);
+  const [edges, setEdges, onEdgesChange]       = useEdgesState([]);
   const [selected, setSelected]                = useState(null);
   const [lastOutput, setLastOutput]            = useState({});
   const [libOpen, setLibOpen]                  = useState(true);
