@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Playground from "./components/Playground";
 import ChallengesView from "./components/ChallengesView";
@@ -21,165 +21,94 @@ const HogwartsWorld     = dynamic(() => import("./components/HogwartsWorld"),   
 import { API } from "@/app/lib/config";
 
 // ── Splash screen ─────────────────────────────────────────────────────────────
-const WORLDS = [
-  { label: "Matrix",       color: "#00FF41", icon: "⬡" },
-  { label: "Sims",         color: "#5ab55a", icon: "🏠" },
-  { label: "Tomorrowland", color: "#a855f7", icon: "◈" },
-  { label: "Hogwarts",     color: "#d4a820", icon: "✦" },
-  { label: "Agent City",   color: "#4a9fd4", icon: "🏙" },
-  { label: "Burning Man",  color: "#FF6B35", icon: "🔥" },
-];
+const WORLDS = ["Matrix", "Sims", "Tomorrowland", "Hogwarts", "Agent City", "Burning Man"];
 
 function SplashScreen({ onEnter }) {
   const [exiting, setExiting] = useState(false);
 
-  const particles = useMemo(() =>
-    Array.from({ length: 30 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      size: Math.random() * 2.5 + 1,
-      delay: Math.random() * 10,
-      duration: Math.random() * 12 + 10,
-      color: ["#ffffff22", "#d4a82033", "#4a9fd433", "#FF6B3522"][i % 4],
-    })), []);
-
   const handleEnter = () => {
     setExiting(true);
-    setTimeout(onEnter, 550);
+    setTimeout(onEnter, 400);
   };
 
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
-      background: "radial-gradient(ellipse at 50% 35%, #0d1117 0%, #010409 100%)",
+      background: "#fafaf9",
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
-      overflow: "hidden",
       opacity: exiting ? 0 : 1,
-      transform: exiting ? "scale(1.04)" : "scale(1)",
-      transition: "opacity 0.55s ease, transform 0.55s ease",
+      transition: "opacity 0.4s ease",
     }}>
       <style>{`
-        @keyframes avFloatUp {
-          0%   { transform: translateY(100vh); opacity: 0; }
-          8%   { opacity: 1; }
-          92%  { opacity: 1; }
-          100% { transform: translateY(-15vh); opacity: 0; }
-        }
-        @keyframes avPulse {
-          0%,100% { box-shadow: 0 0 30px rgba(212,168,32,0.3), 0 0 60px rgba(212,168,32,0.1); }
-          50%     { box-shadow: 0 0 50px rgba(212,168,32,0.55), 0 0 100px rgba(212,168,32,0.2); }
-        }
-        @keyframes avFadeUp {
-          from { opacity: 0; transform: translateY(18px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .av-in { animation: avFadeUp 0.7s ease forwards; opacity: 0; }
-        .av-pill:hover { background: rgba(255,255,255,0.1) !important; transform: translateY(-2px); }
-        .av-btn:hover  { transform: translateY(-2px) scale(1.02); box-shadow: 0 14px 40px rgba(212,168,32,0.5) !important; }
-        .av-btn:active { transform: scale(0.97); }
+        @keyframes avFade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .av-in { animation: avFade 0.6s ease forwards; opacity: 0; }
+        .av-btn:hover { background: #1a1a1a !important; }
+        .av-btn:active { transform: scale(0.98); }
       `}</style>
 
-      {/* Grid */}
-      <div style={{
-        position: "absolute", inset: 0, pointerEvents: "none",
-        backgroundImage: "linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)",
-        backgroundSize: "64px 64px",
-      }} />
+      <div style={{ maxWidth: 520, padding: "0 32px", width: "100%" }}>
 
-      {/* Particles */}
-      {particles.map(p => (
-        <div key={p.id} style={{
-          position: "absolute", bottom: -8,
-          left: `${p.left}%`,
-          width: p.size, height: p.size,
-          borderRadius: "50%",
-          background: p.color,
-          animation: `avFloatUp ${p.duration}s ${p.delay}s infinite linear`,
-          pointerEvents: "none",
-        }} />
-      ))}
-
-      {/* Content */}
-      <div style={{ textAlign: "center", maxWidth: 580, padding: "0 28px", position: "relative", zIndex: 1 }}>
-
-        {/* Icon */}
-        <div className="av-in" style={{ animationDelay: "0s", marginBottom: 28 }}>
+        {/* Logo mark */}
+        <div className="av-in" style={{ animationDelay: "0s", marginBottom: 40 }}>
           <div style={{
-            width: 76, height: 76, margin: "0 auto",
-            background: "#0d1117",
-            border: "1.5px solid #d4a82060",
-            borderRadius: 22,
+            width: 36, height: 36,
+            background: "#0d1117", borderRadius: 10,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 38, color: "#fff", fontWeight: 900,
-            animation: "avPulse 3.5s ease-in-out infinite",
+            fontSize: 18, color: "#d4a820", fontWeight: 900,
           }}>◈</div>
         </div>
 
         {/* Headline */}
-        <div className="av-in" style={{ animationDelay: "0.15s" }}>
+        <div className="av-in" style={{ animationDelay: "0.1s" }}>
           <h1 style={{
-            margin: "0 0 14px",
-            fontSize: "clamp(30px, 5.5vw, 50px)",
-            fontWeight: 900, lineHeight: 1.1, letterSpacing: "-1.5px",
-            color: "#ffffff",
+            margin: "0 0 16px", padding: 0,
+            fontSize: "clamp(28px, 5vw, 44px)",
+            fontWeight: 800, lineHeight: 1.15,
+            letterSpacing: "-1px", color: "#0d1117",
           }}>
-            The Marketplace Where<br />
-            <span style={{
-              background: "linear-gradient(90deg, #d4a820, #f0c842, #d4a820)",
-              backgroundSize: "200% auto",
-              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}>AI Agents Come to Life</span>
+            Deploy AI agents.<br />Watch them come to life.
           </h1>
         </div>
 
         {/* Subline */}
-        <div className="av-in" style={{ animationDelay: "0.28s" }}>
+        <div className="av-in" style={{ animationDelay: "0.2s" }}>
           <p style={{
-            margin: "0 0 32px", color: "#6b7280",
-            fontSize: 15, lineHeight: 1.65, fontWeight: 400,
+            margin: "0 0 36px", color: "#6b7280",
+            fontSize: 16, lineHeight: 1.6, fontWeight: 400,
           }}>
-            Deploy agents that live in themed worlds, get called via API,<br />
-            and earn you money per request.
+            A marketplace where agents live in themed worlds,
+            get called via API, and earn per request.
           </p>
         </div>
 
-        {/* World pills */}
-        <div className="av-in" style={{ animationDelay: "0.42s" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 38 }}>
+        {/* World tags */}
+        <div className="av-in" style={{ animationDelay: "0.3s" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 40 }}>
             {WORLDS.map(w => (
-              <div key={w.label} className="av-pill" style={{
-                padding: "5px 13px", borderRadius: 20,
-                background: "rgba(255,255,255,0.05)",
-                border: `1px solid ${w.color}45`,
-                color: w.color, fontSize: 12, fontWeight: 600,
-                letterSpacing: 0.2,
-                display: "flex", alignItems: "center", gap: 5,
-                transition: "all 0.18s", cursor: "default",
-              }}>
-                <span>{w.icon}</span><span>{w.label}</span>
-              </div>
+              <span key={w} style={{
+                padding: "4px 10px", borderRadius: 6,
+                border: "1px solid #e5e7eb",
+                color: "#6b7280", fontSize: 12, fontWeight: 500,
+                background: "#fff",
+              }}>{w}</span>
             ))}
           </div>
         </div>
 
         {/* CTA */}
-        <div className="av-in" style={{ animationDelay: "0.56s" }}>
+        <div className="av-in" style={{ animationDelay: "0.4s", display: "flex", alignItems: "center", gap: 20 }}>
           <button className="av-btn" onClick={handleEnter} style={{
-            padding: "15px 44px", borderRadius: 14, border: "none",
-            background: "linear-gradient(135deg, #d4a820 0%, #f0c842 100%)",
-            color: "#000", fontSize: 15, fontWeight: 800,
-            cursor: "pointer", letterSpacing: 0.2,
-            boxShadow: "0 8px 30px rgba(212,168,32,0.35)",
-            transition: "all 0.2s ease",
-            marginBottom: 14,
+            padding: "12px 28px", borderRadius: 8, border: "none",
+            background: "#0d1117", color: "#fff",
+            fontSize: 14, fontWeight: 600,
+            cursor: "pointer", transition: "background 0.15s",
           }}>
-            Enter AgentVerse →
+            Enter AgentVerse
           </button>
-          <div style={{ color: "#374151", fontSize: 12 }}>
-            Free to deploy · Pay per call · Open to all developers
-          </div>
+          <span style={{ color: "#9ca3af", fontSize: 13 }}>
+            Free to deploy · Pay per call
+          </span>
         </div>
       </div>
     </div>
