@@ -794,6 +794,60 @@ function EnchantedTree({ x, z, seed }) {
 // ── Agent DJ booth ────────────────────────────────────────────────────────────
 const BOOTH_HUE = { trading: 150, data: 200, analysis: 270, risk: 0, composite: 42 };
 
+// ── Per-booth raver — dances faster when agent is active ──────────────────────
+function RaverFigure({ hue, isActive, seed }) {
+  const groupRef = useRef();
+  const lArmRef  = useRef();
+  const rArmRef  = useRef();
+  const lLegRef  = useRef();
+  const rLegRef  = useRef();
+  const color    = `hsl(${hue},100%,65%)`;
+  const speed    = isActive ? 5 : 1.4;
+
+  useFrame((s) => {
+    const t = s.clock.elapsedTime + seed * 1.3;
+    const bounce = Math.abs(Math.sin(t * speed)) * (isActive ? 0.35 : 0.08);
+    if (groupRef.current) groupRef.current.position.y = 0.3 + bounce;
+    const swing = Math.sin(t * speed) * (isActive ? 0.9 : 0.25);
+    if (lArmRef.current) lArmRef.current.rotation.z =  swing;
+    if (rArmRef.current) rArmRef.current.rotation.z = -swing;
+    if (lLegRef.current) lLegRef.current.rotation.x =  swing * 0.5;
+    if (rLegRef.current) rLegRef.current.rotation.x = -swing * 0.5;
+  });
+
+  return (
+    <group ref={groupRef} position={[0, 0, 1.4]}>
+      {/* Head */}
+      <mesh position={[0, 1.72, 0]}>
+        <sphereGeometry args={[0.2, 7, 7]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
+      {/* Body */}
+      <mesh position={[0, 1.18, 0]}>
+        <boxGeometry args={[0.38, 0.52, 0.22]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
+      {/* Left arm */}
+      <group ref={lArmRef} position={[-0.32, 1.28, 0]}>
+        <mesh position={[0, -0.2, 0]}><boxGeometry args={[0.14, 0.42, 0.14]} /><meshBasicMaterial color={color} /></mesh>
+      </group>
+      {/* Right arm */}
+      <group ref={rArmRef} position={[0.32, 1.28, 0]}>
+        <mesh position={[0, -0.2, 0]}><boxGeometry args={[0.14, 0.42, 0.14]} /><meshBasicMaterial color={color} /></mesh>
+      </group>
+      {/* Left leg */}
+      <group ref={lLegRef} position={[-0.11, 0.75, 0]}>
+        <mesh position={[0, -0.22, 0]}><boxGeometry args={[0.16, 0.44, 0.16]} /><meshBasicMaterial color="#111122" /></mesh>
+      </group>
+      {/* Right leg */}
+      <group ref={rLegRef} position={[0.11, 0.75, 0]}>
+        <mesh position={[0, -0.22, 0]}><boxGeometry args={[0.16, 0.44, 0.16]} /><meshBasicMaterial color="#111122" /></mesh>
+      </group>
+      {isActive && <pointLight position={[0, 2, 0]} intensity={1.5} color={color} distance={4} decay={2} />}
+    </group>
+  );
+}
+
 function AgentBooth({ x, z, isActive, isSelected, isMine, onClick, seed, category }) {
   const lightRef = useRef();
   const ledRef   = useRef();
@@ -853,6 +907,8 @@ function AgentBooth({ x, z, isActive, isSelected, isMine, onClick, seed, categor
         </mesh>
       )}
       {isMine && <pointLight position={[0, 5, 0]} intensity={3} color="#a855f7" distance={10} decay={2} />}
+      {/* Per-booth raver — each agent has their own dancer */}
+      <RaverFigure hue={hue} isActive={isActive} seed={seed} />
     </group>
   );
 }

@@ -127,7 +127,7 @@ function Plumbob({ y = 5, active }) {
 }
 
 // ── Sim figure — blocky humanoid ──────────────────────────────────────────────
-function SimFigure({ seed, active }) {
+function SimFigure({ seed, active, category }) {
   const lLegRef = useRef();
   const rLegRef = useRef();
   const lArmRef = useRef();
@@ -135,7 +135,8 @@ function SimFigure({ seed, active }) {
   const bodyRef = useRef();
 
   const skinColor  = `hsl(${30 + Math.floor(rng(seed + 10) * 20)},55%,${60 + Math.floor(rng(seed+11)*20)}%)`;
-  const shirtColor = `hsl(${Math.floor(rng(seed + 20) * 360)},60%,55%)`;
+  // Shirt color matches the house/category color so the Sim visually "belongs" to their agent type
+  const shirtColor = HOUSE_COLORS[category]?.roof ?? `hsl(${Math.floor(rng(seed + 20) * 360)},60%,55%)`;
   const pantsColor = `hsl(${Math.floor(rng(seed + 30) * 360)},40%,35%)`;
 
   useFrame((s) => {
@@ -341,8 +342,8 @@ function AgentHouse({ agent, x, z, isActive, isSelected, isMine, onClick, seed }
       {/* Plumbob */}
       <Plumbob y={H + 3.2} active={isActive} />
 
-      {/* Sim figure */}
-      <SimFigure seed={seed} active={isActive} />
+      {/* Sim figure — shirt color matches agent category */}
+      <SimFigure seed={seed} active={isActive} category={agent?.category} />
     </group>
   );
 }
