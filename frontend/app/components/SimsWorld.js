@@ -29,13 +29,18 @@ function layoutAgents(agents) {
   });
 }
 
-function houseColor(cat, seed) {
-  const hue = Math.floor(rng(seed) * 360);
-  return `hsl(${hue},48%,70%)`;
+const HOUSE_COLORS = {
+  trading:   { wall: "#d4edda", roof: "#28a745" },
+  data:      { wall: "#cce5ff", roof: "#0d6efd" },
+  analysis:  { wall: "#e2d9f3", roof: "#7c3aed" },
+  risk:      { wall: "#f8d7da", roof: "#dc3545" },
+  composite: { wall: "#fff3cd", roof: "#d97706" },
+};
+function houseColor(cat) {
+  return HOUSE_COLORS[cat]?.wall ?? "#f0e8d8";
 }
-function roofColor(cat, seed) {
-  const hue = Math.floor(rng(seed) * 360);
-  return `hsl(${hue},48%,52%)`;
+function roofColor(cat) {
+  return HOUSE_COLORS[cat]?.roof ?? "#8B7355";
 }
 
 // ── Green grass neighborhood floor ───────────────────────────────────────────
@@ -201,8 +206,8 @@ function SimFigure({ seed, active }) {
 // ── Single agent house + plot ─────────────────────────────────────────────────
 function AgentHouse({ agent, x, z, isActive, isSelected, isMine, onClick, seed }) {
   const W = 5.2, D = 4.4, H = 3.2;
-  const wc = houseColor(agent?.category, seed);
-  const rc = roofColor(agent?.category, seed);
+  const wc = houseColor(agent?.category);
+  const rc = roofColor(agent?.category);
   const fW = W + 3.0, fD = D + 3.0;
 
   const windowGlow = isActive ? "#cceeff" : "#aaccdd";

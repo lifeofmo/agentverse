@@ -792,10 +792,12 @@ function EnchantedTree({ x, z, seed }) {
 }
 
 // ── Agent DJ booth ────────────────────────────────────────────────────────────
-function AgentBooth({ x, z, isActive, isSelected, isMine, onClick, seed }) {
+const BOOTH_HUE = { trading: 150, data: 200, analysis: 270, risk: 0, composite: 42 };
+
+function AgentBooth({ x, z, isActive, isSelected, isMine, onClick, seed, category }) {
   const lightRef = useRef();
   const ledRef   = useRef();
-  const hue      = Math.floor(rng(seed) * 360);
+  const hue      = BOOTH_HUE[category] ?? Math.floor(rng(seed) * 360);
 
   useFrame((s) => {
     const t = s.clock.elapsedTime + seed;
@@ -894,6 +896,7 @@ function TomorrowlandScene({ agents, activeAgents, selected, onSelect, positions
             isMine={myAgents.has(agent.id)}
             onClick={() => onSelect(agent.id === selected ? null : agent.id)}
             seed={i + 5}
+            category={agent.category}
           />
         );
       })}

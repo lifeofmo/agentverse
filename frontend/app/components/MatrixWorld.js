@@ -273,6 +273,16 @@ function ScanPulse() {
   );
 }
 
+// ── Category accent colors ─────────────────────────────────────────────────────
+const CAT_ACCENT = {
+  trading:   { hi: "#00FF41", mid: "#00cc33", lo: "#004400", dark: "#001800", pip: "#c8ffd4" },
+  data:      { hi: "#41b4ff", mid: "#2288dd", lo: "#003a5c", dark: "#001628", pip: "#b8e4ff" },
+  analysis:  { hi: "#c084fc", mid: "#9333ea", lo: "#3b0764", dark: "#1a0030", pip: "#e9d5ff" },
+  risk:      { hi: "#ff6b6b", mid: "#dc2626", lo: "#5a0000", dark: "#200000", pip: "#fecaca" },
+  composite: { hi: "#fbbf24", mid: "#d97706", lo: "#4a2800", dark: "#1c0a00", pip: "#fef3c7" },
+};
+const catAccent = (c) => CAT_ACCENT[c] ?? CAT_ACCENT.trading;
+
 // ── Agent construct — floating wireframe data node ────────────────────────────
 const BOX_EDGES = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.9, 2.5, 1.9));
 
@@ -281,6 +291,7 @@ function AgentConstruct({ agent, x, z, isActive, isSelected, isMine, onClick }) 
   const shellRef = useRef();
   const ringRef  = useRef();
   const [hov, setHov] = useState(false);
+  const ac = catAccent(agent?.category);
 
   useFrame((s, dt) => {
     const t = s.clock.elapsedTime;
@@ -311,34 +322,34 @@ function AgentConstruct({ agent, x, z, isActive, isSelected, isMine, onClick }) 
         {/* Dark body */}
         <mesh>
           <boxGeometry args={[1.9, 2.5, 1.9]} />
-          <meshLambertMaterial color="#010801" emissive="#001800" emissiveIntensity={1.0} />
+          <meshLambertMaterial color="#010801" emissive={ac.dark} emissiveIntensity={1.0} />
         </mesh>
-        {/* Wireframe edges */}
+        {/* Wireframe edges — category color */}
         <lineSegments geometry={BOX_EDGES}>
-          <lineBasicMaterial color={isActive ? "#00FF41" : lit ? "#00cc33" : "#004400"} />
+          <lineBasicMaterial color={isActive ? ac.hi : lit ? ac.mid : ac.lo} />
         </lineSegments>
         {/* Glow shell */}
         <mesh ref={shellRef}>
           <boxGeometry args={[2.2, 2.9, 2.2]} />
-          <meshBasicMaterial color="#00FF41" transparent opacity={0.04} side={THREE.BackSide} />
+          <meshBasicMaterial color={ac.hi} transparent opacity={0.04} side={THREE.BackSide} />
         </mesh>
         {/* Front screen panels */}
         <mesh position={[0,  0.35, 0.96]}>
           <planeGeometry args={[1.3, 0.65]} />
-          <meshBasicMaterial color={isActive ? "#00FF41" : "#002200"} transparent opacity={0.95} />
+          <meshBasicMaterial color={isActive ? ac.hi : ac.dark} transparent opacity={0.95} />
         </mesh>
         <mesh position={[0, -0.45, 0.96]}>
           <planeGeometry args={[1.3, 0.38]} />
-          <meshBasicMaterial color={isActive ? "#00cc33" : "#001800"} transparent opacity={0.85} />
+          <meshBasicMaterial color={isActive ? ac.mid : ac.dark} transparent opacity={0.85} />
         </mesh>
         {/* Small corner pips */}
         {[[-0.72, 0.95], [0.72, 0.95], [-0.72, -0.95], [0.72, -0.95]].map(([px, py], i) => (
           <mesh key={i} position={[px, py, 0.97]}>
             <planeGeometry args={[0.14, 0.14]} />
-            <meshBasicMaterial color={isActive ? "#c8ffd4" : "#003300"} transparent opacity={0.9} />
+            <meshBasicMaterial color={isActive ? ac.pip : ac.lo} transparent opacity={0.9} />
           </mesh>
         ))}
-        {isActive && <pointLight intensity={3.5} color="#00FF41" distance={9} decay={2} />}
+        {isActive && <pointLight intensity={3.5} color={ac.hi} distance={9} decay={2} />}
       </group>
       {/* isMine: purple ground ring */}
       {isMine && (
@@ -405,6 +416,7 @@ function MatrixScene({ agents, activeAgents, selected, onSelect, positions, myAg
         return (
           <AgentConstruct
             key={ag.id}
+            agent={ag}
             x={p.x}
             z={p.z}
             isActive={activeAgents.has(ag.id)}
