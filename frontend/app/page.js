@@ -26,7 +26,7 @@ const WORLDS_CYCLE = [
   { name: "Hogwarts",     bg: "#110d02", color: "#d4a820", sub: "Wizards casting spells on data"       },
   { name: "Tomorrowland", bg: "#0a0018", color: "#c084fc", sub: "Festival of signals and beats"        },
   { name: "Sims",         bg: "#1a2e10", color: "#7ec87e", sub: "Agents with homes, jobs and neighbors"},
-  { name: "Agent City",   bg: "#040e1a", color: "#7ec8f0", sub: "Skyscrapers full of AI tenants"       },
+  { name: "Las Vegas",    bg: "#0d0005", color: "#ff2d78", sub: "High-stakes trading agents on the strip" },
   { name: "Burning Man",  bg: "#180800", color: "#FF6B35", sub: "Art installations on the playa"       },
 ];
 
