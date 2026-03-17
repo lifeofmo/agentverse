@@ -21,18 +21,32 @@ const HogwartsWorld     = dynamic(() => import("./components/HogwartsWorld"),   
 import { API } from "@/app/lib/config";
 
 // ── Splash screen ─────────────────────────────────────────────────────────────
-const WORLD_CARDS = [
-  { name: "Matrix",       bg: "#020c02", accent: "#00FF41", desc: "Data agents in a digital grid",       symbol: "⬡", text: "#00FF41" },
-  { name: "Sims",         bg: "#e8f5e3", accent: "#5ab55a", desc: "Agents with homes, jobs & neighbors",  symbol: "⌂", text: "#2d6e2d" },
-  { name: "Tomorrowland", bg: "#0d0020", accent: "#a855f7", desc: "Festival of signals & beats",          symbol: "◈", text: "#c084fc" },
-  { name: "Hogwarts",     bg: "#1a1208", accent: "#d4a820", desc: "Wizards casting spells on data",       symbol: "✦", text: "#d4a820" },
-  { name: "Agent City",   bg: "#0a1628", accent: "#4a9fd4", desc: "Skyscrapers full of AI tenants",       symbol: "▲", text: "#7ec8f0" },
-  { name: "Burning Man",  bg: "#1a0a02", accent: "#FF6B35", desc: "Art installations on the playa",       symbol: "◉", text: "#FF6B35" },
+const WORLDS_CYCLE = [
+  { name: "Matrix",       bg: "#010d01", color: "#00FF41", sub: "Data agents in a digital grid"        },
+  { name: "Hogwarts",     bg: "#110d02", color: "#d4a820", sub: "Wizards casting spells on data"       },
+  { name: "Tomorrowland", bg: "#0a0018", color: "#c084fc", sub: "Festival of signals and beats"        },
+  { name: "Sims",         bg: "#1a2e10", color: "#7ec87e", sub: "Agents with homes, jobs and neighbors"},
+  { name: "Agent City",   bg: "#040e1a", color: "#7ec8f0", sub: "Skyscrapers full of AI tenants"       },
+  { name: "Burning Man",  bg: "#180800", color: "#FF6B35", sub: "Art installations on the playa"       },
 ];
 
 function SplashScreen({ onEnter }) {
+  const [idx, setIdx]       = useState(0);
+  const [fade, setFade]     = useState(true);
   const [exiting, setExiting] = useState(false);
-  const [hovered, setHovered] = useState(null);
+
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setIdx(i => (i + 1) % WORLDS_CYCLE.length);
+        setFade(true);
+      }, 300);
+    }, 2600);
+    return () => clearInterval(iv);
+  }, []);
+
+  const world = WORLDS_CYCLE[idx];
 
   const handleEnter = () => {
     setExiting(true);
@@ -42,96 +56,100 @@ function SplashScreen({ onEnter }) {
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
-      background: "#0d1117",
+      background: world.bg,
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       padding: "32px 24px",
       opacity: exiting ? 0 : 1,
-      transition: "opacity 0.45s ease",
-      overflowY: "auto",
+      transition: "background 0.6s ease, opacity 0.45s ease",
+      overflow: "hidden",
     }}>
       <style>{`
-        @keyframes splashIn {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes cardIn {
-          from { opacity: 0; transform: scale(0.92) translateY(10px); }
-          to   { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .sp-in  { animation: splashIn 0.55s ease forwards; opacity: 0; }
-        .sp-card { animation: cardIn 0.5s ease forwards; opacity: 0; transition: transform 0.2s ease, box-shadow 0.2s ease; }
-        .sp-card:hover { transform: translateY(-4px) scale(1.03) !important; }
-        .sp-btn:hover  { opacity: 0.85; }
+        @keyframes spFadeUp { from { opacity:0; transform:translateY(14px);} to { opacity:1; transform:translateY(0);} }
+        .sp-ui { animation: spFadeUp 0.6s ease forwards; opacity: 0; }
+        .sp-btn:hover  { opacity: 0.8; }
         .sp-btn:active { transform: scale(0.97); }
       `}</style>
 
-      {/* Wordmark */}
-      <div className="sp-in" style={{ animationDelay: "0s", marginBottom: 12, textAlign: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0 }}>
-          <span style={{ color: "#fff", fontWeight: 300, fontSize: 22, letterSpacing: "-0.3px" }}>Agent</span>
-          <span style={{ color: "#fff", fontWeight: 800, fontSize: 22, letterSpacing: "-0.3px" }}>Verse</span>
-        </div>
-      </div>
-
-      {/* Headline */}
-      <div className="sp-in" style={{ animationDelay: "0.1s", textAlign: "center", marginBottom: 8 }}>
-        <h1 style={{
-          margin: 0, color: "#fff",
-          fontSize: "clamp(22px, 4vw, 36px)",
-          fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.5px",
-        }}>
-          Your agent. Six worlds. Infinite possibilities.
-        </h1>
-      </div>
-
-      {/* Subline */}
-      <div className="sp-in" style={{ animationDelay: "0.18s", textAlign: "center", marginBottom: 36 }}>
-        <p style={{ margin: 0, color: "#6b7280", fontSize: 15, lineHeight: 1.5 }}>
-          Deploy an agent, watch it come to life, earn per API call.
-        </p>
-      </div>
-
-      {/* World cards */}
+      {/* Giant world name — full bleed background text */}
       <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
-        gap: 12, width: "100%", maxWidth: 680, marginBottom: 36,
+        position: "absolute", inset: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        pointerEvents: "none", userSelect: "none",
+        opacity: fade ? 0.07 : 0,
+        transition: "opacity 0.3s ease",
       }}>
-        {WORLD_CARDS.map((w, i) => (
-          <div
-            key={w.name}
-            className="sp-card"
-            onMouseEnter={() => setHovered(w.name)}
-            onMouseLeave={() => setHovered(null)}
-            style={{
-              animationDelay: `${0.25 + i * 0.07}s`,
-              background: w.bg,
-              border: `1px solid ${hovered === w.name ? w.accent : w.accent + "40"}`,
-              borderRadius: 12, padding: "18px 16px",
-              cursor: "default",
-              boxShadow: hovered === w.name ? `0 8px 24px ${w.accent}30` : "none",
-            }}
-          >
-            <div style={{ fontSize: 22, color: w.text, marginBottom: 8, lineHeight: 1 }}>{w.symbol}</div>
-            <div style={{ color: w.text, fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{w.name}</div>
-            <div style={{ color: w.accent + "99", fontSize: 11, lineHeight: 1.4 }}>{w.desc}</div>
-          </div>
-        ))}
+        <span style={{
+          fontSize: "clamp(80px, 18vw, 200px)",
+          fontWeight: 900, letterSpacing: "-4px",
+          color: world.color,
+          whiteSpace: "nowrap",
+          lineHeight: 1,
+        }}>{world.name}</span>
       </div>
 
-      {/* CTA */}
-      <div className="sp-in" style={{ animationDelay: "0.7s", textAlign: "center" }}>
-        <button className="sp-btn" onClick={handleEnter} style={{
-          padding: "13px 36px", borderRadius: 10, border: "none",
-          background: "#fff", color: "#0d1117",
-          fontSize: 14, fontWeight: 700,
-          cursor: "pointer", transition: "opacity 0.15s",
-          marginBottom: 12,
+      {/* Foreground content */}
+      <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 560 }}>
+
+        {/* Wordmark */}
+        <div className="sp-ui" style={{ animationDelay: "0s", marginBottom: 48 }}>
+          <span style={{ color: "#ffffff60", fontWeight: 300, fontSize: 18 }}>Agent</span>
+          <span style={{ color: "#fff",      fontWeight: 800, fontSize: 18 }}>Verse</span>
+        </div>
+
+        {/* Cycling world name */}
+        <div style={{
+          marginBottom: 16,
+          opacity: fade ? 1 : 0,
+          transform: fade ? "translateY(0)" : "translateY(8px)",
+          transition: "opacity 0.3s ease, transform 0.3s ease",
         }}>
-          Enter AgentVerse
-        </button>
-        <div style={{ color: "#4b5563", fontSize: 12 }}>Free to deploy · Pay per call · Open to all developers</div>
+          <div style={{
+            fontSize: "clamp(36px, 7vw, 72px)",
+            fontWeight: 900, letterSpacing: "-2px", lineHeight: 1,
+            color: world.color,
+          }}>{world.name}</div>
+          <div style={{ color: world.color + "80", fontSize: 14, marginTop: 8, fontWeight: 400 }}>
+            {world.sub}
+          </div>
+        </div>
+
+        {/* Static headline */}
+        <div className="sp-ui" style={{ animationDelay: "0.2s", marginTop: 40, marginBottom: 10 }}>
+          <p style={{ margin: 0, color: "#ffffff90", fontSize: 15, lineHeight: 1.6 }}>
+            Deploy an agent. Watch it inhabit a world. Earn per API call.
+          </p>
+        </div>
+
+        {/* Dots */}
+        <div className="sp-ui" style={{ animationDelay: "0.3s", marginBottom: 36 }}>
+          <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 20 }}>
+            {WORLDS_CYCLE.map((_, i) => (
+              <div key={i} style={{
+                width: i === idx ? 20 : 6, height: 6,
+                borderRadius: 3,
+                background: i === idx ? world.color : "#ffffff30",
+                transition: "all 0.3s ease",
+              }} />
+            ))}
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="sp-ui" style={{ animationDelay: "0.4s" }}>
+          <button className="sp-btn" onClick={handleEnter} style={{
+            padding: "13px 38px", borderRadius: 10, border: `1.5px solid ${world.color}`,
+            background: "transparent", color: world.color,
+            fontSize: 14, fontWeight: 700,
+            cursor: "pointer", transition: "opacity 0.15s",
+            marginBottom: 14,
+          }}>
+            Enter AgentVerse
+          </button>
+          <div style={{ color: "#ffffff30", fontSize: 12 }}>
+            Free to deploy · Pay per call · Open to all developers
+          </div>
+        </div>
       </div>
     </div>
   );
