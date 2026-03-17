@@ -12,7 +12,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./backend/
 COPY agents/   ./agents/
-COPY database/ ./database/
 
 # Create database directory for SQLite fallback
 RUN mkdir -p /data
