@@ -207,11 +207,11 @@ export default function App() {
   const [showSplash,  setShowSplash]  = useState(false);
 
   useEffect(() => {
-    if (!localStorage.getItem("av_entered")) setShowSplash(true);
+    if (localStorage.getItem("av_entered") !== "v3") setShowSplash(true);
   }, []);
 
   const handleEnter = () => {
-    localStorage.setItem("av_entered", "1");
+    localStorage.setItem("av_entered", "v3");
     setShowSplash(false);
   };
 
