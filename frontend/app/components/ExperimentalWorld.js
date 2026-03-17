@@ -7,6 +7,7 @@ import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 
 import { API, WS } from "@/app/lib/config";
+import { useMyUsername } from "@/app/lib/useMyUsername";
 
 // ── Neon palette ──────────────────────────────────────────────────────────────
 const NEON = {
@@ -677,7 +678,7 @@ const INSTALLATIONS = {
   risk:     RiskInstallation,
 };
 
-function AgentInstallation({ agent, position, active, requests, selected, onClick }) {
+function AgentInstallation({ agent, position, active, requests, selected, onClick, isMine }) {
   const color     = neon(agent.category);
   const Install   = INSTALLATIONS[agent.category] ?? DefaultInstallation;
   const glowRef   = useRef();
@@ -721,6 +722,14 @@ function AgentInstallation({ agent, position, active, requests, selected, onClic
           </Text>
         </Billboard>
       )}
+
+      {isMine && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+          <ringGeometry args={[2.2, 3.0, 28]} />
+          <meshBasicMaterial color="#FF6B35" transparent opacity={0.55} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+      {isMine && <pointLight position={[0, 4, 0]} intensity={2.5} color="#FF6B35" distance={8} decay={2} />}
     </group>
   );
 }
@@ -939,7 +948,7 @@ function Toast({ msg }) {
 }
 
 // ── Main 3D scene ─────────────────────────────────────────────────────────────
-function BurnScene({ agents, metrics, activeAgents, selected, onSelect, positions, worldEvent }) {
+function BurnScene({ agents, metrics, activeAgents, selected, onSelect, positions, worldEvent, myAgents }) {
   const allPositions = useMemo(() => positions.map(p => ({ x: p.x, z: p.z })), [positions]);
 
   return (
@@ -974,7 +983,8 @@ function BurnScene({ agents, metrics, activeAgents, selected, onSelect, position
             active={activeAgents.has(a.id)}
             requests={m.requests ?? 0}
             selected={selected?.id === a.id}
-            onClick={onSelect} />
+            onClick={onSelect}
+            isMine={myAgents.has(a.id)} />
         );
       })}
 
@@ -1017,6 +1027,12 @@ export default function ExperimentalWorld() {
   const [worldEvent,   setWorldEvent]   = useState(null);
   const [toast,        setToast]        = useState("");
   const [wsRetry,      setWsRetry]      = useState(0);
+
+  const username = useMyUsername();
+  const myAgents = useMemo(
+    () => new Set(agents.filter(a => a.developer_name === username).map(a => a.id)),
+    [agents, username]
+  );
 
   const positions = useMemo(() => layoutAgentsRadial(agents), [agents]);
 
@@ -1113,6 +1129,7 @@ export default function ExperimentalWorld() {
             onSelect={setSelected}
             positions={positions}
             worldEvent={worldEvent}
+            myAgents={myAgents}
           />
           <OrbitControls
             enableDamping dampingFactor={0.08}
@@ -1121,6 +1138,17 @@ export default function ExperimentalWorld() {
           />
         </Suspense>
       </Canvas>
+
+      {myAgents.size > 0 && (
+        <div style={{
+          position: "absolute", bottom: 16, right: 16,
+          background: "rgba(6,3,16,0.85)", border: "1px solid #FF6B35",
+          borderRadius: 8, padding: "6px 14px", color: "#FF6B35",
+          fontSize: 11, fontWeight: 700, letterSpacing: 1,
+        }}>
+          🔥 {myAgents.size} installation{myAgents.size !== 1 ? "s" : ""} yours
+        </div>
+      )}
 
       {/* Legend */}
       <div style={{
