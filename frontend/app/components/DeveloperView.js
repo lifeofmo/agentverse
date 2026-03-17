@@ -419,6 +419,61 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
       {agent.description && (
         <div style={{ color: "#9aabb8", fontSize: 12, lineHeight: 1.6, padding: "10px 14px", background: "#f8f6f2", borderRadius: 8, marginTop: 10 }}>{agent.description}</div>
       )}
+
+      <div style={{ marginTop: 20 }}>
+        <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 }}>Recent Calls</div>
+        <AgentLogs agentId={agent.id} />
+      </div>
+    </div>
+  );
+}
+
+/* ── Agent call logs ──────────────────────────────────────────────────────── */
+
+function AgentLogs({ agentId }) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`${API}/agents/${agentId}/logs?limit=50`)
+      .then(r => r.json())
+      .then(data => { setLogs(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [agentId]);
+
+  if (loading) return <div style={{ color: "#c0ccd8", fontSize: 12, padding: "12px 0" }}>Loading logs…</div>;
+  if (logs.length === 0) return (
+    <div style={{ color: "#c0ccd8", fontSize: 12, fontStyle: "italic", background: "#f8f6f2", borderRadius: 8, padding: "12px 14px" }}>
+      No calls yet. Once your agent is called, logs appear here.
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {logs.map(log => {
+        const ok = log.status === "success";
+        const time = new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        const date = new Date(log.timestamp).toLocaleDateString([], { month: "short", day: "numeric" });
+        return (
+          <div key={log.id} style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "7px 10px", borderRadius: 7,
+            background: ok ? "#f0fdf4" : "#fff5f5",
+            border: `1px solid ${ok ? "#bbf7d0" : "#fecaca"}`,
+            fontSize: 11,
+          }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: ok ? "#22c55e" : "#ef4444", flexShrink: 0 }} />
+            <span style={{ color: ok ? "#166534" : "#991b1b", fontWeight: 700, width: 44, flexShrink: 0 }}>{ok ? "OK" : "ERR"}</span>
+            <span style={{ color: "#6b7280", flexShrink: 0 }}>{date} {time}</span>
+            <span style={{ color: "#9aabb8", marginLeft: "auto", flexShrink: 0 }}>{log.latency_ms}ms</span>
+            <span style={{ color: "#6BCF8B", fontWeight: 700, flexShrink: 0 }}>${log.cost?.toFixed(4)}</span>
+            {!ok && log.error_msg && (
+              <span style={{ color: "#ef4444", fontSize: 10, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={log.error_msg}>{log.error_msg}</span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

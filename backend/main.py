@@ -363,6 +363,19 @@ def init_db():
         )
     """)
 
+    # ── Agent call logs ───────────────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS call_logs (
+            id         TEXT PRIMARY KEY,
+            agent_id   TEXT NOT NULL,
+            timestamp  TEXT NOT NULL,
+            status     TEXT NOT NULL,
+            latency_ms REAL,
+            cost       REAL,
+            error_msg  TEXT
+        )
+    """)
+
     # ── Migrations ───────────────────────────────────────────────────────────
     _migrate(conn)
     conn.commit()
@@ -972,6 +985,16 @@ def agent_pipelines(agent_id: str):
         for r in rows
     ]
 
+@app.get("/agents/{agent_id}/logs")
+def get_agent_logs(agent_id: str, limit: int = 50):
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM call_logs WHERE agent_id = ? ORDER BY timestamp DESC LIMIT ?",
+        (agent_id, min(limit, 200))
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
 @app.delete("/agents/{agent_id}", status_code=204)
 async def delete_agent(agent_id: str, request: Request):
     user = await _get_current_user(request)
@@ -1125,6 +1148,21 @@ async def call_agent(agent_id: str, payload: dict, request: Request):
     agent_earn = round(price * (1 - PLATFORM_FEE), 6)
     record_metrics(agent_id, latency_ms, price, earnings=agent_earn, error=False)
     metrics = get_metrics(agent_id)
+
+    # ── Write call log ────────────────────────────────────────────────────────
+    try:
+        log_conn = get_db()
+        log_conn.execute(
+            "INSERT INTO call_logs (id, agent_id, timestamp, status, latency_ms, cost, error_msg) VALUES (?,?,?,?,?,?,?)",
+            (str(uuid.uuid4()), agent_id, _now(),
+             "error" if call_error else "success",
+             latency_ms, price,
+             str(last_exc) if call_error else None)
+        )
+        log_conn.commit()
+        log_conn.close()
+    except Exception:
+        pass
 
     await manager.broadcast({
         "type":        "agent_call_done",
