@@ -205,25 +205,9 @@ export default function App() {
       }}>
 
         {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 20 }}>
-          <div style={{
-            width: 30, height: 30,
-            background: "#0d1117",
-            borderRadius: 8,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 15, color: "#d4a820", fontWeight: 900,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
-            flexShrink: 0,
-          }}>
-            ◈
-          </div>
-          <span style={{
-            color: "#0d1117",
-            fontWeight: 800, fontSize: 17,
-            letterSpacing: "-0.5px",
-          }}>
-            AgentVerse
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 0, marginRight: 20 }}>
+          <span style={{ color: "#2d5a7a", fontWeight: 300, fontSize: 17, letterSpacing: "-0.3px" }}>Agent</span>
+          <span style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 17, letterSpacing: "-0.3px" }}>Verse</span>
         </div>
 
         {/* Pill tabs */}
