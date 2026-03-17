@@ -1,0 +1,39 @@
+# Environment — never commit real secrets
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+backend/venv/
+
+# SQLite database (persisted via Docker volume in prod)
+database/agents.db
+*.db
+*.db-shm
+*.db-wal
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp

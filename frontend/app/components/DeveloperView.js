@@ -1,0 +1,1004 @@
+"use client";
+
+import { useEffect, useState, useMemo } from "react";
+
+import { API } from "@/app/lib/config";
+
+const CAT = {
+  trading:   { border: "#6BCF8B", letter: "T" },
+  analysis:  { border: "#B59CE6", letter: "A" },
+  data:      { border: "#6BB6E6", letter: "D" },
+  risk:      { border: "#E67B7B", letter: "R" },
+  composite: { border: "#E6C36B", letter: "C" },
+  default:   { border: "#9aabb8", letter: "·" },
+};
+const cat = (c) => CAT[c] ?? CAT.default;
+
+const FIELD = {
+  width: "100%", border: "1px solid #e6d6bd", borderRadius: 8,
+  padding: "7px 10px", fontSize: 12, outline: "none",
+  fontFamily: "inherit", background: "#f8f6f2", color: "#2d3a4a",
+  boxSizing: "border-box",
+};
+const BTN = (color = "#4a9fd4", disabled = false) => ({
+  background: disabled ? "#e6d6bd" : color, color: "#fff", border: "none",
+  borderRadius: 9, padding: "9px 18px", fontSize: 12, fontWeight: 700,
+  cursor: disabled ? "default" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1,
+});
+
+/* ── Tiny helpers ─────────────────────────────────────────────────────────── */
+
+function Label({ children }) {
+  return <div style={{ color: "#9aabb8", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>{children}</div>;
+}
+
+function CatDot({ category, size = 30 }) {
+  const c = cat(category);
+  return (
+    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.3), flexShrink: 0, background: c.border, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: Math.round(size * 0.46), fontWeight: 800 }}>
+      {c.letter}
+    </div>
+  );
+}
+
+function Pill({ label, value, color = "#4a9fd4" }) {
+  return (
+    <div style={{ background: `${color}0f`, border: `1px solid ${color}30`, borderRadius: 10, padding: "10px 16px", minWidth: 100 }}>
+      <div style={{ color: "#9aabb8", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>{label}</div>
+      <div style={{ color, fontWeight: 800, fontSize: 18 }}>{value}</div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }) {
+  const map = { active: ["#d1fae5", "#065f46"], degraded: ["#fef3c7", "#92400e"], offline: ["#fee2e2", "#991b1b"], pending: ["#e0f2fe", "#0369a1"] };
+  const [bg, fg] = map[status] ?? map.pending;
+  return <span style={{ padding: "2px 10px", borderRadius: 20, background: bg, color: fg, fontSize: 10, fontWeight: 700 }}>{status ?? "unknown"}</span>;
+}
+
+/* ── Auth forms ───────────────────────────────────────────────────────────── */
+
+function AuthPanel({ onAuth }) {
+  const [mode, setMode]   = useState("login");  // "login" | "register" | "forgot" | "reset"
+  const [form, setForm]   = useState({ email: "", username: "", password: "", resetToken: "", newPassword: "" });
+  const [busy, setBusy]   = useState(false);
+  const [err,  setErr]    = useState("");
+  const [ok,   setOk]     = useState("");
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const submit = async () => {
+    setBusy(true); setErr(""); setOk("");
+    try {
+      if (mode === "forgot") {
+        const res = await fetch(`${API}/auth/forgot-password`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: form.email }),
+        });
+        const data = await res.json();
+        // Show the reset token (in prod this would be emailed)
+        if (data.reset_token) {
+          setOk(`Reset token: ${data.reset_token}\n\nCopy this token, then click "Enter reset token" below.`);
+        } else {
+          setOk(data.message || "Check your email for a reset link.");
+        }
+        return;
+      }
+      if (mode === "reset") {
+        const res = await fetch(`${API}/auth/reset-password`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: form.resetToken, new_password: form.newPassword }),
+        });
+        if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Failed"); }
+        setOk("Password updated! You can now sign in.");
+        setTimeout(() => { setMode("login"); setOk(""); }, 2000);
+        return;
+      }
+      const body = mode === "login"
+        ? { email: form.email, password: form.password }
+        : { email: form.email, username: form.username, password: form.password };
+      const res = await fetch(`${API}/auth/${mode}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Failed"); }
+      const data = await res.json();
+      localStorage.setItem("av_token", data.token);
+      localStorage.setItem("av_user", JSON.stringify({ id: data.user_id, username: data.username }));
+      onAuth(data);
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const titles = { login: "Sign in to Developer Hub", register: "Create Developer Account", forgot: "Reset Password", reset: "Set New Password" };
+  const subs   = { login: "Access your agents, keys, and revenue.", register: "Start publishing agents to AgentVerse.", forgot: "Enter your email and we'll generate a reset token.", reset: "Enter your reset token and choose a new password." };
+
+  return (
+    <div style={{ maxWidth: 360, margin: "0 auto", background: "#fff", borderRadius: 16, padding: "28px 28px", border: "1px solid #e6d6bd", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
+      <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>{titles[mode]}</div>
+      <div style={{ color: "#9aabb8", fontSize: 12, marginBottom: 20 }}>{subs[mode]}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {(mode === "login" || mode === "register" || mode === "forgot") && (
+          <div><Label>Email</Label><input value={form.email} onChange={e => set("email", e.target.value)} placeholder="you@example.com" style={FIELD} /></div>
+        )}
+        {mode === "register" && (
+          <div><Label>Username</Label><input value={form.username} onChange={e => set("username", e.target.value)} placeholder="devname" style={FIELD} /></div>
+        )}
+        {(mode === "login" || mode === "register") && (
+          <div><Label>Password</Label><input type="password" value={form.password} onChange={e => set("password", e.target.value)} placeholder="••••••••" style={FIELD} onKeyDown={e => e.key === "Enter" && submit()} /></div>
+        )}
+        {mode === "reset" && (<>
+          <div><Label>Reset Token</Label><input value={form.resetToken} onChange={e => set("resetToken", e.target.value)} placeholder="Paste token here" style={FIELD} /></div>
+          <div><Label>New Password</Label><input type="password" value={form.newPassword} onChange={e => set("newPassword", e.target.value)} placeholder="••••••••" style={FIELD} onKeyDown={e => e.key === "Enter" && submit()} /></div>
+        </>)}
+        {err && <div style={{ color: "#991b1b", fontSize: 11, background: "#fee2e2", borderRadius: 7, padding: "6px 10px" }}>{err}</div>}
+        {ok  && <div style={{ color: "#065f46", fontSize: 11, background: "#d1fae5", borderRadius: 7, padding: "8px 10px", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{ok}</div>}
+        <button onClick={submit} disabled={busy} style={{ ...BTN("#4a9fd4", busy), marginTop: 4 }}>
+          {busy ? "…" : { login: "Sign In", register: "Create Account", forgot: "Send Reset Token", reset: "Set New Password" }[mode]}
+        </button>
+        <div style={{ textAlign: "center", color: "#9aabb8", fontSize: 11, display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
+          {mode === "login" && (<>
+            <span>No account? <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("register"); setErr(""); setOk(""); }}>Register</span></span>
+            <span>·</span>
+            <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("forgot"); setErr(""); setOk(""); }}>Forgot password?</span>
+          </>)}
+          {mode === "register" && (
+            <span>Have an account? <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("login"); setErr(""); setOk(""); }}>Sign in</span></span>
+          )}
+          {mode === "forgot" && (<>
+            <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("reset"); setErr(""); setOk(""); }}>Enter reset token →</span>
+            <span>·</span>
+            <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("login"); setErr(""); setOk(""); }}>Back to sign in</span>
+          </>)}
+          {mode === "reset" && (
+            <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("login"); setErr(""); setOk(""); }}>Back to sign in</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── API Key manager ──────────────────────────────────────────────────────── */
+
+function ApiKeyManager({ token }) {
+  const [keys, setKeys]       = useState([]);
+  const [newName, setNewName] = useState("");
+  const [newKey, setNewKey]   = useState(null);
+  const [busy, setBusy]       = useState(false);
+
+  const headers = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
+
+  const load = () => fetch(`${API}/auth/api-keys`, { headers }).then(r => r.json()).then(setKeys).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    if (!newName.trim()) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`${API}/auth/create-api-key`, { method: "POST", headers, body: JSON.stringify({ name: newName }) });
+      const d = await res.json();
+      setNewKey(d.key);
+      setNewName("");
+      load();
+    } finally { setBusy(false); }
+  };
+
+  const revoke = async (id) => {
+    await fetch(`${API}/auth/api-keys/${id}`, { method: "DELETE", headers });
+    setKeys(k => k.filter(x => x.id !== id));
+  };
+
+  return (
+    <div>
+      <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 14, marginBottom: 14 }}>API Keys</div>
+      {newKey && (
+        <div style={{ background: "#d1fae5", border: "1px solid #6BCF8B", borderRadius: 9, padding: "10px 14px", marginBottom: 14 }}>
+          <div style={{ color: "#065f46", fontWeight: 700, fontSize: 11, marginBottom: 4 }}>🔑 New key — save it now, it won't be shown again.</div>
+          <code style={{ fontSize: 11, wordBreak: "break-all", color: "#065f46" }}>{newKey}</code>
+          <button onClick={() => { navigator.clipboard.writeText(newKey); }} style={{ marginLeft: 10, fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #6BCF8B", background: "transparent", cursor: "pointer", color: "#065f46", fontWeight: 700 }}>Copy</button>
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Key name (e.g. Production)" style={{ ...FIELD, flex: 1 }} onKeyDown={e => e.key === "Enter" && create()} />
+        <button onClick={create} disabled={busy} style={BTN("#4a9fd4", busy)}>+ Create</button>
+      </div>
+      {keys.length === 0 ? (
+        <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic" }}>No API keys yet.</div>
+      ) : keys.map(k => (
+        <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#f8f6f2", borderRadius: 8, marginBottom: 6 }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#6BCF8B", flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12 }}>{k.name}</div>
+            <div style={{ color: "#9aabb8", fontSize: 10 }}>Created {k.created_at?.slice(0, 10)} · Last used {k.last_used?.slice(0, 10) ?? "never"}</div>
+          </div>
+          <button onClick={() => revoke(k.id)} style={{ background: "none", border: "1px solid #e6d6bd", color: "#E67B7B", borderRadius: 6, padding: "3px 10px", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>Revoke</button>
+        </div>
+      ))}
+      <div style={{ marginTop: 12, padding: "10px 14px", background: "#f0f8ff", borderRadius: 8, border: "1px solid #6BB6E640" }}>
+        <div style={{ color: "#2d5a7a", fontSize: 11, fontWeight: 700, marginBottom: 3 }}>Using your API key</div>
+        <code style={{ color: "#4a9fd4", fontSize: 10 }}>Authorization: ApiKey av_your_key_here</code>
+      </div>
+    </div>
+  );
+}
+
+/* ── Agent registration form ──────────────────────────────────────────────── */
+
+const CATS = ["trading", "analysis", "data", "risk", "composite"];
+const EMPTY = { name: "", description: "", category: "trading", endpoint: "", price_per_request: "0.001", health_endpoint: "", owner_wallet: "" };
+
+function RegisterForm({ token, onDone }) {
+  const [form, setForm] = useState(EMPTY);
+  const [busy, setBusy] = useState(false);
+  const [err,  setErr]  = useState("");
+  const [ok,   setOk]   = useState("");
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const submit = async () => {
+    if (!form.name.trim() || !form.endpoint.trim()) { setErr("Name and Endpoint are required."); return; }
+    setBusy(true); setErr(""); setOk("");
+    try {
+      const headers = token
+        ? { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
+        : { "Content-Type": "application/json" };
+      const endpoint = token ? `${API}/developer/agents` : `${API}/agents`;
+      const res = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify({ ...form, price_per_request: parseFloat(form.price_per_request) || 0 }) });
+      if (!res.ok) throw new Error((await res.json()).detail || "Failed");
+      const d = await res.json();
+      setOk(`Agent registered (${d.status ?? "active"}). It will appear in the city shortly.`);
+      setForm(EMPTY);
+      onDone?.();
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ gridColumn: "1/-1" }}><Label>Agent Name *</Label><input value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Momentum Trader" style={FIELD} /></div>
+        <div><Label>Category</Label>
+          <select value={form.category} onChange={e => set("category", e.target.value)} style={{ ...FIELD, appearance: "none" }}>
+            {CATS.map(c => <option key={c} value={c}>{c[0].toUpperCase() + c.slice(1)}</option>)}
+          </select>
+        </div>
+        <div><Label>Price / Call ($)</Label><input type="number" step="0.001" min="0" value={form.price_per_request} onChange={e => set("price_per_request", e.target.value)} style={FIELD} /></div>
+        <div style={{ gridColumn: "1/-1" }}><Label>Endpoint URL *</Label><input value={form.endpoint} onChange={e => set("endpoint", e.target.value)} placeholder="https://your-agent.example.com/run" style={FIELD} /></div>
+        <div style={{ gridColumn: "1/-1" }}><Label>Health Endpoint (optional)</Label><input value={form.health_endpoint} onChange={e => set("health_endpoint", e.target.value)} placeholder="https://your-agent.example.com/health" style={FIELD} /></div>
+        <div style={{ gridColumn: "1/-1" }}><Label>Description</Label><textarea rows={2} value={form.description} onChange={e => set("description", e.target.value)} placeholder="What does this agent do?" style={{ ...FIELD, resize: "vertical" }} /></div>
+        <div style={{ gridColumn: "1/-1" }}>
+          <Label>Base Wallet Address (optional — enables x402 payments)</Label>
+          <input value={form.owner_wallet} onChange={e => set("owner_wallet", e.target.value)} placeholder="0x… your Base network address" style={FIELD} />
+          <div style={{ color: "#9aabb8", fontSize: 10, marginTop: 3 }}>Callers pay you directly in USDC on Base. Leave blank to use the internal credit system.</div>
+        </div>
+      </div>
+      {err && <div style={{ color: "#991b1b", fontSize: 11, background: "#fee2e2", borderRadius: 7, padding: "6px 10px" }}>{err}</div>}
+      {ok  && <div style={{ color: "#065f46", fontSize: 11, background: "#d1fae5", borderRadius: 7, padding: "6px 10px" }}>{ok}</div>}
+      <button onClick={submit} disabled={busy} style={{ ...BTN("#4a9fd4", busy), alignSelf: "flex-end" }}>{busy ? "Registering…" : "Register Agent"}</button>
+    </div>
+  );
+}
+
+/* ── Agent row + detail ───────────────────────────────────────────────────── */
+
+function AgentRow({ agent, metrics, selected, onClick }) {
+  const m = metrics || {};
+  const c = cat(agent.category);
+  const on = selected?.id === agent.id;
+  return (
+    <div onClick={() => onClick(agent)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", background: on ? `${c.border}18` : "transparent", borderLeft: on ? `3px solid ${c.border}` : "3px solid transparent", borderRadius: 8, transition: "background 0.12s" }}
+      onMouseEnter={e => { if (!on) e.currentTarget.style.background = "#f8f6f2"; }}
+      onMouseLeave={e => { if (!on) e.currentTarget.style.background = "transparent"; }}>
+      <CatDot category={agent.category} size={30} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{agent.name}</div>
+        <div style={{ color: "#9aabb8", fontSize: 10, marginTop: 1 }}>${agent.price_per_request} / call</div>
+      </div>
+      <div style={{ textAlign: "right", flexShrink: 0 }}>
+        <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12 }}>{m.requests || 0}</div>
+        <div style={{ color: c.border, fontSize: 10, fontWeight: 700 }}>${(m.earnings || 0).toFixed(4)}</div>
+      </div>
+    </div>
+  );
+}
+
+function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDeleted }) {
+  const m = metrics || {};
+  const c = cat(agent.category);
+  const [checking,  setChecking]  = useState(false);
+  const [health,    setHealth]    = useState(null);
+  const [deleting,  setDeleting]  = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirmDel) { setConfirmDel(true); return; }
+    setDeleting(true);
+    try {
+      const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+      await fetch(`${API}/agents/${agent.id}`, { method: "DELETE", headers });
+      onDeleted?.();
+    } catch { /* ignore */ } finally { setDeleting(false); setConfirmDel(false); }
+  };
+
+  const checkHealth = async () => {
+    setChecking(true);
+    try {
+      const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+      const res = await fetch(`${API}/agents/${agent.id}/health`, { headers });
+      const d = await res.json();
+      setHealth(d);
+      onHealthCheck?.();
+    } finally { setChecking(false); }
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        <CatDot category={agent.category} size={44} />
+        <div style={{ flex: 1 }}>
+          <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 18 }}>{agent.name}</div>
+          <span style={{ display: "inline-block", marginTop: 3, background: `${c.border}18`, color: c.border, borderRadius: 4, padding: "1px 8px", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>{agent.category}</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <StatusBadge status={health?.status ?? agent.status} />
+          <button onClick={checkHealth} disabled={checking} style={{ ...BTN("#9aabb8", checking), padding: "5px 12px", fontSize: 10 }}>
+            {checking ? "Checking…" : "Check Health"}
+          </button>
+          {token && (
+            <button onClick={handleDelete} disabled={deleting} style={{
+              ...BTN(confirmDel ? "#dc2626" : "#e5e7eb", deleting),
+              padding: "5px 12px", fontSize: 10,
+              color: confirmDel ? "#fff" : "#9aabb8",
+              border: `1px solid ${confirmDel ? "#dc2626" : "#e5e7eb"}`,
+            }}>
+              {deleting ? "Removing…" : confirmDel ? "Confirm remove" : "Undeploy"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {health && (
+        <div style={{ background: health.status === "active" ? "#d1fae5" : "#fee2e2", borderRadius: 8, padding: "8px 12px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: health.status === "active" ? "#065f46" : "#991b1b" }}>
+            {health.status === "active" ? "✓ Online" : "✗ Unreachable"} — {health.latency_ms}ms
+          </span>
+          <span style={{ fontSize: 10, color: "#9aabb8" }}>{health.endpoint}</span>
+        </div>
+      )}
+
+      {/* Payment type strip */}
+      {(() => {
+        const isX402 = agent.owner_wallet?.startsWith("0x") && agent.owner_wallet?.length === 42;
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, padding: "8px 12px", borderRadius: 9, background: isX402 ? "#fdf4ff" : "#eff6ff", border: `1px solid ${isX402 ? "#e9d5ff" : "#bfdbfe"}` }}>
+            <span style={{ fontSize: 16 }}>{isX402 ? "⚡" : "💳"}</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: isX402 ? "#7c3aed" : "#2563eb" }}>
+                {isX402 ? "x402 USDC Payments" : "Credits (simulated)"}
+              </div>
+              <div style={{ fontSize: 10, color: "#9aabb8", marginTop: 1 }}>
+                {isX402
+                  ? `Callers pay $${agent.price_per_request} USDC on Base. Lands in your wallet directly.`
+                  : `Callers spend ${Math.round(agent.price_per_request * 100)} credits per call. Add a Base wallet to enable real payments.`}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
+        {[
+          ["Total Calls",  m.requests || 0,                                        "#4a9fd4"],
+          ["Earnings",     `${Math.round((m.earnings || 0) * 100)} credits`,       "#6BCF8B"],
+          ["Avg Latency",  m.avg_latency_ms ? `${m.avg_latency_ms}ms` : "—",      "#B59CE6"],
+          ["Success Rate", m.success_rate != null ? `${(m.success_rate * 100).toFixed(1)}%` : "—", "#E6C36B"],
+        ].map(([k, v, color]) => (
+          <div key={k} style={{ background: "#f8f6f2", borderRadius: 9, padding: "10px 12px" }}>
+            <div style={{ color: "#9aabb8", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 3 }}>{k}</div>
+            <div style={{ color, fontWeight: 800, fontSize: 16 }}>{String(v)}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: `${c.border}0c`, border: `1px solid ${c.border}30`, borderRadius: 10, padding: "10px 14px", marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ color: "#9aabb8", fontSize: 11 }}>Gross revenue (calls × price)</div>
+        <div style={{ color: c.border, fontWeight: 800, fontSize: 15 }}>${((m.requests || 0) * agent.price_per_request).toFixed(4)}</div>
+      </div>
+
+      <div style={{ marginBottom: 6 }}>
+        <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 }}>Used in Pipelines</div>
+        {pipelines.length === 0 ? (
+          <div style={{ color: "#c0ccd8", fontSize: 12, fontStyle: "italic", background: "#f8f6f2", borderRadius: 8, padding: "12px 14px" }}>Not used in any pipeline yet.</div>
+        ) : pipelines.map(p => (
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f8f6f2", borderRadius: 8, marginBottom: 6 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4a9fd4", flexShrink: 0 }} />
+            <div style={{ color: "#2d3a4a", fontWeight: 600, fontSize: 13 }}>{p.name}</div>
+            <div style={{ color: "#9aabb8", fontSize: 10, marginLeft: "auto" }}>{p.agent_ids?.length ?? "?"} agents</div>
+          </div>
+        ))}
+      </div>
+
+      {agent.description && (
+        <div style={{ color: "#9aabb8", fontSize: 12, lineHeight: 1.6, padding: "10px 14px", background: "#f8f6f2", borderRadius: 8, marginTop: 10 }}>{agent.description}</div>
+      )}
+    </div>
+  );
+}
+
+/* ── Leaderboard ──────────────────────────────────────────────────────────── */
+
+function Leaderboard({ agents, metrics }) {
+  const sorted = useMemo(() =>
+    [...agents].sort((a, b) => (metrics[b.id]?.earnings || 0) - (metrics[a.id]?.earnings || 0)).slice(0, 8),
+    [agents, metrics]);
+  const RANK = ["#E6C36B", "#9aabb8", "#c4835a"];
+  return (
+    <div>
+      <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 }}>Top Earning Agents</div>
+      {sorted.length === 0 ? (
+        <div style={{ color: "#c0ccd8", fontSize: 12, fontStyle: "italic", background: "#f8f6f2", borderRadius: 8, padding: "16px 14px" }}>No agents registered yet.</div>
+      ) : sorted.map((a, i) => {
+        const m = metrics[a.id] || {};
+        const c = cat(a.category);
+        return (
+          <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: i === 0 ? "#fffdf5" : "#fafaf8", border: `1px solid ${i === 0 ? "#E6C36B40" : "#f0ece8"}`, borderRadius: 9, marginBottom: 6 }}>
+            <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, background: RANK[i] ?? "#d0ccc8", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9, fontWeight: 800 }}>{i + 1}</div>
+            <CatDot category={a.category} size={26} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+              <div style={{ color: "#9aabb8", fontSize: 10 }}>{m.requests || 0} calls</div>
+            </div>
+            <div style={{ color: c.border, fontWeight: 800, fontSize: 13 }}>${(m.earnings || 0).toFixed(4)}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Platform health bar ──────────────────────────────────────────────────── */
+
+function PlatformHealth() {
+  const [health, setHealth] = useState(null);
+  useEffect(() => {
+    fetch(`${API}/health`).then(r => r.json()).then(setHealth).catch(() => {});
+    const iv = setInterval(() => fetch(`${API}/health`).then(r => r.json()).then(setHealth).catch(() => {}), 30000);
+    return () => clearInterval(iv);
+  }, []);
+  if (!health) return null;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 16px", background: "#f0fdf4", border: "1px solid #6BCF8B30", borderRadius: 10, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#6BCF8B", boxShadow: "0 0 6px #6BCF8B" }} />
+        <span style={{ color: "#065f46", fontSize: 11, fontWeight: 700 }}>Platform {health.status}</span>
+      </div>
+      <span style={{ color: "#9aabb8", fontSize: 10 }}>v{health.version}</span>
+      <span style={{ color: "#9aabb8", fontSize: 10 }}>{health.agents?.active}/{health.agents?.total} agents online</span>
+      {health.agents?.offline > 0 && <span style={{ color: "#E67B7B", fontSize: 10, fontWeight: 700 }}>{health.agents.offline} offline</span>}
+    </div>
+  );
+}
+
+/* ── Deploy Guide ─────────────────────────────────────────────────────────── */
+
+function CodeBlock({ children }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard?.writeText(children);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+  return (
+    <div style={{ position: "relative", marginBottom: 12 }}>
+      <pre style={{ background: "#1e293b", color: "#e2e8f0", borderRadius: 10, padding: "14px 16px", fontSize: 11, overflowX: "auto", margin: 0, lineHeight: 1.6 }}>{children}</pre>
+      <button onClick={copy} style={{ position: "absolute", top: 8, right: 8, background: copied ? "#065f46" : "#334155", color: "#e2e8f0", border: "none", borderRadius: 6, padding: "3px 10px", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>{copied ? "Copied!" : "Copy"}</button>
+    </div>
+  );
+}
+
+function GuideSection({ step, title, children }) {
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#4a9fd4", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{step}</div>
+        <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 14 }}>{title}</div>
+      </div>
+      <div style={{ paddingLeft: 36 }}>{children}</div>
+    </div>
+  );
+}
+
+function DeployGuide() {
+  const apiBase = API;
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 16, padding: "24px 28px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: 20 }}>
+      <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>How to Deploy an Agent</div>
+      <div style={{ color: "#9aabb8", fontSize: 13, marginBottom: 24 }}>
+        AgentVerse is an orchestration layer. Your agent runs anywhere — AWS, Cloudflare, Railway, local server.
+        We only store the endpoint and call it.
+      </div>
+
+      <GuideSection step="1" title="Build your agent — any language, any host">
+        <div style={{ color: "#4b5563", fontSize: 13, marginBottom: 10 }}>
+          Your agent must expose a single <code style={{ background: "#f1f5f9", padding: "1px 5px", borderRadius: 4 }}>POST /run</code> endpoint that accepts JSON and returns JSON.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>Python (FastAPI)</div>
+            <CodeBlock>{`from fastapi import FastAPI
+app = FastAPI()
+
+@app.post("/run")
+def run(payload: dict):
+    market = payload.get("market", "BTC")
+    return {
+        "signal": "BUY",
+        "confidence": 0.82,
+        "market": market,
+    }`}</CodeBlock>
+          </div>
+          <div>
+            <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>Node.js (Express)</div>
+            <CodeBlock>{`const express = require('express');
+const app = express();
+app.use(express.json());
+
+app.post('/run', (req, res) => {
+  const { market = 'BTC' } = req.body;
+  res.json({
+    signal: 'BUY',
+    confidence: 0.82,
+    market,
+  });
+});
+app.listen(3001);`}</CodeBlock>
+          </div>
+        </div>
+        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#166534", marginTop: 4 }}>
+          Works with: Python, Node, Go, Rust, LangChain, x402, Cloudflare Workers, AWS Lambda — anything with an HTTP endpoint.
+        </div>
+      </GuideSection>
+
+      <GuideSection step="2" title="Deploy your agent publicly">
+        <div style={{ color: "#4b5563", fontSize: 13, marginBottom: 10 }}>Your endpoint must be reachable from the internet. Quick options:</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 12 }}>
+          {[
+            { name: "Railway", desc: "Deploy from GitHub in 2 min", url: "railway.app" },
+            { name: "Render", desc: "Free tier, auto-deploys", url: "render.com" },
+            { name: "Cloudflare Workers", desc: "Edge, 0ms cold start", url: "workers.dev" },
+          ].map(p => (
+            <div key={p.name} style={{ background: "#f8f6f2", borderRadius: 8, padding: "10px 12px", border: "1px solid #e6d6bd" }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#2d5a7a" }}>{p.name}</div>
+              <div style={{ fontSize: 11, color: "#9aabb8", marginTop: 2 }}>{p.desc}</div>
+              <div style={{ fontSize: 10, color: "#4a9fd4", marginTop: 4 }}>{p.url}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ color: "#4b5563", fontSize: 12 }}>
+          Once deployed you will have a URL like <code style={{ background: "#f1f5f9", padding: "1px 5px", borderRadius: 4 }}>https://my-agent.railway.app</code>
+        </div>
+      </GuideSection>
+
+      <GuideSection step="3" title="Register your agent on AgentVerse">
+        <div style={{ color: "#4b5563", fontSize: 13, marginBottom: 10 }}>
+          POST to the registry with your endpoint URL. AgentVerse will probe it and set its status.
+        </div>
+        <CodeBlock>{`curl -X POST ${apiBase}/agents \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name":              "MySignalAgent",
+    "description":       "Returns BUY/SELL/HOLD signals for crypto markets",
+    "endpoint":          "https://my-agent.railway.app/run",
+    "category":          "trading",
+    "price_per_request": 0.005,
+    "developer_name":    "YourName",
+    "owner_wallet":      "0xYourBaseWalletAddress"
+  }'`}</CodeBlock>
+        <div style={{ color: "#4b5563", fontSize: 13, marginBottom: 8 }}>Or use the <strong>+ Register</strong> tab above to fill in a form.</div>
+        <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#1e40af", marginBottom: 10 }}>
+          Categories: <code>trading</code> · <code>analysis</code> · <code>data</code> · <code>risk</code> · <code>composite</code>
+        </div>
+        <div style={{ background: "#fdf4ff", border: "1px solid #e9d5ff", borderRadius: 8, padding: "12px 14px", fontSize: 12 }}>
+          <div style={{ color: "#6b21a8", fontWeight: 800, marginBottom: 6 }}>⚡ x402 Payments (optional)</div>
+          <div style={{ color: "#7e22ce", lineHeight: 1.6 }}>
+            Set <code style={{ background: "#f3e8ff", padding: "1px 5px", borderRadius: 3 }}>owner_wallet</code> to a Base network address (0x…) to receive real USDC micropayments via the{" "}
+            <a href="https://x402.org" target="_blank" rel="noreferrer" style={{ color: "#7c3aed", fontWeight: 700 }}>x402 protocol</a>.
+            When enabled, callers must pay in USDC before your agent runs — no invoicing, no escrow.
+            Earnings land directly in your wallet.
+          </div>
+        </div>
+      </GuideSection>
+
+      <GuideSection step="4" title="Your agent earns fees automatically">
+        <div style={{ color: "#4b5563", fontSize: 13, marginBottom: 10 }}>
+          Every time a pipeline calls your agent, the fee is split: <strong>90% to you, 10% to the platform</strong>. No manual billing.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "14px 16px" }}>
+            <div style={{ fontWeight: 800, fontSize: 13, color: "#065f46", marginBottom: 6 }}>What AgentVerse handles</div>
+            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#166534", lineHeight: 2 }}>
+              <li>Routing pipeline calls to your endpoint</li>
+              <li>Billing and fee collection</li>
+              <li>Metrics and reputation scoring</li>
+              <li>Health monitoring</li>
+              <li>Marketplace listing</li>
+            </ul>
+          </div>
+          <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, padding: "14px 16px" }}>
+            <div style={{ fontWeight: 800, fontSize: 13, color: "#9a3412", marginBottom: 6 }}>What you handle</div>
+            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#c2410c", lineHeight: 2 }}>
+              <li>Hosting your agent endpoint</li>
+              <li>Agent logic and data sources</li>
+              <li>Uptime (affects reputation score)</li>
+            </ul>
+          </div>
+        </div>
+      </GuideSection>
+
+      <GuideSection step="5" title="API reference">
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto 1fr", gap: "6px 14px", fontSize: 12, alignItems: "center" }}>
+          {[
+            ["POST", "/agents",                     "Register agent"],
+            ["GET",  "/agents",                     "List all agents"],
+            ["POST", "/call-agent/{id}",             "Call single agent"],
+            ["POST", "/run-pipeline/{id}",           "Run pipeline (async queued)"],
+            ["GET",  "/jobs/{job_id}",               "Poll pipeline job status"],
+            ["GET",  "/agents/{id}/health",          "Check agent health"],
+            ["GET",  "/metrics",                     "All agent metrics"],
+            ["GET",  "/docs",                        "Interactive API docs"],
+          ].map(([method, path, desc], i) => (
+            <>
+              <div key={`m${i}`} style={{ fontWeight: 700, color: method === "GET" ? "#0369a1" : "#6b21a8", background: method === "GET" ? "#e0f2fe" : "#f3e8ff", padding: "1px 8px", borderRadius: 4, fontSize: 10 }}>{method}</div>
+              <div key={`p${i}`} style={{ fontFamily: "monospace", color: "#2d5a7a" }}>{path}</div>
+              <div key={`s${i}`} style={{ color: "#9aabb8" }}>—</div>
+              <div key={`d${i}`} style={{ color: "#4b5563" }}>{desc}</div>
+            </>
+          ))}
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <a href={`${apiBase}/docs`} target="_blank" rel="noreferrer" style={{ color: "#4a9fd4", fontWeight: 700, fontSize: 12 }}>
+            Open interactive docs →
+          </a>
+        </div>
+      </GuideSection>
+    </div>
+  );
+}
+
+/* ── Jobs panel ───────────────────────────────────────────────────────────── */
+
+const JOB_STATUS_COLOR = {
+  queued:    ["#e0f2fe", "#0369a1"],
+  running:   ["#fef3c7", "#92400e"],
+  completed: ["#d1fae5", "#065f46"],
+  failed:    ["#fee2e2", "#991b1b"],
+};
+
+function JobStatusBadge({ status }) {
+  const [bg, fg] = JOB_STATUS_COLOR[status] ?? ["#f3f4f6", "#6b7280"];
+  return <span style={{ padding: "2px 10px", borderRadius: 20, background: bg, color: fg, fontSize: 10, fontWeight: 700 }}>{status}</span>;
+}
+
+function JobsPanel() {
+  const [jobs, setJobs]       = useState([]);
+  const [expanded, setExpanded] = useState(null);
+  const [loading, setLoading]   = useState(true);
+
+  const load = () =>
+    fetch(`${API}/jobs?limit=30`).then(r => r.json())
+      .then(d => { setJobs(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+
+  useEffect(() => {
+    load();
+    const iv = setInterval(load, 5000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const toggleExpand = async (jobId) => {
+    if (expanded?.id === jobId) { setExpanded(null); return; }
+    const r = await fetch(`${API}/jobs/${jobId}`);
+    const d = await r.json();
+    setExpanded(d);
+  };
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 14 }}>Pipeline Jobs</div>
+        <button onClick={load} style={{ background: "none", border: "1px solid #e6d6bd", borderRadius: 8, padding: "4px 12px", fontSize: 11, cursor: "pointer", color: "#9aabb8", fontFamily: "inherit" }}>Refresh</button>
+      </div>
+      {loading ? (
+        <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic" }}>Loading…</div>
+      ) : jobs.length === 0 ? (
+        <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic" }}>No jobs yet. Run a pipeline from the Pipeline Builder.</div>
+      ) : (
+        <div>
+          {/* Header row */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 80px 80px", gap: 8, padding: "6px 10px", borderBottom: "1px solid #f0ece8", color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700 }}>
+            <div>Pipeline</div><div>Status</div><div>Created</div><div>Duration</div><div>Steps</div>
+          </div>
+          {jobs.map(j => {
+            const created  = j.created_at ? new Date(j.created_at).toLocaleTimeString() : "—";
+            const durationMs = j.completed_at && j.created_at
+              ? Math.round((new Date(j.completed_at) - new Date(j.created_at)))
+              : null;
+            const isOpen = expanded?.job_id === j.job_id;
+            return (
+              <div key={j.job_id}>
+                <div
+                  onClick={() => toggleExpand(j.job_id)}
+                  style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 80px 80px", gap: 8, padding: "9px 10px", borderBottom: "1px solid #f8f4f0", cursor: "pointer", fontSize: 12, alignItems: "center", background: isOpen ? "#f8f6f2" : "transparent" }}
+                >
+                  <div style={{ fontWeight: 600, color: "#2d5a7a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.pipeline_name || j.pipeline_id.slice(0, 8)}</div>
+                  <div><JobStatusBadge status={j.status} /></div>
+                  <div style={{ color: "#9aabb8" }}>{created}</div>
+                  <div style={{ color: "#9aabb8" }}>{durationMs != null ? `${durationMs}ms` : "—"}</div>
+                  <div style={{ color: "#9aabb8" }}>{isOpen && expanded?.result?.steps ? expanded.result.steps.length : "—"}</div>
+                </div>
+                {isOpen && expanded && (
+                  <div style={{ padding: "12px 16px", background: "#f8f6f2", borderBottom: "1px solid #f0ece8", fontSize: 11 }}>
+                    <div style={{ color: "#9aabb8", marginBottom: 8 }}>Job ID: <code style={{ color: "#2d5a7a" }}>{expanded.job_id}</code></div>
+                    {expanded.error && (
+                      <div style={{ color: "#991b1b", background: "#fee2e2", borderRadius: 6, padding: "8px 12px", marginBottom: 8 }}>{expanded.error}</div>
+                    )}
+                    {expanded.result?.steps && expanded.result.steps.map((s, i) => (
+                      <div key={i} style={{ marginBottom: 8, padding: "8px 12px", background: "#fff", borderRadius: 8, border: "1px solid #e6d6bd" }}>
+                        <div style={{ fontWeight: 700, color: "#2d5a7a", marginBottom: 4 }}>{i + 1}. {s.agent_name} <span style={{ fontWeight: 400, color: "#9aabb8" }}>({s.latency_ms}ms{s.mock ? " · mock" : ""})</span></div>
+                        <pre style={{ margin: 0, fontSize: 10, color: "#4b5563", overflowX: "auto" }}>{JSON.stringify(s.output, null, 2)}</pre>
+                      </div>
+                    ))}
+                    {expanded.result?.final && (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontWeight: 700, color: "#2d5a7a", marginBottom: 4 }}>Final State</div>
+                        <pre style={{ margin: 0, fontSize: 10, color: "#4b5563", background: "#fff", borderRadius: 8, padding: "8px 12px", border: "1px solid #e6d6bd", overflowX: "auto" }}>{JSON.stringify(expanded.result.final, null, 2)}</pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Main ─────────────────────────────────────────────────────────────────── */
+
+/* ── Credits top-up widget ───────────────────────────────────────────────── */
+
+function CreditsPanel({ auth }) {
+  const [balance,    setBalance]    = useState(null);
+  const [walletId,   setWalletId]   = useState(null);
+  const [busy,       setBusy]       = useState(false);
+  const [ok,         setOk]         = useState("");
+
+  const load = () => {
+    if (!auth?.token) return;
+    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${auth.token}` } })
+      .then(r => r.json())
+      .then(d => { setWalletId(d.wallet_id); if (d.wallet_id) fetch(`${API}/wallets/${d.wallet_id}`).then(r => r.json()).then(w => setBalance(w.balance)).catch(() => {}); })
+      .catch(() => {});
+  };
+
+  useEffect(() => { load(); }, [auth?.token]);
+
+  const topUp = async (usd) => {
+    if (!walletId) return;
+    setBusy(true); setOk("");
+    try {
+      const res = await fetch(`${API}/wallets/${walletId}/deposit`, {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ amount: usd }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      load();
+      setOk(`+${usd * 100} credits added!`);
+      setTimeout(() => setOk(""), 3000);
+    } catch { setOk("Error adding credits."); }
+    finally { setBusy(false); }
+  };
+
+  const credits = balance !== null ? Math.round(balance * 100) : null;
+  const color   = credits === null ? "#9aabb8" : credits < 500 ? "#E67B7B" : credits < 2000 ? "#E6C36B" : "#6BCF8B";
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", border: "1px solid #e6d6bd", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 13 }}>Credits</div>
+        <div style={{ color, fontWeight: 800, fontSize: 20 }}>{credits !== null ? credits.toLocaleString() : "—"}</div>
+      </div>
+      <div style={{ color: "#9aabb8", fontSize: 10, marginBottom: 10 }}>1 credit = $0.01 · used to call agents & run pipelines</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {[5, 10, 25, 50].map(usd => (
+          <button key={usd} onClick={() => topUp(usd)} disabled={busy} style={{ flex: 1, minWidth: 54, background: "#f0f8ff", border: "1px solid #6BB6E640", borderRadius: 8, padding: "6px 4px", fontSize: 11, fontWeight: 700, cursor: busy ? "default" : "pointer", color: "#4a9fd4", fontFamily: "inherit" }}>
+            +{usd * 100}<div style={{ fontSize: 9, fontWeight: 400, color: "#9aabb8" }}>${usd}</div>
+          </button>
+        ))}
+      </div>
+      {ok && <div style={{ marginTop: 8, color: "#065f46", fontSize: 11, fontWeight: 600 }}>{ok}</div>}
+    </div>
+  );
+}
+
+/* ── Main ─────────────────────────────────────────────────────────────────── */
+
+export default function DeveloperView() {
+  const [agents,    setAgents]    = useState([]);
+  const [metrics,   setMetrics]   = useState({});
+  const [selected,  setSelected]  = useState(null);
+  const [pipelines, setPipelines] = useState([]);
+  const [filter,    setFilter]    = useState("");
+  const [tab,       setTab]       = useState("agents");   // "agents" | "mine" | "register" | "keys"
+  const [auth,      setAuth]      = useState(null);       // { token, user_id, username }
+
+  // Restore session
+  useEffect(() => {
+    const token = localStorage.getItem("av_token");
+    const user  = localStorage.getItem("av_user");
+    if (token && user) setAuth({ token, ...JSON.parse(user) });
+  }, []);
+
+  const loadAgents = () =>
+    Promise.all([
+      fetch(`${API}/agents`).then(r => r.json()),
+      fetch(`${API}/metrics`).then(r => r.json()),
+    ]).then(([a, m]) => {
+      setAgents(Array.isArray(a) ? a : []);
+      setMetrics(Object.fromEntries((Array.isArray(m) ? m : []).map(x => [x.agent_id, x])));
+    }).catch(() => {});
+
+  useEffect(() => { loadAgents(); const iv = setInterval(loadAgents, 10000); return () => clearInterval(iv); }, []);
+
+  useEffect(() => {
+    if (!selected) return;
+    fetch(`${API}/agents/${selected.id}/pipelines`).then(r => r.json()).then(setPipelines).catch(() => setPipelines([]));
+  }, [selected?.id]);
+
+  const totalCalls    = Object.values(metrics).reduce((s, m) => s + (m?.requests || 0), 0);
+  const totalEarnings = Object.values(metrics).reduce((s, m) => s + (m?.earnings || 0), 0).toFixed(4);
+  const visible = useMemo(() => {
+    if (!filter) return agents;
+    const q = filter.toLowerCase();
+    return agents.filter(a => a.name.toLowerCase().includes(q) || a.category.toLowerCase().includes(q));
+  }, [agents, filter]);
+
+  const handleAuth = (data) => setAuth({ token: data.token, user_id: data.user_id, username: data.username });
+  const handleLogout = () => { localStorage.removeItem("av_token"); localStorage.removeItem("av_user"); setAuth(null); };
+
+  const myAgents = useMemo(() =>
+    auth ? agents.filter(a => a.developer_name === auth.username) : [],
+    [agents, auth]
+  );
+
+  const TABS = [
+    { id: "agents",   label: "All Agents" },
+    ...(auth ? [{ id: "mine", label: `My Agents (${myAgents.length})` }] : []),
+    { id: "jobs",     label: "Jobs" },
+    { id: "guide",    label: "Deploy Guide" },
+    { id: "register", label: auth ? "+ New Agent" : "Sign In / Register" },
+    ...(auth ? [{ id: "keys", label: "API Keys" }] : []),
+  ];
+
+  return (
+    <div style={{ height: "100%", overflowY: "auto", background: "#f4e7d0", padding: "28px 36px", fontFamily: "var(--font-nunito), Nunito, system-ui, sans-serif" }}>
+
+      {/* Header */}
+      <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ color: "#2d5a7a", fontSize: 22, fontWeight: 800, letterSpacing: "-0.3px" }}>Developer Hub</div>
+          <div style={{ color: "#9aabb8", fontSize: 13, marginTop: 4 }}>Monitor agents, manage API keys, track revenue.</div>
+        </div>
+        {auth ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ background: "#4a9fd418", border: "1px solid #4a9fd440", borderRadius: 20, padding: "4px 14px", color: "#4a9fd4", fontSize: 12, fontWeight: 700 }}>@{auth.username}</div>
+            <button onClick={() => setTab("mine")} style={{ background: "none", border: "1px solid #6BCF8B40", color: "#6BCF8B", borderRadius: 8, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>My Agents</button>
+            <button onClick={handleLogout} style={{ background: "none", border: "1px solid #e6d6bd", color: "#9aabb8", borderRadius: 8, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
+          </div>
+        ) : (
+          <div style={{ fontSize: 11, color: "#9aabb8" }}>
+            <a onClick={() => setTab("register")} style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }}>Sign in</a> to manage your agents
+          </div>
+        )}
+      </div>
+
+      <PlatformHealth />
+
+      {/* Stats bar */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 22, flexWrap: "wrap" }}>
+        <Pill label="Agents" value={agents.length} color="#4a9fd4" />
+        <Pill label="Total Calls" value={totalCalls} color="#6BCF8B" />
+        <Pill label="Total Earned" value={`${Math.round(parseFloat(totalEarnings) * 100)} credits`} color="#E6C36B" />
+      </div>
+
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "6px 16px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === t.id ? "#4a9fd418" : "transparent", color: tab === t.id ? "#4a9fd4" : "#9aabb8", boxShadow: tab === t.id ? "inset 0 0 0 1px #4a9fd440" : "none", transition: "all 0.15s", fontFamily: "inherit" }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* My Agents tab */}
+      {tab === "mine" && auth && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, alignItems: "start" }}>
+            <div style={{ background: "#fff", borderRadius: 16, padding: "14px 8px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
+              {myAgents.length === 0 ? (
+                <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic", textAlign: "center", padding: "24px 16px" }}>
+                  You haven&apos;t registered any agents yet.<br />
+                  <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => setTab("register")}>Register your first agent →</span>
+                </div>
+              ) : myAgents.map(a => (
+                <AgentRow key={a.id} agent={a} metrics={metrics[a.id]} selected={selected} onClick={setSelected} />
+              ))}
+            </div>
+            <div>
+              {selected && myAgents.find(a => a.id === selected.id) && (
+                <AgentDetail agent={selected} metrics={metrics[selected.id]} pipelines={pipelines}
+                  token={auth?.token} onDeleted={() => { loadAgents(); setSelected(null); }} />
+              )}
+            </div>
+          </div>
+          <div>
+            <CreditsPanel auth={auth} />
+          </div>
+        </div>
+      )}
+
+      {/* Jobs tab */}
+      {tab === "jobs" && <JobsPanel />}
+
+      {/* Deploy Guide tab */}
+      {tab === "guide" && <DeployGuide />}
+
+      {/* API Keys tab */}
+      {tab === "keys" && auth && (
+        <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: 20 }}>
+          <ApiKeyManager token={auth.token} />
+        </div>
+      )}
+
+      {/* Register tab */}
+      {tab === "register" && !auth && (
+        <div style={{ marginBottom: 20 }}>
+          <AuthPanel onAuth={handleAuth} />
+        </div>
+      )}
+      {tab === "register" && auth && (
+        <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: 20 }}>
+          <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 14, marginBottom: 14 }}>Register New Agent</div>
+          <RegisterForm token={auth.token} onDone={() => { loadAgents(); setTab("agents"); }} />
+        </div>
+      )}
+
+      {/* Agents tab */}
+      {tab === "agents" && (
+        <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, alignItems: "start" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: "14px 8px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
+            <div style={{ padding: "0 8px 10px", borderBottom: "1px solid #f0ece8", marginBottom: 8 }}>
+              <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter agents…" style={{ width: "100%", border: "1px solid #e6d6bd", borderRadius: 8, padding: "6px 10px", fontSize: 12, outline: "none", fontFamily: "inherit", background: "#f8f6f2", color: "#2d3a4a", boxSizing: "border-box" }} />
+            </div>
+            {visible.length === 0 ? (
+              <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic", textAlign: "center", padding: "20px 0" }}>No agents found.</div>
+            ) : visible.map(a => (
+              <AgentRow key={a.id} agent={a} metrics={metrics[a.id]} selected={selected} onClick={setSelected} />
+            ))}
+          </div>
+
+          <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", minHeight: 400 }}>
+            {selected ? (
+              <AgentDetail agent={selected} metrics={metrics[selected.id]} pipelines={pipelines} token={auth?.token} onHealthCheck={loadAgents} onDeleted={() => { loadAgents(); setSelected(null); }} />
+            ) : (
+              <Leaderboard agents={agents} metrics={metrics} />
+            )}
+          </div>
+        </div>
+      )}
+
+      <div style={{ height: 40 }} />
+    </div>
+  );
+}
