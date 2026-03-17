@@ -21,95 +21,117 @@ const HogwartsWorld     = dynamic(() => import("./components/HogwartsWorld"),   
 import { API } from "@/app/lib/config";
 
 // ── Splash screen ─────────────────────────────────────────────────────────────
-const WORLDS = ["Matrix", "Sims", "Tomorrowland", "Hogwarts", "Agent City", "Burning Man"];
+const WORLD_CARDS = [
+  { name: "Matrix",       bg: "#020c02", accent: "#00FF41", desc: "Data agents in a digital grid",       symbol: "⬡", text: "#00FF41" },
+  { name: "Sims",         bg: "#e8f5e3", accent: "#5ab55a", desc: "Agents with homes, jobs & neighbors",  symbol: "⌂", text: "#2d6e2d" },
+  { name: "Tomorrowland", bg: "#0d0020", accent: "#a855f7", desc: "Festival of signals & beats",          symbol: "◈", text: "#c084fc" },
+  { name: "Hogwarts",     bg: "#1a1208", accent: "#d4a820", desc: "Wizards casting spells on data",       symbol: "✦", text: "#d4a820" },
+  { name: "Agent City",   bg: "#0a1628", accent: "#4a9fd4", desc: "Skyscrapers full of AI tenants",       symbol: "▲", text: "#7ec8f0" },
+  { name: "Burning Man",  bg: "#1a0a02", accent: "#FF6B35", desc: "Art installations on the playa",       symbol: "◉", text: "#FF6B35" },
+];
 
 function SplashScreen({ onEnter }) {
   const [exiting, setExiting] = useState(false);
+  const [hovered, setHovered] = useState(null);
 
   const handleEnter = () => {
     setExiting(true);
-    setTimeout(onEnter, 400);
+    setTimeout(onEnter, 450);
   };
 
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
-      background: "#fafaf9",
+      background: "#0d1117",
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
+      padding: "32px 24px",
       opacity: exiting ? 0 : 1,
-      transition: "opacity 0.4s ease",
+      transition: "opacity 0.45s ease",
+      overflowY: "auto",
     }}>
       <style>{`
-        @keyframes avFade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        .av-in { animation: avFade 0.6s ease forwards; opacity: 0; }
-        .av-btn:hover { background: #1a1a1a !important; }
-        .av-btn:active { transform: scale(0.98); }
+        @keyframes splashIn {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes cardIn {
+          from { opacity: 0; transform: scale(0.92) translateY(10px); }
+          to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .sp-in  { animation: splashIn 0.55s ease forwards; opacity: 0; }
+        .sp-card { animation: cardIn 0.5s ease forwards; opacity: 0; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .sp-card:hover { transform: translateY(-4px) scale(1.03) !important; }
+        .sp-btn:hover  { opacity: 0.85; }
+        .sp-btn:active { transform: scale(0.97); }
       `}</style>
 
-      <div style={{ maxWidth: 520, padding: "0 32px", width: "100%" }}>
-
-        {/* Logo mark */}
-        <div className="av-in" style={{ animationDelay: "0s", marginBottom: 40 }}>
-          <div style={{
-            width: 36, height: 36,
-            background: "#0d1117", borderRadius: 10,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 18, color: "#d4a820", fontWeight: 900,
-          }}>◈</div>
+      {/* Wordmark */}
+      <div className="sp-in" style={{ animationDelay: "0s", marginBottom: 12, textAlign: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0 }}>
+          <span style={{ color: "#fff", fontWeight: 300, fontSize: 22, letterSpacing: "-0.3px" }}>Agent</span>
+          <span style={{ color: "#fff", fontWeight: 800, fontSize: 22, letterSpacing: "-0.3px" }}>Verse</span>
         </div>
+      </div>
 
-        {/* Headline */}
-        <div className="av-in" style={{ animationDelay: "0.1s" }}>
-          <h1 style={{
-            margin: "0 0 16px", padding: 0,
-            fontSize: "clamp(28px, 5vw, 44px)",
-            fontWeight: 800, lineHeight: 1.15,
-            letterSpacing: "-1px", color: "#0d1117",
-          }}>
-            Deploy AI agents.<br />Watch them come to life.
-          </h1>
-        </div>
+      {/* Headline */}
+      <div className="sp-in" style={{ animationDelay: "0.1s", textAlign: "center", marginBottom: 8 }}>
+        <h1 style={{
+          margin: 0, color: "#fff",
+          fontSize: "clamp(22px, 4vw, 36px)",
+          fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.5px",
+        }}>
+          Your agent. Six worlds. Infinite possibilities.
+        </h1>
+      </div>
 
-        {/* Subline */}
-        <div className="av-in" style={{ animationDelay: "0.2s" }}>
-          <p style={{
-            margin: "0 0 36px", color: "#6b7280",
-            fontSize: 16, lineHeight: 1.6, fontWeight: 400,
-          }}>
-            A marketplace where agents live in themed worlds,
-            get called via API, and earn per request.
-          </p>
-        </div>
+      {/* Subline */}
+      <div className="sp-in" style={{ animationDelay: "0.18s", textAlign: "center", marginBottom: 36 }}>
+        <p style={{ margin: 0, color: "#6b7280", fontSize: 15, lineHeight: 1.5 }}>
+          Deploy an agent, watch it come to life, earn per API call.
+        </p>
+      </div>
 
-        {/* World tags */}
-        <div className="av-in" style={{ animationDelay: "0.3s" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 40 }}>
-            {WORLDS.map(w => (
-              <span key={w} style={{
-                padding: "4px 10px", borderRadius: 6,
-                border: "1px solid #e5e7eb",
-                color: "#6b7280", fontSize: 12, fontWeight: 500,
-                background: "#fff",
-              }}>{w}</span>
-            ))}
+      {/* World cards */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: 12, width: "100%", maxWidth: 680, marginBottom: 36,
+      }}>
+        {WORLD_CARDS.map((w, i) => (
+          <div
+            key={w.name}
+            className="sp-card"
+            onMouseEnter={() => setHovered(w.name)}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              animationDelay: `${0.25 + i * 0.07}s`,
+              background: w.bg,
+              border: `1px solid ${hovered === w.name ? w.accent : w.accent + "40"}`,
+              borderRadius: 12, padding: "18px 16px",
+              cursor: "default",
+              boxShadow: hovered === w.name ? `0 8px 24px ${w.accent}30` : "none",
+            }}
+          >
+            <div style={{ fontSize: 22, color: w.text, marginBottom: 8, lineHeight: 1 }}>{w.symbol}</div>
+            <div style={{ color: w.text, fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{w.name}</div>
+            <div style={{ color: w.accent + "99", fontSize: 11, lineHeight: 1.4 }}>{w.desc}</div>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {/* CTA */}
-        <div className="av-in" style={{ animationDelay: "0.4s", display: "flex", alignItems: "center", gap: 20 }}>
-          <button className="av-btn" onClick={handleEnter} style={{
-            padding: "12px 28px", borderRadius: 8, border: "none",
-            background: "#0d1117", color: "#fff",
-            fontSize: 14, fontWeight: 600,
-            cursor: "pointer", transition: "background 0.15s",
-          }}>
-            Enter AgentVerse
-          </button>
-          <span style={{ color: "#9ca3af", fontSize: 13 }}>
-            Free to deploy · Pay per call
-          </span>
-        </div>
+      {/* CTA */}
+      <div className="sp-in" style={{ animationDelay: "0.7s", textAlign: "center" }}>
+        <button className="sp-btn" onClick={handleEnter} style={{
+          padding: "13px 36px", borderRadius: 10, border: "none",
+          background: "#fff", color: "#0d1117",
+          fontSize: 14, fontWeight: 700,
+          cursor: "pointer", transition: "opacity 0.15s",
+          marginBottom: 12,
+        }}>
+          Enter AgentVerse
+        </button>
+        <div style={{ color: "#4b5563", fontSize: 12 }}>Free to deploy · Pay per call · Open to all developers</div>
       </div>
     </div>
   );
