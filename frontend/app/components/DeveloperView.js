@@ -117,7 +117,7 @@ function AuthPanel({ onAuth }) {
       <div style={{ color: "#9aabb8", fontSize: 12, marginBottom: 20 }}>{subs[mode]}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {(mode === "login" || mode === "register" || mode === "forgot") && (
-          <div><Label>Email</Label><input value={form.email} onChange={e => set("email", e.target.value)} placeholder="you@example.com" style={FIELD} /></div>
+          <div><Label>{mode === "login" ? "Email or Username" : "Email"}</Label><input value={form.email} onChange={e => set("email", e.target.value)} placeholder={mode === "login" ? "email or username" : "you@example.com"} style={FIELD} /></div>
         )}
         {mode === "register" && (
           <div><Label>Username</Label><input value={form.username} onChange={e => set("username", e.target.value)} placeholder="devname" style={FIELD} /></div>
