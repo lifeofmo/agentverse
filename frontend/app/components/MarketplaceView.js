@@ -62,20 +62,23 @@ function StallCard({ agent, metrics, rank }) {
   const m = metrics || {};
   const RANK_LABEL = rank === 1 ? "1st" : rank === 2 ? "2nd" : rank === 3 ? "3rd" : null;
   const { account, walletClient, connect } = useWallet();
-  const [tryState, setTryState] = useState("idle"); // "idle" | "running" | "ok" | "err" | "needs_wallet"
+  const [tryState,  setTryState]  = useState("idle"); // "idle" | "running" | "ok" | "err" | "needs_wallet"
+  const [tryResult, setTryResult] = useState(null);
 
   const handleTry = async () => {
     setTryState("running");
+    setTryResult(null);
     try {
       const opts = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ market: "BTC" }) };
       const res = await fetchWithX402(`${API}/call-agent/${agent.id}`, opts, walletClient, account);
       if (res.status === 402) { setTryState("needs_wallet"); return; }
       if (!res.ok) { setTryState("err"); return; }
+      const data = await res.json();
+      setTryResult(data);
       setTryState("ok");
     } catch (e) {
       setTryState(e.message?.includes("cancelled") ? "idle" : "err");
     }
-    setTimeout(() => setTryState("idle"), 2500);
   };
 
   return (
@@ -151,24 +154,55 @@ function StallCard({ agent, metrics, rank }) {
 
       {/* CTA */}
       <div style={{ display: "flex", gap: 7 }}>
-        <a href="/build" style={{
-          flex: 1, textAlign: "center", background: `${c.border}14`, color: c.border,
-          border: `1px solid ${c.border}33`, borderRadius: 9, padding: "8px",
-          fontSize: 11, fontWeight: 700, textDecoration: "none", display: "block",
-        }}>+ Pipeline</a>
+        <a href="/build" title="Open Pipeline Builder to chain this agent with others"
+          style={{
+            flex: 1, textAlign: "center", background: `${c.border}14`, color: c.border,
+            border: `1px solid ${c.border}33`, borderRadius: 9, padding: "8px",
+            fontSize: 11, fontWeight: 700, textDecoration: "none", display: "block",
+          }}>+ Build Pipeline</a>
         <button
           onClick={tryState === "needs_wallet" ? connect : handleTry}
           disabled={tryState === "running"}
           style={{
-            flex: 1, borderRadius: 9, padding: "8px", fontSize: 11, fontWeight: 700, cursor: tryState === "running" ? "default" : "pointer",
+            flex: 1, borderRadius: 9, padding: "8px", fontSize: 11, fontWeight: 700,
+            cursor: tryState === "running" ? "default" : "pointer",
             border: "1px solid #e6d6bd",
             background: tryState === "ok" ? "#d1fae5" : tryState === "err" ? "#fee2e2" : tryState === "needs_wallet" ? "#f3e8ff" : "#f8f6f2",
-            color:      tryState === "ok" ? "#065f46" : tryState === "err" ? "#991b1b" : tryState === "needs_wallet" ? "#7c3aed"  : c.border,
+            color:      tryState === "ok" ? "#065f46" : tryState === "err" ? "#991b1b" : tryState === "needs_wallet" ? "#7c3aed" : c.border,
           }}
         >
-          {tryState === "running" ? "…" : tryState === "ok" ? "✓ Done" : tryState === "err" ? "Failed" : tryState === "needs_wallet" ? "⚡ Connect Wallet" : "Try"}
+          {tryState === "running" ? "Running…" : tryState === "ok" ? "✓ Done" : tryState === "err" ? "Failed" : tryState === "needs_wallet" ? "⚡ Connect Wallet" : "Try it"}
         </button>
       </div>
+
+      {/* Live result output */}
+      {tryResult && (
+        <div style={{
+          marginTop: 10, background: "#f8f6f2", borderRadius: 9,
+          border: `1px solid ${c.border}30`, padding: "10px 12px",
+        }}>
+          <div style={{ color: "#9aabb8", fontSize: 9, fontWeight: 700,
+            textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+            Live Result — BTC
+          </div>
+          {Object.entries(tryResult)
+            .filter(([k]) => !["market", "agent_id", "_mock"].includes(k))
+            .slice(0, 5)
+            .map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                fontSize: 11, lineHeight: 1.9 }}>
+                <span style={{ color: "#9aabb8" }}>{k}</span>
+                <span style={{ color: c.text, fontWeight: 700 }}>
+                  {typeof v === "number" ? (v % 1 !== 0 ? v.toFixed(3) : v) : String(v).toUpperCase()}
+                </span>
+              </div>
+            ))}
+          <button onClick={() => setTryResult(null)} style={{
+            marginTop: 6, background: "none", border: "none",
+            color: "#b8c4d0", fontSize: 10, cursor: "pointer", padding: 0,
+          }}>dismiss</button>
+        </div>
+      )}
     </div>
   );
 }

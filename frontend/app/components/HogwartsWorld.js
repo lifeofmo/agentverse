@@ -721,7 +721,7 @@ function FlyingOwls({ active }) {
 }
 
 // ── Wizard Students ───────────────────────────────────────────────────────────
-function WizardStudents({ agents, activeAgents, myAgents }) {
+function WizardStudents({ agents, activeAgents, myAgents, onSelect }) {
   const positions = useMemo(() => agents.map((a, i) => {
     const row = Math.floor(i / 8);
     const col = i % 8;
@@ -748,6 +748,7 @@ function WizardStudents({ agents, activeAgents, myAgents }) {
             isActive={isActive}
             isMine={myAgents.has(agent.id)}
             phase={phase}
+            onClick={() => onSelect(agent)}
           />
         );
       })}
@@ -755,7 +756,7 @@ function WizardStudents({ agents, activeAgents, myAgents }) {
   );
 }
 
-function WizardFigure({ position, color, isActive, isMine, phase }) {
+function WizardFigure({ position, color, isActive, isMine, phase, onClick }) {
   const groupRef = useRef();
   const sparkRef = useRef();
   const indicatorRef = useRef();
@@ -783,7 +784,7 @@ function WizardFigure({ position, color, isActive, isMine, phase }) {
   });
 
   return (
-    <group ref={groupRef} position={position}>
+    <group ref={groupRef} position={position} onClick={onClick} onPointerOver={() => document.body.style.cursor = "pointer"} onPointerOut={() => document.body.style.cursor = "default"}>
       {/* Robe body */}
       <mesh position={[0, 1.4, 0]}>
         <cylinderGeometry args={[0.22, 0.35, 2.8, 7]} />
@@ -914,7 +915,7 @@ function CastleGrounds() {
 }
 
 // ── Main 3D scene ─────────────────────────────────────────────────────────────
-function HogwartsScene({ agents, activeAgents, myAgents }) {
+function HogwartsScene({ agents, activeAgents, myAgents, onSelect }) {
   const anyActive = activeAgents.size > 0;
 
   return (
@@ -944,7 +945,7 @@ function HogwartsScene({ agents, activeAgents, myAgents }) {
       <HagridHut position={[35, 0, 20]} />
       <FloatingCandles active={anyActive} />
       <FlyingOwls active={anyActive} />
-      <WizardStudents agents={agents} activeAgents={activeAgents} myAgents={myAgents} />
+      <WizardStudents agents={agents} activeAgents={activeAgents} myAgents={myAgents} onSelect={onSelect} />
       <SpellParticles active={anyActive} />
 
       <OrbitControls
@@ -1046,11 +1047,28 @@ function ToastList({ toasts }) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 export default function HogwartsWorld() {
-  const [agents,       setAgents]       = useState([]);
-  const [activeAgents, setActiveAgents] = useState(new Set());
-  const [wsRetry,      setWsRetry]      = useState(0);
-  const [toasts,       setToasts]       = useState([]);
-  const [housePoints,  setHousePoints]  = useState({ slytherin: 0, ravenclaw: 0, hufflepuff: 0, gryffindor: 0 });
+  const [agents,        setAgents]        = useState([]);
+  const [activeAgents,  setActiveAgents]  = useState(new Set());
+  const [wsRetry,       setWsRetry]       = useState(0);
+  const [toasts,        setToasts]        = useState([]);
+  const [housePoints,   setHousePoints]   = useState({ slytherin: 0, ravenclaw: 0, hufflepuff: 0, gryffindor: 0 });
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [agentRunning,  setAgentRunning]  = useState(false);
+  const [agentResult,   setAgentResult]   = useState(null);
+
+  const runAgent = async (agent) => {
+    setAgentRunning(true);
+    setAgentResult(null);
+    try {
+      const res = await fetch(`${API}/call-agent/${agent.id}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ market: "BTC" }),
+      });
+      const data = await res.json();
+      setAgentResult(data);
+    } catch {}
+    setAgentRunning(false);
+  };
 
   const username = useMyUsername();
   const myAgents = useMemo(
@@ -1101,8 +1119,75 @@ export default function HogwartsWorld() {
   return (
     <div style={{ width: "100%", height: "100%", background: "#0a0818", position: "relative", fontFamily: "monospace" }}>
       <Canvas camera={{ position: [0, 30, 65], fov: 60 }} gl={{ antialias: true }}>
-        <HogwartsScene agents={agents} activeAgents={activeAgents} myAgents={myAgents} />
+        <HogwartsScene agents={agents} activeAgents={activeAgents} myAgents={myAgents} onSelect={(a) => { setSelectedAgent(a); setAgentResult(null); }} />
       </Canvas>
+
+      {/* Agent detail panel */}
+      {selectedAgent && (
+        <div style={{
+          position: "absolute", top: 16, right: 16, width: 280, zIndex: 100,
+          background: "rgba(10,8,24,0.97)", border: `1px solid ${getHouseColor(selectedAgent)}50`,
+          borderTop: `3px solid ${getHouseColor(selectedAgent)}`,
+          borderRadius: 14, padding: "18px 16px",
+          boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 24px ${getHouseColor(selectedAgent)}20`,
+          fontFamily: "'Georgia', serif",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+            <div>
+              <div style={{ color: getHouseColor(selectedAgent), fontWeight: 700, fontSize: 15, letterSpacing: 0.5 }}>
+                {selectedAgent.name}
+              </div>
+              <div style={{ color: "#6b5c8a", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginTop: 3 }}>
+                {HOUSES[getHouse(selectedAgent)]?.name} · {selectedAgent.category}
+              </div>
+            </div>
+            <button onClick={() => { setSelectedAgent(null); setAgentResult(null); }} style={{
+              background: "none", border: "none", color: "#4a3a6a",
+              fontSize: 18, cursor: "pointer", lineHeight: 1, padding: 0,
+            }}>×</button>
+          </div>
+
+          <div style={{ color: "#8878a8", fontSize: 12, lineHeight: 1.6, marginBottom: 14 }}>
+            {selectedAgent.description || "A wizard agent of the " + HOUSES[getHouse(selectedAgent)]?.name + " house."}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14, fontSize: 11 }}>
+            <div style={{ color: "#4a3a6a" }}>Cost per cast</div>
+            <div style={{ color: getHouseColor(selectedAgent), fontWeight: 700 }}>
+              {Math.max(1, Math.round(selectedAgent.price_per_request * 100))} credits
+            </div>
+          </div>
+
+          {agentResult && (
+            <div style={{ background: "#0f0c1e", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>
+              <div style={{ color: "#4a3a6a", fontSize: 9, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+                Spell Result
+              </div>
+              {Object.entries(agentResult)
+                .filter(([k]) => !["market", "agent_id", "_mock"].includes(k))
+                .slice(0, 5)
+                .map(([k, v]) => (
+                  <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, lineHeight: 1.9 }}>
+                    <span style={{ color: "#5a4a7a" }}>{k}</span>
+                    <span style={{ color: "#e8d0a0", fontWeight: 700 }}>
+                      {typeof v === "number" ? (v % 1 !== 0 ? v.toFixed(3) : v) : String(v).toUpperCase()}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          <button onClick={() => runAgent(selectedAgent)} disabled={agentRunning} style={{
+            width: "100%", background: agentRunning ? "#1a1030" : getHouseColor(selectedAgent),
+            color: agentRunning ? "#4a3a6a" : "#fff",
+            border: "none", borderRadius: 8, padding: "10px",
+            fontSize: 13, fontWeight: 700, cursor: agentRunning ? "default" : "pointer",
+            letterSpacing: 0.5,
+          }}>
+            {agentRunning ? "Casting spell…" : agentResult ? "Cast Again" : "Cast Spell"}
+          </button>
+        </div>
+      )}
 
       <HousePointsUI housePoints={housePoints} />
       <BottomOverlay agents={agents} activeAgents={activeAgents} />
