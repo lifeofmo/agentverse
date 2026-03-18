@@ -473,6 +473,145 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
   );
 }
 
+// ── Friendly guide bubble ─────────────────────────────────────────────────────
+
+const GUIDE_STEPS = [
+  {
+    title: "Welcome to the Playground",
+    body: "This is where you chain AI agents together — like building an assembly line. Each agent does one job and passes its result to the next.",
+    cta: "Show me how",
+  },
+  {
+    title: "Step 1 — Pick an agent",
+    body: "See the panel on the left? Those are your agents. Drag one onto the canvas — try PriceFeedAgent or MomentumAgent.",
+    cta: "Got it",
+  },
+  {
+    title: "Step 2 — Connect them",
+    body: "Drag a second agent onto the canvas. Then hover over the first one — a dot appears on its right edge. Drag from that dot to the second agent.",
+    cta: "Got it",
+  },
+  {
+    title: "Step 3 — Run it",
+    body: "Hit the Run button at the top. Watch live data flow from agent to agent. Each one calls a real API and passes its result forward.",
+    cta: "Got it",
+  },
+  {
+    title: "That's it",
+    body: "You just built a real AI pipeline. Each call costs a tiny fee (fractions of a cent) — that's how developers earn on AgentVerse.",
+    cta: "Let's go",
+  },
+];
+
+function GuideTooltip() {
+  const [step, setStep]       = useState(0);
+  const [visible, setVisible] = useState(false);
+  const [open, setOpen]       = useState(true);
+
+  useEffect(() => {
+    if (localStorage.getItem("av_guide_done") !== "1") {
+      setVisible(true);
+    }
+  }, []);
+
+  const next = () => {
+    if (step < GUIDE_STEPS.length - 1) {
+      setStep((s) => s + 1);
+    } else {
+      localStorage.setItem("av_guide_done", "1");
+      setVisible(false);
+    }
+  };
+
+  const dismiss = () => {
+    localStorage.setItem("av_guide_done", "1");
+    setVisible(false);
+  };
+
+  const reopen = () => {
+    setStep(0);
+    setOpen(true);
+    setVisible(true);
+  };
+
+  const s = GUIDE_STEPS[step];
+
+  return (
+    <>
+      {/* Re-open button when dismissed */}
+      {!visible && (
+        <button onClick={reopen} style={{
+          position: "absolute", bottom: 90, left: 16, zIndex: 200,
+          background: "rgba(255,252,248,0.97)", border: "1px solid #e6d6bd",
+          borderRadius: 20, padding: "6px 14px",
+          fontSize: 11, fontWeight: 700, color: "#9aabb8",
+          cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+          display: "flex", alignItems: "center", gap: 6,
+        }}>
+          <span style={{ fontSize: 13 }}>?</span> How does this work?
+        </button>
+      )}
+
+      {/* Guide bubble */}
+      {visible && open && (
+        <div style={{
+          position: "absolute", bottom: 90, left: 16, zIndex: 200,
+          width: 270,
+          background: "rgba(255,252,248,0.99)", border: "1px solid #e6d6bd",
+          borderRadius: 16, padding: "16px",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+          animation: "spFadeUp 0.3s ease forwards",
+        }}>
+          {/* Progress dots */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+            {GUIDE_STEPS.map((_, i) => (
+              <div key={i} style={{
+                height: 3, flex: i === step ? 2 : 1,
+                borderRadius: 2,
+                background: i === step ? "#4a9fd4" : i < step ? "#4a9fd460" : "#e6d6bd",
+                transition: "all 0.3s ease",
+              }} />
+            ))}
+          </div>
+
+          {/* Avatar + title */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: "50%",
+              background: "linear-gradient(135deg, #4a9fd4, #6BCF8B)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, flexShrink: 0,
+            }}>A</div>
+            <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 13 }}>{s.title}</div>
+          </div>
+
+          {/* Body */}
+          <p style={{ color: "#6b7d92", fontSize: 12, lineHeight: 1.6, margin: "0 0 14px 0" }}>
+            {s.body}
+          </p>
+
+          {/* Actions */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <button onClick={dismiss} style={{
+              background: "none", border: "none", color: "#b8c4d0",
+              fontSize: 11, cursor: "pointer", padding: 0, fontWeight: 600,
+            }}>
+              Skip
+            </button>
+            <button onClick={next} style={{
+              background: "#4a9fd4", border: "none", color: "#fff",
+              borderRadius: 8, padding: "7px 16px",
+              fontSize: 12, fontWeight: 700, cursor: "pointer",
+            }}>
+              {s.cta}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Onboarding hints (shown on empty canvas) ─────────────────────────────────
 
 function OnboardingHints() {
@@ -1060,6 +1199,8 @@ function PlaygroundCanvas() {
 
       {/* Onboarding hints — only when canvas is empty */}
       {isEmpty && <OnboardingHints />}
+
+      <GuideTooltip />
 
       <Toolbar
         pipelineName={pipelineName} setPipelineName={setPipelineName}
