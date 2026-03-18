@@ -2235,8 +2235,7 @@ async def _health_loop():
 @app.on_event("startup")
 async def _startup():
     init_db()
-    # Seeding disabled — marketplace starts empty for real users
-    # _seed_if_empty()
+    _seed_if_empty()
     asyncio.create_task(_health_loop())
     logger.info("AgentVerse API started", extra={"status": "ok"})
     # Warm up the Redis queue pool (no-op if REDIS_URL not set)
