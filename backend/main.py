@@ -1948,8 +1948,10 @@ async def auth_login(req: LoginRequest):
     conn = get_db()
     row = conn.execute("SELECT * FROM users WHERE email = ? AND is_active = 1", (req.email.lower(),)).fetchone()
     conn.close()
-    if not row or not _verify_password(req.password, row["password_hash"]):
-        raise HTTPException(401, "Invalid email or password")
+    if not row:
+        raise HTTPException(401, "No account found with that email")
+    if not _verify_password(req.password, row["password_hash"]):
+        raise HTTPException(401, "Incorrect password")
     token = _create_token(row["id"])
     return {"token": token, "user_id": row["id"], "username": row["username"]}
 
