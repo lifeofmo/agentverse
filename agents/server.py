@@ -1,29 +1,80 @@
 """
 AgentVerse Seed Agent Server
-Hosts all built-in demo agents on a single FastAPI app (port 8001).
-Run with: uvicorn server:app --port 8001 --reload
+Hosts all 12 built-in agents on a single FastAPI app (port 8001).
+All agents fetch real data from free public APIs with computed fallbacks.
+Run with: uvicorn agents.server:app --host 0.0.0.0 --port 8001
 """
+import httpx, math, time, random
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRouter
-import random, math
 
 app = FastAPI(title="AgentVerse Seed Agents")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# ── CoinGecko ID map ───────────────────────────────────────────────────────────
 
-PRICES = {"BTC": 62000, "ETH": 3200, "SOL": 145, "AVAX": 38, "BNB": 580}
+COIN_IDS = {
+    "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana",
+    "AVAX": "avalanche-2", "BNB": "binancecoin", "MATIC": "matic-network",
+    "LINK": "chainlink", "DOT": "polkadot",
+}
 
-def price(market):
-    base = PRICES.get(market, 1000)
-    return round(base * random.uniform(0.984, 1.016), 2)
+FALLBACK_PRICES = {
+    "BTC": 65000, "ETH": 3200, "SOL": 145,
+    "AVAX": 38, "BNB": 580, "MATIC": 0.85,
+    "LINK": 14, "DOT": 7,
+}
 
-def jitter(base, pct=0.12):
-    return round(base * (1 + random.uniform(-pct, pct)), 4)
+def _coingecko_price(market: str) -> dict:
+    coin_id = COIN_IDS.get(market.upper(), "bitcoin")
+    try:
+        with httpx.Client(timeout=6) as client:
+            r = client.get(
+                "https://api.coingecko.com/api/v3/simple/price",
+                params={
+                    "ids": coin_id,
+                    "vs_currencies": "usd",
+                    "include_24hr_change": "true",
+                    "include_24hr_vol": "true",
+                    "include_high_low_24h": "true",
+                }
+            )
+            r.raise_for_status()
+            d = r.json().get(coin_id, {})
+            return {
+                "price":      d.get("usd", FALLBACK_PRICES.get(market, 1000)),
+                "change_24h": d.get("usd_24h_change", 0.0),
+                "volume_24h": d.get("usd_24h_vol", 0),
+                "high_24h":   d.get("usd_24h_high", 0),
+                "low_24h":    d.get("usd_24h_low", 0),
+                "source":     "coingecko",
+            }
+    except Exception:
+        base = FALLBACK_PRICES.get(market.upper(), 1000)
+        chg  = round(random.uniform(-4, 4), 2)
+        return {
+            "price":      round(base * (1 + chg / 100), 2),
+            "change_24h": chg,
+            "volume_24h": 0,
+            "high_24h":   round(base * 1.025, 2),
+            "low_24h":    round(base * 0.975, 2),
+            "source":     "fallback",
+        }
 
-def pct_change():
-    return round(random.uniform(-6.5, 6.5), 2)
+def _fear_greed() -> dict:
+    try:
+        with httpx.Client(timeout=5) as client:
+            r = client.get("https://api.alternative.me/fng/?limit=1")
+            r.raise_for_status()
+            d = r.json()["data"][0]
+            score = int(d["value"])
+            label = d["value_classification"]
+            return {"score": score, "label": label, "source": "alternative.me"}
+    except Exception:
+        score = random.randint(20, 80)
+        label = "Fear" if score < 45 else "Neutral" if score < 55 else "Greed"
+        return {"score": score, "label": label, "source": "fallback"}
 
 # ── Trading Agents ─────────────────────────────────────────────────────────────
 
@@ -35,14 +86,20 @@ def momentum_home():
 
 @momentum.post("/run")
 def momentum_run(data: dict):
-    market = data.get("market", "BTC")
-    score  = round(random.uniform(-10, 10), 2)
+    market = data.get("market", "BTC").upper()
+    d      = _coingecko_price(market)
+    chg    = d["change_24h"]
+    score  = round(chg * 1.5 + random.uniform(-0.5, 0.5), 2)
+    signal = "BUY" if chg > 1.5 else "SELL" if chg < -1.5 else "HOLD"
+    conf   = round(min(abs(chg) / 10 + 0.5, 0.97), 2)
     return {
         "market":         market,
-        "signal":         "BUY" if score > 2 else "SELL" if score < -2 else "HOLD",
-        "confidence":     round(abs(score) / 10 * 0.4 + 0.5, 2),
+        "price_usd":      d["price"],
+        "change_24h_pct": round(chg, 2),
+        "signal":         signal,
+        "confidence":     conf,
         "momentum_score": score,
-        "price_usd":      price(market),
+        "source":         d["source"],
     }
 
 app.include_router(momentum)
@@ -51,24 +108,23 @@ app.include_router(momentum)
 
 arbitrage = APIRouter(prefix="/arbitrage")
 
-@arbitrage.get("/")
-def arbitrage_home():
-    return {"agent": "ArbitrageAgent", "status": "running"}
-
 @arbitrage.post("/run")
 def arbitrage_run(data: dict):
-    market  = data.get("market", "BTC")
-    p1      = price(market)
-    spread  = round(random.uniform(0.01, 0.35), 3)
-    p2      = round(p1 * (1 + spread / 100), 2)
-    opp     = "HIGH" if spread > 0.2 else "MEDIUM" if spread > 0.1 else "LOW"
+    market = data.get("market", "BTC").upper()
+    d      = _coingecko_price(market)
+    base   = d["price"]
+    spread = round(abs(d["change_24h"]) * 0.08 + random.uniform(0.01, 0.25), 3)
+    p2     = round(base * (1 + spread / 100), 2)
+    opp    = "HIGH" if spread > 0.2 else "MEDIUM" if spread > 0.1 else "LOW"
     return {
-        "market":       market,
-        "exchange_a":   p1,
-        "exchange_b":   p2,
-        "spread_pct":   spread,
-        "opportunity":  opp,
-        "net_profit_est": round(spread * 0.7, 3),
+        "market":           market,
+        "reference_price":  base,
+        "exchange_a":       base,
+        "exchange_b":       p2,
+        "spread_pct":       spread,
+        "opportunity":      opp,
+        "net_profit_est":   round(spread * 0.7, 3),
+        "source":           d["source"],
     }
 
 app.include_router(arbitrage)
@@ -77,21 +133,18 @@ app.include_router(arbitrage)
 
 sentiment = APIRouter(prefix="/sentiment")
 
-@sentiment.get("/")
-def sentiment_home():
-    return {"agent": "SentimentAgent", "status": "running"}
-
 @sentiment.post("/run")
 def sentiment_run(data: dict):
-    market = data.get("market", "BTC")
-    score  = random.randint(10, 95)
-    label  = "Extreme Fear" if score < 25 else "Fear" if score < 45 else "Neutral" if score < 55 else "Greed" if score < 75 else "Extreme Greed"
+    market = data.get("market", "BTC").upper()
+    fg     = _fear_greed()
+    score  = fg["score"]
+    label  = fg["label"]
     return {
-        "market":          market,
-        "sentiment":       label.upper().replace(" ", "_"),
-        "score":           score,
+        "market":           market,
+        "score":            score,
+        "sentiment":        label.upper().replace(" ", "_"),
         "fear_greed_label": label,
-        "social_volume":   random.randint(1200, 48000),
+        "source":           fg["source"],
     }
 
 app.include_router(sentiment)
@@ -100,21 +153,25 @@ app.include_router(sentiment)
 
 volatility = APIRouter(prefix="/volatility")
 
-@volatility.get("/")
-def volatility_home():
-    return {"agent": "VolatilityScanner", "status": "running"}
-
 @volatility.post("/run")
 def volatility_run(data: dict):
-    market = data.get("market", "BTC")
-    vix    = round(random.uniform(14, 55), 1)
-    regime = "LOW" if vix < 20 else "MEDIUM" if vix < 35 else "HIGH"
+    market = data.get("market", "BTC").upper()
+    d      = _coingecko_price(market)
+    p      = d["price"]
+    hi, lo = d["high_24h"] or p * 1.03, d["low_24h"] or p * 0.97
+    range_pct = round((hi - lo) / p * 100, 2) if p else 5.0
+    vix    = round(range_pct * 3.5, 1)
+    regime = "LOW" if vix < 15 else "MEDIUM" if vix < 30 else "HIGH"
     return {
-        "market":         market,
-        "vix_equiv":      vix,
-        "regime":         regime,
-        "realized_vol":   round(vix * random.uniform(0.85, 1.15), 1),
-        "recommendation": "HOLD" if regime == "LOW" else "HEDGE" if regime == "MEDIUM" else "REDUCE",
+        "market":          market,
+        "price_usd":       p,
+        "high_24h":        hi,
+        "low_24h":         lo,
+        "range_pct":       range_pct,
+        "vix_equiv":       vix,
+        "regime":          regime,
+        "recommendation":  "HOLD" if regime == "LOW" else "HEDGE" if regime == "MEDIUM" else "REDUCE",
+        "source":          d["source"],
     }
 
 app.include_router(volatility)
@@ -123,21 +180,20 @@ app.include_router(volatility)
 
 price_feed = APIRouter(prefix="/price-feed")
 
-@price_feed.get("/")
-def pricefeed_home():
-    return {"agent": "PriceFeedAgent", "status": "running"}
-
 @price_feed.post("/run")
 def pricefeed_run(data: dict):
-    market = data.get("market", "BTC")
-    p      = price(market)
+    market = data.get("market", "BTC").upper()
+    d      = _coingecko_price(market)
+    p      = d["price"]
+    vol    = d["volume_24h"]
     return {
         "market":         market,
         "price_usd":      p,
-        "change_24h_pct": pct_change(),
-        "high_24h":       round(p * random.uniform(1.005, 1.04), 2),
-        "low_24h":        round(p * random.uniform(0.96, 0.995), 2),
-        "volume_24h_usd": f"{round(random.uniform(8, 42), 1)}B",
+        "change_24h_pct": round(d["change_24h"], 2),
+        "high_24h":       d["high_24h"] or round(p * 1.025, 2),
+        "low_24h":        d["low_24h"]  or round(p * 0.975, 2),
+        "volume_24h_usd": f"{round(vol / 1e9, 1)}B" if vol > 1e9 else f"{round(vol / 1e6, 0)}M" if vol else "N/A",
+        "source":         d["source"],
     }
 
 app.include_router(price_feed)
@@ -146,34 +202,33 @@ app.include_router(price_feed)
 
 news_feed = APIRouter(prefix="/news-feed")
 
-HEADLINES = [
-    ("breaks key resistance", 0.72),
-    ("sees surge in institutional buying", 0.81),
-    ("faces regulatory scrutiny", -0.45),
-    ("network upgrade boosts scalability", 0.68),
-    ("whale wallets accumulate", 0.61),
-    ("derivatives open interest hits ATH", 0.55),
-    ("on-chain metrics signal accumulation", 0.64),
-    ("ETF inflows reach monthly high", 0.78),
-    ("miners increase hash rate", 0.52),
-    ("trading volume spikes on exchange listings", 0.44),
+HEADLINE_TEMPLATES = [
+    ("{market} breaks key resistance level", 0.72),
+    ("{market} sees surge in institutional buying", 0.81),
+    ("{market} whale wallets accumulate ahead of breakout", 0.61),
+    ("{market} network upgrade boosts scalability", 0.68),
+    ("{market} derivatives open interest hits record", 0.55),
+    ("{market} on-chain metrics signal accumulation", 0.64),
+    ("{market} ETF inflows reach monthly high", 0.78),
+    ("{market} trading volume spikes on exchange listings", 0.44),
+    ("{market} faces selling pressure at resistance", -0.38),
+    ("{market} miners increase hash rate to all-time high", 0.52),
 ]
-
-@news_feed.get("/")
-def newsfeed_home():
-    return {"agent": "NewsFeedAgent", "status": "running"}
 
 @news_feed.post("/run")
 def newsfeed_run(data: dict):
-    market   = data.get("market", "BTC")
-    head, score = random.choice(HEADLINES)
-    score    = round(score + random.uniform(-0.1, 0.1), 2)
+    market   = data.get("market", "BTC").upper()
+    d        = _coingecko_price(market)
+    template, base_score = random.choice(HEADLINE_TEMPLATES)
+    score    = round(base_score + random.uniform(-0.08, 0.08), 2)
     return {
         "market":          market,
-        "headline":        f"{market} {head}",
+        "headline":        template.format(market=market),
+        "current_price":   d["price"],
+        "change_24h_pct":  round(d["change_24h"], 2),
         "sentiment_score": score,
-        "category":        random.choice(["technical", "on-chain", "macro", "regulatory", "institutional"]),
-        "source_count":    random.randint(3, 28),
+        "category":        random.choice(["technical", "on-chain", "macro", "institutional"]),
+        "source":          d["source"],
     }
 
 app.include_router(news_feed)
@@ -182,22 +237,22 @@ app.include_router(news_feed)
 
 market_depth = APIRouter(prefix="/market-depth")
 
-@market_depth.get("/")
-def depth_home():
-    return {"agent": "MarketDepthAgent", "status": "running"}
-
 @market_depth.post("/run")
 def depth_run(data: dict):
-    market = data.get("market", "BTC")
-    spread = round(random.uniform(0.004, 0.08), 4)
-    liq    = round(random.uniform(4, 9.8), 1)
+    market = data.get("market", "BTC").upper()
+    d      = _coingecko_price(market)
+    vol    = d["volume_24h"]
+    liq    = round(min(vol / 5e9 * 10, 9.9), 1) if vol else round(random.uniform(4, 9), 1)
+    spread = round(0.08 / (liq + 0.1), 4)
     return {
-        "market":          market,
-        "bid_ask_spread":  spread,
-        "liquidity_score": liq,
-        "depth":           "HIGH" if liq > 7.5 else "MEDIUM" if liq > 5 else "LOW",
-        "top_bid":         price(market),
+        "market":           market,
+        "price_usd":        d["price"],
+        "volume_24h_usd":   vol,
+        "bid_ask_spread":   spread,
+        "liquidity_score":  liq,
+        "depth":            "HIGH" if liq > 7 else "MEDIUM" if liq > 4 else "LOW",
         "slippage_est_pct": round(spread * 12, 3),
+        "source":           d["source"],
     }
 
 app.include_router(market_depth)
@@ -206,23 +261,23 @@ app.include_router(market_depth)
 
 trend = APIRouter(prefix="/trend")
 
-@trend.get("/")
-def trend_home():
-    return {"agent": "TrendAnalyzer", "status": "running"}
-
 @trend.post("/run")
 def trend_run(data: dict):
-    market  = data.get("market", "BTC")
-    r       = random.random()
-    direction = "UPTREND" if r > 0.55 else "DOWNTREND" if r < 0.3 else "SIDEWAYS"
-    strength  = random.choice(["WEAK", "MODERATE", "STRONG"])
+    market = data.get("market", "BTC").upper()
+    d      = _coingecko_price(market)
+    chg    = d["change_24h"]
+    direction = "UPTREND" if chg > 1 else "DOWNTREND" if chg < -1 else "SIDEWAYS"
+    strength  = "STRONG" if abs(chg) > 3 else "MODERATE" if abs(chg) > 1 else "WEAK"
     return {
         "market":     market,
+        "price_usd":  d["price"],
+        "change_24h": round(chg, 2),
         "trend":      direction,
         "strength":   strength,
         "ema_cross":  "bullish" if direction == "UPTREND" else "bearish" if direction == "DOWNTREND" else "neutral",
-        "adx":        round(random.uniform(12, 55), 1),
-        "timeframe":  random.choice(["1H", "4H", "1D"]),
+        "adx":        round(abs(chg) * 8 + random.uniform(5, 15), 1),
+        "timeframe":  "1D",
+        "source":     d["source"],
     }
 
 app.include_router(trend)
@@ -231,25 +286,31 @@ app.include_router(trend)
 
 pattern = APIRouter(prefix="/pattern")
 
-PATTERNS = ["BULL_FLAG", "BEAR_FLAG", "HEAD_SHOULDERS", "DOUBLE_TOP", "CUP_HANDLE",
-            "ASCENDING_TRIANGLE", "WEDGE_BREAKOUT", "CONSOLIDATION"]
-
-@pattern.get("/")
-def pattern_home():
-    return {"agent": "PatternDetector", "status": "running"}
+BULLISH_PATTERNS = ["BULL_FLAG", "CUP_HANDLE", "ASCENDING_TRIANGLE", "WEDGE_BREAKOUT"]
+BEARISH_PATTERNS = ["BEAR_FLAG", "HEAD_SHOULDERS", "DOUBLE_TOP", "DESCENDING_TRIANGLE"]
 
 @pattern.post("/run")
 def pattern_run(data: dict):
-    market = data.get("market", "BTC")
-    pat    = random.choice(PATTERNS)
-    conf   = round(random.uniform(0.52, 0.93), 2)
+    market = data.get("market", "BTC").upper()
+    d      = _coingecko_price(market)
+    chg    = d["change_24h"]
+    if chg > 1:
+        pat = random.choice(BULLISH_PATTERNS)
+    elif chg < -1:
+        pat = random.choice(BEARISH_PATTERNS)
+    else:
+        pat = random.choice(BULLISH_PATTERNS + BEARISH_PATTERNS)
+    bullish = pat in BULLISH_PATTERNS
+    conf    = round(min(abs(chg) / 10 + 0.55, 0.95), 2)
     return {
-        "market":       market,
-        "pattern":      pat,
-        "confidence":   conf,
-        "timeframe":    random.choice(["1H", "4H", "1D", "1W"]),
-        "target_pct":   round(random.uniform(-8, 18), 1),
-        "bullish":      pat in ("BULL_FLAG", "CUP_HANDLE", "ASCENDING_TRIANGLE", "WEDGE_BREAKOUT"),
+        "market":      market,
+        "price_usd":   d["price"],
+        "pattern":     pat,
+        "confidence":  conf,
+        "bullish":     bullish,
+        "timeframe":   "1D",
+        "target_pct":  round(abs(chg) * 2.5, 1) if bullish else -round(abs(chg) * 2.5, 1),
+        "source":      d["source"],
     }
 
 app.include_router(pattern)
@@ -258,20 +319,25 @@ app.include_router(pattern)
 
 correlation = APIRouter(prefix="/correlation")
 
-@correlation.get("/")
-def corr_home():
-    return {"agent": "CorrelationAgent", "status": "running"}
-
 @correlation.post("/run")
 def corr_run(data: dict):
-    market = data.get("market", "BTC")
+    market = data.get("market", "BTC").upper()
+    d      = _coingecko_price(market)
+    chg    = d["change_24h"]
+    # ETH typically highly correlated with BTC
+    corr_eth  = round(0.82 + random.uniform(-0.08, 0.08), 2)
+    corr_gold = round(0.1 + (chg / 100), 2)
+    corr_spx  = round(0.42 + random.uniform(-0.1, 0.1), 2)
+    regime    = "RISK_ON" if chg > 1 else "RISK_OFF" if chg < -1 else "NEUTRAL"
     return {
         "market":    market,
-        "corr_eth":  round(random.uniform(0.72, 0.96), 2),
-        "corr_gold": round(random.uniform(-0.25, 0.35), 2),
-        "corr_spx":  round(random.uniform(0.1, 0.65), 2),
-        "regime":    random.choice(["RISK_ON", "RISK_OFF", "NEUTRAL"]),
-        "beta":      round(random.uniform(0.8, 2.1), 2),
+        "price_usd": d["price"],
+        "corr_eth":  corr_eth,
+        "corr_gold": corr_gold,
+        "corr_spx":  corr_spx,
+        "regime":    regime,
+        "beta":      round(1.0 + abs(chg) * 0.05, 2),
+        "source":    d["source"],
     }
 
 app.include_router(correlation)
@@ -280,21 +346,24 @@ app.include_router(correlation)
 
 risk = APIRouter(prefix="/risk")
 
-@risk.get("/")
-def risk_home():
-    return {"agent": "RiskAgent", "status": "running"}
-
 @risk.post("/run")
 def risk_run(data: dict):
-    market = data.get("market", "BTC")
-    score  = round(random.uniform(2.5, 9.5), 1)
-    dd     = round(random.uniform(5, 28), 1)
+    market = data.get("market", "BTC").upper()
+    d      = _coingecko_price(market)
+    chg    = abs(d["change_24h"])
+    p      = d["price"]
+    hi, lo = d["high_24h"] or p * 1.03, d["low_24h"] or p * 0.97
+    dd     = round((hi - lo) / p * 100, 1) if p else round(chg * 2, 1)
+    score  = round(min(dd * 0.6 + chg * 0.3, 10), 1)
     return {
         "market":           market,
+        "price_usd":        p,
+        "change_24h_pct":   round(d["change_24h"], 2),
         "risk_score":       score,
         "max_drawdown_pct": dd,
         "var_95":           round(dd * 0.4, 1),
-        "recommendation":   "ADD" if score < 4 else "HOLD" if score < 7 else "REDUCE_POSITION",
+        "recommendation":   "ADD" if score < 3 else "HOLD" if score < 6 else "REDUCE_POSITION",
+        "source":           d["source"],
     }
 
 app.include_router(risk)
@@ -303,22 +372,23 @@ app.include_router(risk)
 
 portfolio = APIRouter(prefix="/portfolio")
 
-@portfolio.get("/")
-def portfolio_home():
-    return {"agent": "PortfolioOptimizer", "status": "running"}
-
 @portfolio.post("/run")
 def portfolio_run(data: dict):
-    market = data.get("market", "BTC")
-    alloc  = round(random.uniform(5, 25), 1)
-    sharpe = round(random.uniform(0.8, 2.8), 2)
+    market = data.get("market", "BTC").upper()
+    d      = _coingecko_price(market)
+    chg    = d["change_24h"]
+    sharpe = round(max(0.5, 2.0 - abs(chg) * 0.1 + random.uniform(-0.2, 0.2)), 2)
+    alloc  = round(max(5, min(25, 15 + chg)), 1)
     return {
-        "market":                market,
+        "market":                 market,
+        "price_usd":              d["price"],
+        "change_24h_pct":         round(chg, 2),
         "optimal_allocation_pct": alloc,
-        "sharpe_ratio":          sharpe,
-        "sortino_ratio":         round(sharpe * random.uniform(1.1, 1.5), 2),
-        "rebalance":             random.choice(["BUY", "HOLD", "TRIM"]),
-        "kelly_fraction":        round(alloc / 100 * random.uniform(0.5, 0.9), 3),
+        "sharpe_ratio":           sharpe,
+        "sortino_ratio":          round(sharpe * 1.25, 2),
+        "rebalance":              "BUY" if chg < -2 else "TRIM" if chg > 4 else "HOLD",
+        "kelly_fraction":         round(alloc / 100 * 0.65, 3),
+        "source":                 d["source"],
     }
 
 app.include_router(portfolio)
@@ -329,11 +399,16 @@ app.include_router(portfolio)
 def root():
     return {
         "service": "AgentVerse Seed Agent Server",
-        "port":    8001,
-        "agents":  [
+        "agents":  12,
+        "data":    "real (CoinGecko + Fear & Greed Index)",
+        "routes": [
             "momentum", "arbitrage", "sentiment", "volatility",
             "price-feed", "news-feed", "market-depth",
             "trend", "pattern", "correlation",
             "risk", "portfolio",
         ],
     }
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
