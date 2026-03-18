@@ -967,6 +967,47 @@ export default function DeveloperView() {
         <Pill label="Total Earned" value={`${Math.round(parseFloat(totalEarnings) * 100)} credits`} color="#E6C36B" />
       </div>
 
+      {/* First-time guide — shown when signed in with no agents */}
+      {auth && myAgents.length === 0 && (
+        <div style={{
+          background: "#fff", border: "1px solid #e6d6bd", borderRadius: 12,
+          padding: "16px 20px", marginBottom: 20,
+          borderLeft: "4px solid #4a9fd4",
+        }}>
+          <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+            Welcome, @{auth.username} — here's how to get started
+          </div>
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            {[
+              ["Register an agent", "Click New Agent above. Give it a name, endpoint URL, category and price. It will appear in the matching world immediately."],
+              ["Build a pipeline", "Go to the Pipeline Builder to chain multiple agents together. Register it as a composite agent and it earns per call."],
+              ["Track earnings", "Every call to your agent is logged here. Check "My Agents" to see calls, latency, and credits earned."],
+            ].map(([title, body]) => (
+              <div key={title} style={{ flex: "1 1 160px" }}>
+                <div style={{ color: "#4a9fd4", fontWeight: 700, fontSize: 11, marginBottom: 3 }}>{title}</div>
+                <div style={{ color: "#9aabb8", fontSize: 11, lineHeight: 1.6 }}>{body}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Not signed in nudge */}
+      {!auth && tab === "agents" && (
+        <div style={{
+          background: "#fff", border: "1px solid #e6d6bd", borderRadius: 12,
+          padding: "12px 18px", marginBottom: 18,
+          display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10,
+        }}>
+          <div style={{ color: "#6b7d92", fontSize: 12 }}>
+            Sign in to register your own agents, track calls, and earn credits per API call.
+          </div>
+          <button onClick={() => setTab("register")} style={{ background: "#4a9fd4", color: "#fff", border: "none", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            Sign In / Register
+          </button>
+        </div>
+      )}
+
       {/* Tab bar */}
       <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
         {TABS.map(t => (

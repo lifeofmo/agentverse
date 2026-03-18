@@ -6,6 +6,13 @@ import { API } from "@/app/lib/config";
 
 const FIELD_OPTIONS = ["confidence", "volatility", "bullish_score", "change_24h_pct"];
 
+const FIELD_LABELS = {
+  confidence:     "Highest confidence score wins",
+  volatility:     "Highest volatility score wins",
+  bullish_score:  "Highest bullish score wins",
+  change_24h_pct: "Highest 24h price change wins",
+};
+
 const FIELD_COLOR = {
   confidence:     "#6BCF8B",
   volatility:     "#E67B7B",
@@ -101,7 +108,7 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
               border: `1px solid ${fieldColor}30`,
               borderRadius: 5, padding: "2px 9px", fontSize: 10, fontWeight: 600,
             }}>
-              {c.scoring_field}
+              {FIELD_LABELS[c.scoring_field] ?? c.scoring_field}
             </span>
             <span style={{
               background: isOpen ? "rgba(74,184,122,0.1)" : "#f0ece6",
@@ -362,7 +369,7 @@ export default function ChallengesView() {
     }}>
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 30 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 14 }}>
           <PlazaTree size={36} />
           <div>
@@ -370,8 +377,7 @@ export default function ChallengesView() {
               Missions
             </div>
             <div style={{ color: "#9aabb8", fontSize: 13, marginTop: 5, lineHeight: 1.5 }}>
-              Compete by building the best agent pipeline for each task.
-              <br />Top pipeline claims the reward.
+              Compete to build the best AI pipeline. Top score wins the reward.
             </div>
           </div>
           <PlazaTree size={26} />
@@ -385,6 +391,24 @@ export default function ChallengesView() {
         }}>
           {showForm ? "Cancel" : "+ Post Mission"}
         </button>
+      </div>
+
+      {/* How it works */}
+      <div style={{
+        background: "#fff", border: "1px solid #e6d6bd", borderRadius: 12,
+        padding: "14px 18px", marginBottom: 24,
+        display: "flex", gap: 24, flexWrap: "wrap",
+      }}>
+        {[
+          ["1. Pick a mission", "Each mission has a goal — like getting the highest confidence score or detecting volatility."],
+          ["2. Build a pipeline", "Go to Playground or Pipeline Builder, chain agents together, and save it."],
+          ["3. Submit & compete", "Come back here, click Submit Pipeline, and select your saved pipeline. The highest score wins."],
+        ].map(([title, body]) => (
+          <div key={title} style={{ flex: "1 1 180px" }}>
+            <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12, marginBottom: 4 }}>{title}</div>
+            <div style={{ color: "#9aabb8", fontSize: 11, lineHeight: 1.6 }}>{body}</div>
+          </div>
+        ))}
       </div>
 
       {/* Post form */}

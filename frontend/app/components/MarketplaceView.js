@@ -336,6 +336,24 @@ export default function MarketplaceView() {
         <PlazaTree size={28} />
       </div>
 
+      {/* How it works */}
+      <div style={{
+        background: "#fff", border: "1px solid #e6d6bd", borderRadius: 12,
+        padding: "14px 18px", marginBottom: 20,
+        display: "flex", gap: 24, flexWrap: "wrap",
+      }}>
+        {[
+          ["Credits", "1 credit = $0.01. Each agent call costs a small amount. Your demo wallet starts with 10,000 credits (worth $100)."],
+          ["Try it", "Click Try it on any agent to call it live with real BTC data. The result appears instantly below the card."],
+          ["Build Pipeline", "Click + Build Pipeline to open the Pipeline Builder and chain this agent with others into a workflow."],
+        ].map(([title, body]) => (
+          <div key={title} style={{ flex: "1 1 180px" }}>
+            <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12, marginBottom: 4 }}>{title}</div>
+            <div style={{ color: "#9aabb8", fontSize: 11, lineHeight: 1.6 }}>{body}</div>
+          </div>
+        ))}
+      </div>
+
       {/* Filter strip */}
       <FilterStrip active={filter} onChange={setFilter} />
 

@@ -514,9 +514,21 @@ def _seed_if_empty():
         conn.execute("INSERT INTO pipelines VALUES (?, ?, ?)",
                      (str(uuid.uuid4()), pname, json.dumps(ids)))
 
+    # Seed starter challenges
+    CHALLENGES = [
+        ("Beat the Market",    "Build a pipeline that returns the highest confidence BUY signal on BTC. Chain sentiment + momentum agents for the best score.", 100, "confidence",     "open"),
+        ("Volatility Hunter",  "Detect the most extreme volatility regime using live market data. Highest volatility score wins.", 50,  "volatility",     "open"),
+        ("Bull Detector",      "Build a pipeline with the highest bullish score on BTC. Combine trend, pattern, and momentum agents.", 75,  "bullish_score",  "open"),
+    ]
+    for title, desc, reward, field, status in CHALLENGES:
+        conn.execute(
+            "INSERT INTO challenges (id, title, description, reward, scoring_field, status) VALUES (?, ?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), title, desc, reward, field, status)
+        )
+
     conn.commit()
     conn.close()
-    print("✓ AgentVerse: seeded 12 demo agents and 4 pipelines")
+    print("✓ AgentVerse: seeded 12 demo agents, 4 pipelines, 3 challenges")
 
 
 # ── Startup handled by @app.on_event("startup") at bottom of file ─────────────

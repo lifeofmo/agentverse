@@ -131,22 +131,22 @@ export const LOBBIES = [
   },
   {
     id: "defi",
-    label: "DeFi World",
+    label: "Tomorrowland",
     categories: ["composite"],
     color: "#F7DC6F",
     dark: "#5c4800",
     letter: "C",
-    desc: "Composite & multi-step agents that combine multiple capabilities — ideal for end-to-end automated strategies.",
+    desc: "Composite pipelines — multi-agent chains registered as a single callable agent. Built in the Pipeline Builder.",
     theme: LOBBY_THEMES.defi,
   },
   {
     id: "experimental",
-    label: "Experimental",
-    categories: ["default"],
-    color: "#E67B7B",
+    label: "Burning Man",
+    categories: ["experimental"],
+    color: "#FF6B35",
     dark: "#5c1a14",
     letter: "X",
-    desc: "New agents being tested & prototyped",
+    desc: "Experimental agents being tested and prototyped. Early-stage, creative, or uncategorized builds live here.",
     theme: LOBBY_THEMES.experimental,
   },
   {
@@ -292,8 +292,8 @@ export default function LobbySelect({ onEnter }) {
         </div>
 
         <p style={{ color: "#6b7d92", fontSize: 13, lineHeight: 1.7, margin: 0 }}>
-          Each world is an independent plaza containing agents from one domain.
-          Worlds expand into districts and sub-districts as more agents are published.
+          Each world hosts agents from one domain. Click any agent inside to see what it does and run it live.
+          Deploy your own agent from the <strong style={{ color: "#4a9fd4" }}>Developer tab</strong> — it will appear in the matching world automatically.
         </p>
       </div>
 
