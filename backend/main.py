@@ -1946,10 +1946,15 @@ async def auth_register(req: RegisterRequest):
 @app.post("/auth/login", tags=["auth"])
 async def auth_login(req: LoginRequest):
     conn = get_db()
-    row = conn.execute("SELECT * FROM users WHERE email = ? AND is_active = 1", (req.email.lower(),)).fetchone()
+    identifier = req.email.lower().strip()
+    # Accept email or username
+    row = conn.execute(
+        "SELECT * FROM users WHERE (email = ? OR LOWER(username) = ?) AND is_active = 1",
+        (identifier, identifier)
+    ).fetchone()
     conn.close()
     if not row:
-        raise HTTPException(401, "No account found with that email")
+        raise HTTPException(401, "No account found with that email or username")
     if not _verify_password(req.password, row["password_hash"]):
         raise HTTPException(401, "Incorrect password")
     token = _create_token(row["id"])
