@@ -5,64 +5,70 @@ import { API } from "@/app/lib/config";
 import { fetchWithX402 } from "@/app/lib/x402";
 import { useWallet } from "./WalletProvider";
 
-// ── Palette ───────────────────────────────────────────────────────────────────
+// ── Category config ───────────────────────────────────────────────────────────
 const CAT = {
-  trading:   { border: "#6BCF8B", bg: "#f0fdf5", text: "#1a5c3a", label: "Trading Signals", letter: "T" },
-  analysis:  { border: "#B59CE6", bg: "#f8f5ff", text: "#3d2580", label: "Analysis",         letter: "A" },
-  data:      { border: "#6BB6E6", bg: "#f0f8ff", text: "#1a4d7a", label: "Market Data",      letter: "D" },
-  risk:      { border: "#E67B7B", bg: "#fff4f4", text: "#7a1a1a", label: "Risk & Portfolio",  letter: "R" },
-  composite: { border: "#E6C36B", bg: "#fffcf0", text: "#7a5a0a", label: "Full Workflows",   letter: "C" },
-  default:   { border: "#9aabb8", bg: "#f5f7fa", text: "#3d5470", label: "Other",            letter: "·" },
+  trading:   { icon: "📈", color: "#10b981", pill: "#ecfdf5", text: "#065f46", label: "Trading" },
+  analysis:  { icon: "🔍", color: "#8b5cf6", pill: "#f5f3ff", text: "#3730a3", label: "Analysis" },
+  data:      { icon: "⚡", color: "#3b82f6", pill: "#eff6ff", text: "#1e40af", label: "Market Data" },
+  risk:      { icon: "🛡️", color: "#ef4444", pill: "#fef2f2", text: "#991b1b", label: "Risk" },
+  composite: { icon: "🔗", color: "#f59e0b", pill: "#fffbeb", text: "#92400e", label: "Workflow" },
+  default:   { icon: "🤖", color: "#6b7280", pill: "#f9fafb", text: "#374151", label: "Agent" },
 };
 const cat = (c) => CAT[c] ?? CAT.default;
 const toCredits = (usd) => Math.max(1, Math.round(usd * 100));
 
-// ── Human-readable key map ────────────────────────────────────────────────────
+// ── Human-readable output keys ────────────────────────────────────────────────
 const KEY_MAP = {
-  price_usd:        { label: "Price",            fmt: v => `$${Number(v).toLocaleString()}` },
-  change_24h_pct:   { label: "24h Change",       fmt: v => `${v > 0 ? "+" : ""}${Number(v).toFixed(2)}%` },
-  signal:           { label: "Signal",           fmt: v => String(v).toUpperCase() },
-  confidence:       { label: "Confidence",       fmt: v => `${Math.round(Number(v) * 100)}%` },
-  momentum_score:   { label: "Momentum",         fmt: v => Number(v).toFixed(2) },
-  fear_greed_value: { label: "Fear & Greed",     fmt: v => `${v} / 100` },
-  fear_greed_label: { label: "Sentiment",        fmt: v => String(v) },
-  volatility:       { label: "Volatility",       fmt: v => Number(v).toFixed(3) },
-  regime:           { label: "Market Regime",    fmt: v => String(v).toUpperCase() },
-  opportunity:      { label: "Opportunity",      fmt: v => String(v).toUpperCase() },
-  spread_pct:       { label: "Price Spread",     fmt: v => `${Number(v).toFixed(3)}%` },
-  liquidity_score:  { label: "Liquidity",        fmt: v => `${Number(v).toFixed(1)} / 10` },
-  trend:            { label: "Trend",            fmt: v => String(v).toUpperCase() },
-  strength:         { label: "Strength",         fmt: v => Number(v).toFixed(2) },
-  risk_score:       { label: "Risk Score",       fmt: v => `${Number(v).toFixed(1)} / 10` },
-  sharpe_ratio:     { label: "Sharpe Ratio",     fmt: v => Number(v).toFixed(2) },
-  recommendation:   { label: "Recommendation",   fmt: v => String(v).toUpperCase() },
-  pattern:          { label: "Pattern",          fmt: v => String(v) },
-  var_pct:          { label: "Value at Risk",    fmt: v => `${Number(v).toFixed(2)}%` },
-  max_drawdown:     { label: "Max Drawdown",     fmt: v => `${Number(v).toFixed(2)}%` },
-  depth_score:      { label: "Depth Score",      fmt: v => Number(v).toFixed(2) },
-  correlation:      { label: "Correlation",      fmt: v => Number(v).toFixed(2) },
+  price_usd:        { label: "Price",          fmt: v => `$${Number(v).toLocaleString()}` },
+  change_24h_pct:   { label: "24h Change",     fmt: v => `${v > 0 ? "+" : ""}${Number(v).toFixed(2)}%` },
+  signal:           { label: "Signal",         fmt: v => String(v).toUpperCase() },
+  confidence:       { label: "Confidence",     fmt: v => `${Math.round(Number(v) * 100)}%` },
+  momentum_score:   { label: "Momentum",       fmt: v => Number(v).toFixed(2) },
+  fear_greed_value: { label: "Fear & Greed",   fmt: v => `${v} / 100` },
+  fear_greed_label: { label: "Sentiment",      fmt: v => String(v) },
+  volatility:       { label: "Volatility",     fmt: v => Number(v).toFixed(3) },
+  regime:           { label: "Market Regime",  fmt: v => String(v).toUpperCase() },
+  opportunity:      { label: "Opportunity",    fmt: v => String(v).toUpperCase() },
+  spread_pct:       { label: "Price Spread",   fmt: v => `${Number(v).toFixed(3)}%` },
+  liquidity_score:  { label: "Liquidity",      fmt: v => `${Number(v).toFixed(1)} / 10` },
+  trend:            { label: "Trend",          fmt: v => String(v).toUpperCase() },
+  strength:         { label: "Strength",       fmt: v => Number(v).toFixed(2) },
+  risk_score:       { label: "Risk Score",     fmt: v => `${Number(v).toFixed(1)} / 10` },
+  sharpe_ratio:     { label: "Sharpe Ratio",   fmt: v => Number(v).toFixed(2) },
+  recommendation:   { label: "Recommendation", fmt: v => String(v).toUpperCase() },
+  var_pct:          { label: "Value at Risk",  fmt: v => `${Number(v).toFixed(2)}%` },
+  max_drawdown:     { label: "Max Drawdown",   fmt: v => `${Number(v).toFixed(2)}%` },
+  correlation:      { label: "Correlation",    fmt: v => Number(v).toFixed(2) },
 };
 const SKIP = new Set(["market", "agent_id", "_mock", "source", "exchange_a", "exchange_b",
   "reference_price", "high_24h", "low_24h", "volume_24h_usd"]);
 
-// ── What this means ───────────────────────────────────────────────────────────
+// ── Insight engine ────────────────────────────────────────────────────────────
 function getInsight(result) {
   if (!result) return null;
-  if (result.signal === "BUY")        return { text: "Strong buy signal — momentum and conditions favor entering a position.", color: "#065f46", bg: "#d1fae5" };
-  if (result.signal === "SELL")       return { text: "Bearish signal — consider reducing exposure or waiting for a reversal.", color: "#991b1b", bg: "#fee2e2" };
-  if (result.signal === "HOLD")       return { text: "Mixed signals right now — no clear edge. Wait for confirmation before acting.", color: "#92400e", bg: "#fef3c7" };
-  if (result.opportunity === "HIGH")  return { text: `Price gap detected: ${Number(result.spread_pct || 0).toFixed(3)}% spread across exchanges — potential arbitrage window.`, color: "#1a4d7a", bg: "#dbeafe" };
-  if (result.opportunity === "LOW")   return { text: "No significant arbitrage gap at the moment. Markets are closely aligned.", color: "#6b7d92", bg: "#f5f7fa" };
-  if ((result.fear_greed_value ?? 50) < 25) return { text: "Extreme fear in the market — historically a contrarian buy signal. Risk is high but so is potential reward.", color: "#065f46", bg: "#d1fae5" };
-  if ((result.fear_greed_value ?? 50) > 75) return { text: "Extreme greed — market may be overextended. Consider locking in profits.", color: "#991b1b", bg: "#fee2e2" };
-  if (result.trend === "UPTREND")     return { text: "Market is trending up — bulls are in control. Momentum favors long positions.", color: "#065f46", bg: "#d1fae5" };
-  if (result.trend === "DOWNTREND")   return { text: "Downtrend in progress — bears are in control. Be cautious with longs.", color: "#991b1b", bg: "#fee2e2" };
-  if (result.trend === "SIDEWAYS")    return { text: "No clear trend — market is consolidating. Wait for a breakout before committing.", color: "#92400e", bg: "#fef3c7" };
-  if ((result.risk_score ?? 5) > 7)  return { text: "High risk environment — reduce position sizes and tighten stop losses.", color: "#991b1b", bg: "#fee2e2" };
-  if ((result.risk_score ?? 5) < 4)  return { text: "Low risk conditions — market is stable and volatility is subdued.", color: "#065f46", bg: "#d1fae5" };
-  if (result.price_usd)               return { text: `Live price fetched. Feed this into a Momentum or Sentiment agent to get a trading signal.`, color: "#1a4d7a", bg: "#dbeafe" };
-  return { text: "Agent returned live market data successfully.", color: "#3d5470", bg: "#f5f7fa" };
+  if (result.signal === "BUY")       return { icon: "🟢", text: "Strong buy signal — momentum and conditions favor entering a position.", tone: "green" };
+  if (result.signal === "SELL")      return { icon: "🔴", text: "Bearish signal — consider reducing exposure or waiting for a reversal.", tone: "red" };
+  if (result.signal === "HOLD")      return { icon: "🟡", text: "Mixed signals — no clear edge. Wait for confirmation before acting.", tone: "yellow" };
+  if (result.opportunity === "HIGH") return { icon: "💡", text: `Price gap detected: ${Number(result.spread_pct || 0).toFixed(3)}% spread — potential arbitrage window.`, tone: "blue" };
+  if (result.opportunity === "LOW")  return { icon: "💤", text: "No significant arbitrage gap right now. Markets are closely aligned.", tone: "gray" };
+  if ((result.fear_greed_value ?? 50) < 25) return { icon: "😱", text: "Extreme fear — historically a contrarian buy signal. High risk, high potential.", tone: "green" };
+  if ((result.fear_greed_value ?? 50) > 75) return { icon: "🤑", text: "Extreme greed — market may be overextended. Consider taking profits.", tone: "red" };
+  if (result.trend === "UPTREND")    return { icon: "🚀", text: "Market is trending up — bulls in control. Momentum favors longs.", tone: "green" };
+  if (result.trend === "DOWNTREND")  return { icon: "📉", text: "Downtrend in progress — be cautious with long positions.", tone: "red" };
+  if (result.trend === "SIDEWAYS")   return { icon: "↔️", text: "Consolidating — wait for a breakout before committing.", tone: "yellow" };
+  if ((result.risk_score ?? 5) > 7) return { icon: "⚠️", text: "High risk environment — reduce size, tighten stops.", tone: "red" };
+  if ((result.risk_score ?? 5) < 4) return { icon: "✅", text: "Low risk conditions — volatility is subdued.", tone: "green" };
+  if (result.price_usd)             return { icon: "📊", text: "Live price fetched. Feed into Momentum or Sentiment agent to generate a signal.", tone: "blue" };
+  return { icon: "✅", text: "Agent returned live market data successfully.", tone: "gray" };
 }
+
+const TONE = {
+  green:  { bg: "#f0fdf4", border: "#bbf7d0", color: "#15803d" },
+  red:    { bg: "#fef2f2", border: "#fecaca", color: "#b91c1c" },
+  yellow: { bg: "#fefce8", border: "#fde68a", color: "#a16207" },
+  blue:   { bg: "#eff6ff", border: "#bfdbfe", color: "#1d4ed8" },
+  gray:   { bg: "#f9fafb", border: "#e5e7eb", color: "#6b7280" },
+};
 
 // ── Pair suggestions ──────────────────────────────────────────────────────────
 const PAIRS = {
@@ -75,77 +81,47 @@ const PAIRS = {
 
 const MARKETS = ["BTC", "ETH", "SOL", "AVAX", "BNB"];
 
-// ── Featured Workflows ────────────────────────────────────────────────────────
+// ── Featured workflows ────────────────────────────────────────────────────────
 const WORKFLOWS = [
-  {
-    name: "Market Signal",
-    tagline: "Get a live BUY/SELL/HOLD call on any crypto asset",
-    steps: ["Price Feed", "Sentiment", "Momentum"],
-    output: "Signal · Confidence · Momentum score",
-    color: "#6BCF8B",
-  },
-  {
-    name: "Risk Check",
-    tagline: "Know your exposure before entering a trade",
-    steps: ["Volatility", "Risk Score", "Portfolio Optimizer"],
-    output: "Risk score · VaR · Recommended allocation",
-    color: "#E67B7B",
-  },
-  {
-    name: "Opportunity Scan",
-    tagline: "Find price gaps and trend breakouts across markets",
-    steps: ["Arbitrage", "Trend Analyzer", "Correlation"],
-    output: "Spread % · Trend direction · Market regime",
-    color: "#6BB6E6",
-  },
+  { name: "Market Signal Stack",  tagline: "Get a BUY / SELL / HOLD call with confidence score", steps: ["Price Feed", "Sentiment", "Momentum"], color: "#10b981", bg: "#ecfdf5", icon: "📈" },
+  { name: "Risk Dashboard",       tagline: "Know your exposure before entering any trade",        steps: ["Volatility", "Risk Score", "Portfolio"], color: "#ef4444", bg: "#fef2f2", icon: "🛡️" },
+  { name: "Opportunity Scanner",  tagline: "Spot price gaps and trend breakouts across markets",  steps: ["Arbitrage", "Trend", "Correlation"],   color: "#3b82f6", bg: "#eff6ff", icon: "🔍" },
 ];
 
 function FeaturedWorkflows() {
   return (
-    <div style={{ marginBottom: 32 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14 }}>
-        <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 15 }}>Pre-built Workflows</div>
-        <div style={{ color: "#9aabb8", fontSize: 12 }}>Chain agents to get real market intelligence</div>
+    <section style={{ marginBottom: 40 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#111827", letterSpacing: "-0.2px" }}>Featured Workflows</div>
+          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>Ready-to-run combinations — open in Pipeline Builder</div>
+        </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-        {WORKFLOWS.map((w) => (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 12 }}>
+        {WORKFLOWS.map(w => (
           <a key={w.name} href="/build" style={{ textDecoration: "none" }}>
             <div
-              style={{
-                background: "#fff", borderRadius: 14, padding: "16px 18px",
-                border: `1px solid ${w.color}25`, borderTop: `3px solid ${w.color}`,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.05)", transition: "box-shadow 0.18s", cursor: "pointer",
-              }}
-              onMouseEnter={e => e.currentTarget.style.boxShadow = `0 6px 24px ${w.color}28`}
-              onMouseLeave={e => e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.05)"}
+              style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: "20px", cursor: "pointer", transition: "all 0.18s", position: "relative", overflow: "hidden" }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = w.color; e.currentTarget.style.boxShadow = `0 8px 24px ${w.color}22`; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.boxShadow = "none"; }}
             >
-              <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 14, marginBottom: 4 }}>{w.name}</div>
-              <div style={{ color: "#6b7d92", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>{w.tagline}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
+              <div style={{ width: 40, height: 40, background: w.bg, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, marginBottom: 12 }}>{w.icon}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 4 }}>{w.name}</div>
+              <div style={{ fontSize: 11, color: "#9ca3af", lineHeight: 1.5, marginBottom: 14 }}>{w.tagline}</div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {w.steps.map((s, i) => (
                   <span key={s} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ background: `${w.color}18`, color: w.color, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>{s}</span>
-                    {i < w.steps.length - 1 && <span style={{ color: "#c8d4e0", fontSize: 12 }}>→</span>}
+                    <span style={{ background: w.bg, color: w.color, fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 4 }}>{s}</span>
+                    {i < w.steps.length - 1 && <span style={{ color: "#d1d5db", fontSize: 10 }}>→</span>}
                   </span>
                 ))}
               </div>
-              <div style={{ color: "#9aabb8", fontSize: 10 }}>Returns: {w.output}</div>
+              <div style={{ position: "absolute", top: 16, right: 16, fontSize: 9, fontWeight: 700, color: w.color, background: w.bg, padding: "3px 8px", borderRadius: 20, letterSpacing: 0.5 }}>BUILD →</div>
             </div>
           </a>
         ))}
       </div>
-    </div>
-  );
-}
-
-// ── PlazaTree ─────────────────────────────────────────────────────────────────
-function PlazaTree({ size = 32 }) {
-  const trunk = Math.round(size * 0.22);
-  return (
-    <div style={{ width: size, height: size + trunk, position: "relative", flexShrink: 0, userSelect: "none" }}>
-      <div style={{ width: size, height: size, background: "#6BCF8B", borderRadius: "50% 50% 42% 42%", position: "absolute", top: 0, boxShadow: "inset 0 -4px 0 rgba(0,0,0,0.10)" }} />
-      <div style={{ width: trunk, height: trunk, background: "#c4a070", borderRadius: 3, position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)" }} />
-    </div>
+    </section>
   );
 }
 
@@ -163,12 +139,15 @@ function TryAgentModal({ agent, allAgents, onClose }) {
     return names.map(n => allAgents.find(a => a.name === n)).filter(Boolean).slice(0, 3);
   }, [agent, allAgents]);
 
-  const runAgent = async () => {
+  const run = async () => {
     setRunning(true); setResult(null); setError(null);
     try {
-      const opts = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ market }) };
-      const res = await fetchWithX402(`${API}/call-agent/${agent.id}`, opts, walletClient, account);
-      if (!res.ok) { setError("Agent returned an error. Try again."); return; }
+      const res = await fetchWithX402(
+        `${API}/call-agent/${agent.id}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ market }) },
+        walletClient, account
+      );
+      if (!res.ok) { setError("Agent returned an error — try again."); return; }
       setResult(await res.json());
     } catch {
       setError("Could not reach the agent. Check your connection.");
@@ -178,49 +157,49 @@ function TryAgentModal({ agent, allAgents, onClose }) {
   };
 
   const insight = getInsight(result);
+  const tone    = insight ? TONE[insight.tone] : null;
   const entries = result
-    ? Object.entries(result).filter(([k, v]) => !SKIP.has(k) && KEY_MAP[k] && v !== null && v !== undefined).slice(0, 6)
+    ? Object.entries(result).filter(([k, v]) => !SKIP.has(k) && KEY_MAP[k] && v !== null && v !== undefined).slice(0, 7)
     : [];
 
   return (
     <div
-      style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+      style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 500, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 480, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 32px 80px rgba(0,0,0,0.28)" }}>
 
-        {/* Modal header */}
-        <div style={{ background: c.bg, borderBottom: `3px solid ${c.border}`, padding: "20px 24px", position: "sticky", top: 0, zIndex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: c.border, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>
-                {c.letter}
+        {/* Header */}
+        <div style={{ padding: "24px 24px 20px", borderBottom: "1px solid #f3f4f6", position: "sticky", top: 0, background: "#fff", borderRadius: "24px 24px 0 0", zIndex: 1 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+              <div style={{ width: 52, height: 52, background: c.pill, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>
+                {c.icon}
               </div>
               <div>
-                <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 17 }}>{agent.name}</div>
-                <div style={{ color: c.border, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginTop: 2 }}>{c.label}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "#111827", lineHeight: 1.2 }}>{agent.name}</div>
+                <span style={{ display: "inline-block", marginTop: 5, background: c.pill, color: c.color, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.6 }}>{c.label}</span>
               </div>
             </div>
-            <button onClick={onClose} style={{ background: "none", border: "none", color: "#9aabb8", fontSize: 24, cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
+            <button onClick={onClose} style={{ background: "#f3f4f6", border: "none", width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 18, color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
           </div>
-          <p style={{ margin: "12px 0 0", color: "#6b7d92", fontSize: 13, lineHeight: 1.6 }}>
-            {agent.description || "Calls a live market API and returns real data."}
+          <p style={{ margin: "14px 0 0", fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
+            {agent.description || "Calls a live market API and returns real-time data."}
           </p>
         </div>
 
-        {/* Modal body */}
-        <div style={{ padding: "20px 24px" }}>
+        {/* Body */}
+        <div style={{ padding: "20px 24px 28px" }}>
 
           {/* Market picker */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ color: "#9aabb8", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Choose a market</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Pick a market</div>
             <div style={{ display: "flex", gap: 6 }}>
               {MARKETS.map(m => (
                 <button key={m} onClick={() => { setMarket(m); setResult(null); }} style={{
-                  padding: "7px 14px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700,
-                  cursor: "pointer", transition: "all 0.15s",
-                  background: market === m ? c.border : "#f0ece6",
-                  color: market === m ? "#fff" : "#9aabb8",
+                  flex: 1, padding: "9px 0", borderRadius: 9, border: market === m ? `1.5px solid ${c.color}` : "1.5px solid #e5e7eb",
+                  background: market === m ? c.color : "#fff", color: market === m ? "#fff" : "#6b7280",
+                  fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.12s",
                 }}>{m}</button>
               ))}
             </div>
@@ -228,73 +207,78 @@ function TryAgentModal({ agent, allAgents, onClose }) {
 
           {/* Run button */}
           <button
-            onClick={runAgent} disabled={running}
+            onClick={run} disabled={running}
             style={{
-              width: "100%", background: running ? "#e6d6bd" : c.border, color: "#fff",
-              border: "none", borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 800,
-              cursor: running ? "default" : "pointer", marginBottom: 8, transition: "all 0.15s",
+              width: "100%", padding: "14px", borderRadius: 12, border: "none",
+              background: running ? "#d1d5db" : c.color, color: "#fff",
+              fontSize: 14, fontWeight: 700, cursor: running ? "default" : "pointer",
+              marginBottom: 6, transition: "all 0.15s",
             }}
           >
-            {running ? "Running…" : result ? `Run Again on ${market}` : `Run on ${market}`}
+            {running ? "⏳  Running…" : result ? `↺  Run again on ${market}` : `▶  Run on ${market}`}
           </button>
-          <div style={{ textAlign: "center", color: "#c8d4e0", fontSize: 11, marginBottom: 16 }}>
-            {toCredits(agent.price_per_request)} credit{toCredits(agent.price_per_request) !== 1 ? "s" : ""} per call · 1 credit = $0.01
+          <div style={{ textAlign: "center", color: "#d1d5db", fontSize: 11, marginBottom: 20 }}>
+            {toCredits(agent.price_per_request)} credit{toCredits(agent.price_per_request) !== 1 ? "s" : ""} · live API call
           </div>
 
           {error && (
-            <div style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14 }}>{error}</div>
+            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#b91c1c", marginBottom: 16 }}>{error}</div>
           )}
 
-          {/* Results */}
           {result && (
-            <>
-              {/* Insight */}
-              {insight && (
-                <div style={{ background: insight.bg, borderRadius: 10, padding: "14px 16px", marginBottom: 14 }}>
-                  <div style={{ color: "#9aabb8", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>What this means</div>
-                  <div style={{ color: insight.color, fontSize: 13, fontWeight: 600, lineHeight: 1.6 }}>{insight.text}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+              {/* Insight card */}
+              {insight && tone && (
+                <div style={{ background: tone.bg, border: `1px solid ${tone.border}`, borderRadius: 12, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>What this means</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: tone.color, lineHeight: 1.6 }}>
+                    {insight.icon} {insight.text}
+                  </div>
                 </div>
               )}
 
-              {/* Data */}
+              {/* Data rows */}
               {entries.length > 0 && (
-                <div style={{ background: "#f8f6f2", borderRadius: 10, padding: "14px", marginBottom: 14 }}>
-                  <div style={{ color: "#9aabb8", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Live Data — {market}</div>
-                  {entries.map(([k, v]) => {
+                <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ padding: "10px 14px", borderBottom: "1px solid #f3f4f6", fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1 }}>
+                    Live Data — {market}
+                  </div>
+                  {entries.map(([k, v], i) => {
                     const def = KEY_MAP[k];
                     return (
-                      <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #f0ece6" }}>
-                        <span style={{ color: "#9aabb8", fontSize: 12 }}>{def.label}</span>
-                        <span style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 13 }}>{def.fmt(v)}</span>
+                      <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: i < entries.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                        <span style={{ fontSize: 12, color: "#9ca3af" }}>{def.label}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{def.fmt(v)}</span>
                       </div>
                     );
                   })}
                 </div>
               )}
 
-              {/* Pair with */}
+              {/* Pair suggestions */}
               {pairSuggestions.length > 0 && (
-                <div style={{ background: "#f0f8ff", border: "1px solid #6BB6E620", borderRadius: 10, padding: "14px 16px" }}>
-                  <div style={{ color: "#9aabb8", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>What to combine it with</div>
-                  <div style={{ color: "#6b7d92", fontSize: 11, lineHeight: 1.5, marginBottom: 10 }}>
-                    Chain this agent with these to build a more complete signal:
+                <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 12, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Combine it with</div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10, lineHeight: 1.5 }}>
+                    Add these agents to build a complete signal pipeline:
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                     {pairSuggestions.map(a => {
                       const pc = cat(a.category);
                       return (
-                        <span key={a.id} style={{ background: `${pc.border}15`, border: `1px solid ${pc.border}35`, borderRadius: 8, padding: "5px 12px", fontSize: 11, color: pc.border, fontWeight: 700 }}>
-                          {a.name}
+                        <span key={a.id} style={{ background: pc.pill, color: pc.color, border: `1px solid ${pc.color}30`, borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 600 }}>
+                          {pc.icon} {a.name}
                         </span>
                       );
                     })}
                   </div>
-                  <a href="/build" style={{ display: "block", textAlign: "center", background: "#4a9fd4", color: "#fff", borderRadius: 9, padding: "10px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
-                    Open Pipeline Builder to chain them →
+                  <a href="/build" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "#0ea5e9", color: "#fff", borderRadius: 10, padding: "11px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
+                    Open Pipeline Builder →
                   </a>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -305,59 +289,64 @@ function TryAgentModal({ agent, allAgents, onClose }) {
 // ── Agent Card ────────────────────────────────────────────────────────────────
 function AgentCard({ agent, onTry }) {
   const c = cat(agent.category);
-  const [hovered, setHovered] = useState(false);
+  const [hov, setHov] = useState(false);
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
       style={{
         background: "#fff",
-        border: `1px solid ${hovered ? c.border : "#e6d6bd"}`,
-        borderTop: `3px solid ${c.border}`,
-        borderRadius: 14, padding: "18px",
-        boxShadow: hovered ? `0 6px 24px ${c.border}28` : "0 2px 10px rgba(0,0,0,0.06)",
-        transition: "all 0.18s", display: "flex", flexDirection: "column",
+        border: hov ? `1px solid ${c.color}60` : "1px solid #e5e7eb",
+        borderRadius: 16,
+        padding: "20px",
+        display: "flex",
+        flexDirection: "column",
+        transition: "all 0.18s",
+        boxShadow: hov ? `0 8px 28px ${c.color}18` : "0 1px 4px rgba(0,0,0,0.04)",
+        cursor: "default",
       }}
     >
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: c.border, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 17, flexShrink: 0 }}>
-          {c.letter}
+      {/* Icon + meta */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ width: 48, height: 48, background: c.pill, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
+          {c.icon}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>{agent.name}</div>
-          <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap" }}>
-            <span style={{ background: `${c.border}18`, color: c.border, borderRadius: 4, padding: "1px 7px", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>{c.label}</span>
-            <span style={{ background: "#f0ece6", color: "#9aabb8", borderRadius: 4, padding: "1px 7px", fontSize: 9, fontWeight: 600 }}>{toCredits(agent.price_per_request)} cr/call</span>
-          </div>
-        </div>
+        <span style={{ background: c.pill, color: c.color, fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.7, marginTop: 4 }}>
+          {c.label}
+        </span>
       </div>
 
+      {/* Name */}
+      <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", lineHeight: 1.3, marginBottom: 6 }}>{agent.name}</div>
+
       {/* Description */}
-      <div style={{ color: "#6b7d92", fontSize: 12, lineHeight: 1.65, marginBottom: 18, flex: 1 }}>
+      <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.65, flex: 1, marginBottom: 16 }}>
         {agent.description || "Calls a live market API and returns real-time data."}
       </div>
 
-      {/* Primary CTA */}
+      {/* Credit badge */}
+      <div style={{ fontSize: 10, color: "#d1d5db", marginBottom: 12 }}>
+        {toCredits(agent.price_per_request)} credit{toCredits(agent.price_per_request) !== 1 ? "s" : ""} per call
+      </div>
+
+      {/* CTAs */}
       <button
         onClick={() => onTry(agent)}
         style={{
-          width: "100%", background: c.border, color: "#fff", border: "none",
-          borderRadius: 10, padding: "11px", fontSize: 13, fontWeight: 800,
+          width: "100%", background: c.color, color: "#fff", border: "none",
+          borderRadius: 10, padding: "11px", fontSize: 13, fontWeight: 700,
           cursor: "pointer", marginBottom: 8, transition: "opacity 0.15s",
         }}
-        onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+        onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
         onMouseLeave={e => e.currentTarget.style.opacity = "1"}
       >
-        Try Live
+        ▶ Try Live
       </button>
-
-      {/* Secondary CTA */}
       <a href="/build" style={{
         display: "block", textAlign: "center",
-        background: `${c.border}10`, color: c.border,
-        border: `1px solid ${c.border}25`, borderRadius: 9, padding: "8px",
+        background: `${c.color}0f`, color: c.color,
+        border: `1px solid ${c.color}25`, borderRadius: 9, padding: "8px",
         fontSize: 11, fontWeight: 700, textDecoration: "none",
       }}>
         + Add to Pipeline
@@ -366,30 +355,34 @@ function AgentCard({ agent, onTry }) {
   );
 }
 
-// ── Filter strip ──────────────────────────────────────────────────────────────
+// ── Filter tabs ───────────────────────────────────────────────────────────────
 const FILTER_CATS = [
-  { id: "all",       label: "All Agents" },
-  { id: "trading",   label: "Trading Signals" },
-  { id: "data",      label: "Market Data" },
-  { id: "analysis",  label: "Analysis" },
-  { id: "risk",      label: "Risk & Portfolio" },
-  { id: "composite", label: "Full Workflows" },
+  { id: "all",       label: "All",             icon: "✦" },
+  { id: "trading",   label: "Trading",         icon: "📈" },
+  { id: "data",      label: "Market Data",     icon: "⚡" },
+  { id: "analysis",  label: "Analysis",        icon: "🔍" },
+  { id: "risk",      label: "Risk",            icon: "🛡️" },
+  { id: "composite", label: "Workflows",       icon: "🔗" },
 ];
 
-function FilterStrip({ active, onChange }) {
+function FilterTabs({ active, onChange }) {
   return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
-      {FILTER_CATS.map(({ id, label }) => {
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 24 }}>
+      {FILTER_CATS.map(({ id, label, icon }) => {
         const on = active === id;
-        const color = id === "all" ? "#4a9fd4" : cat(id).border;
+        const color = id === "all" ? "#6b7280" : cat(id).color;
         return (
           <button key={id} onClick={() => onChange(id)} style={{
-            padding: "6px 16px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-            cursor: "pointer", transition: "all 0.15s",
-            border: on ? `1px solid ${color}50` : "1px solid #e6d6bd",
-            background: on ? `${color}14` : "#fff",
-            color: on ? color : "#9aabb8",
-          }}>{label}</button>
+            display: "flex", alignItems: "center", gap: 5,
+            padding: "7px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+            cursor: "pointer", transition: "all 0.12s",
+            border: on ? `1.5px solid ${color}` : "1.5px solid #e5e7eb",
+            background: on ? color : "#fff",
+            color: on ? "#fff" : "#6b7280",
+          }}>
+            <span style={{ fontSize: 13 }}>{icon}</span>
+            {label}
+          </button>
         );
       })}
     </div>
@@ -398,9 +391,9 @@ function FilterStrip({ active, onChange }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function MarketplaceView() {
-  const [agents,   setAgents]   = useState([]);
-  const [filter,   setFilter]   = useState("all");
-  const [tryAgent, setTryAgent] = useState(null);
+  const [agents,    setAgents]    = useState([]);
+  const [filter,    setFilter]    = useState("all");
+  const [tryAgent,  setTryAgent]  = useState(null);
   const [backendOk, setBackendOk] = useState(true);
 
   useEffect(() => {
@@ -415,68 +408,86 @@ export default function MarketplaceView() {
   }, []);
 
   const regular    = useMemo(() => agents.filter(a => a.category !== "composite"), [agents]);
-  const composites = useMemo(() => agents.filter(a => a.category === "composite"), [agents]);
+  const composites = useMemo(() => agents.filter(a => a.category === "composite"),  [agents]);
 
   const visible = useMemo(() => {
     if (filter === "all") return regular;
     return agents.filter(a => a.category === filter);
   }, [agents, regular, filter]);
 
-  const showCompositeSection = filter === "all" && composites.length > 0;
+  const showComposites = filter === "all" && composites.length > 0;
 
   return (
-    <div style={{ height: "100%", overflowY: "auto", background: "#f4e7d0", padding: "32px 40px", fontFamily: "inherit" }}>
+    <div style={{ height: "100%", overflowY: "auto", background: "#f8f9fb", fontFamily: "inherit" }}>
 
-      {!backendOk && (
-        <div style={{ marginBottom: 16, background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 10, padding: "10px 16px", color: "#991b1b", fontSize: 12, fontWeight: 600 }}>
-          Backend offline — agents unavailable right now.
-        </div>
-      )}
-
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 28 }}>
-        <PlazaTree size={36} />
-        <div style={{ flex: 1 }}>
-          <div style={{ color: "#2d3a4a", fontSize: 24, fontWeight: 800, letterSpacing: "-0.4px" }}>Agent Marketplace</div>
-          <div style={{ color: "#9aabb8", fontSize: 13, marginTop: 5 }}>
-            {agents.length} live agents · Each calls a real API and returns real data · Pay per use
-          </div>
-        </div>
-        <PlazaTree size={28} />
-      </div>
-
-      {/* Featured Workflows */}
-      <FeaturedWorkflows />
-
-      {/* Filter */}
-      <FilterStrip active={filter} onChange={setFilter} />
-
-      {/* Agent grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14, marginBottom: 24 }}>
-        {visible.map(a => <AgentCard key={a.id} agent={a} onTry={setTryAgent} />)}
-        {visible.length === 0 && (
-          <div style={{ background: "#fff", border: "1px solid #e6d6bd", borderRadius: 14, padding: "40px 32px", color: "#9aabb8", fontSize: 14, fontStyle: "italic" }}>
-            No agents in this category yet.
+      {/* Hero banner */}
+      <div style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)", padding: "36px 40px 32px" }}>
+        {!backendOk && (
+          <div style={{ marginBottom: 16, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 16px", color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>
+            ⚠️ Backend offline — agents unavailable right now.
           </div>
         )}
+        <div style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-0.5px", marginBottom: 6 }}>
+          Agent Marketplace
+        </div>
+        <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6, maxWidth: 520, marginBottom: 24 }}>
+          Browse, try, and combine AI agents that plug into live market data. Each agent is a callable API — run them solo or chain them in Pipeline Builder.
+        </div>
+        <div style={{ display: "flex", gap: 20 }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{agents.length}</div>
+            <div style={{ fontSize: 10, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8, marginTop: 2 }}>Live Agents</div>
+          </div>
+          <div style={{ width: 1, background: "#1e293b" }} />
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>5</div>
+            <div style={{ fontSize: 10, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8, marginTop: 2 }}>Categories</div>
+          </div>
+          <div style={{ width: 1, background: "#1e293b" }} />
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>Live</div>
+            <div style={{ fontSize: 10, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8, marginTop: 2 }}>Real Data</div>
+          </div>
+        </div>
       </div>
 
-      {/* Full Workflows section (composite agents) */}
-      {showCompositeSection && (
-        <>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14, paddingTop: 8, borderTop: "1px solid #e6d6bd" }}>
-            <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 15 }}>Full Workflows</div>
-            <div style={{ color: "#9aabb8", fontSize: 12 }}>Multi-agent pipelines registered as a single callable agent</div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14, marginBottom: 24 }}>
-            {composites.map(a => <AgentCard key={a.id} agent={a} onTry={setTryAgent} />)}
-          </div>
-        </>
-      )}
+      {/* Content */}
+      <div style={{ padding: "32px 40px", maxWidth: 1200, margin: "0 auto" }}>
 
-      <div style={{ height: 40 }} />
+        <FeaturedWorkflows />
 
-      {/* Try Agent Modal */}
+        {/* Section label */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>All Agents</div>
+          <div style={{ fontSize: 12, color: "#9ca3af" }}>— pick one and hit Try Live to see it work</div>
+        </div>
+
+        <FilterTabs active={filter} onChange={setFilter} />
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14, marginBottom: 28 }}>
+          {visible.map(a => <AgentCard key={a.id} agent={a} onTry={setTryAgent} />)}
+          {visible.length === 0 && (
+            <div style={{ gridColumn: "1 / -1", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: "48px", textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
+              No agents in this category yet.
+            </div>
+          )}
+        </div>
+
+        {/* Full Workflows (composite) */}
+        {showComposites && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, paddingTop: 12, borderTop: "1px solid #e5e7eb" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>🔗 Full Workflows</div>
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>Multi-agent pipelines deployed as a single callable agent</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14, marginBottom: 28 }}>
+              {composites.map(a => <AgentCard key={a.id} agent={a} onTry={setTryAgent} />)}
+            </div>
+          </>
+        )}
+
+      </div>
+
       {tryAgent && (
         <TryAgentModal agent={tryAgent} allAgents={agents} onClose={() => setTryAgent(null)} />
       )}
