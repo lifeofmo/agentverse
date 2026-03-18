@@ -10,6 +10,73 @@ import "reactflow/dist/style.css";
 
 import { API as REGISTRY_URL } from "@/app/lib/config";
 
+const WORLDS = [
+  { id: "trading",  label: "Las Vegas",     sub: "High-stakes trading agents",    color: "#ff2d78", bg: "#1a0008" },
+  { id: "data",     label: "Matrix",        sub: "Data & feed agents",            color: "#00FF41", bg: "#010d01" },
+  { id: "analysis", label: "Sims",          sub: "Analysis & pattern agents",     color: "#7ec87e", bg: "#1a2e10" },
+  { id: "risk",     label: "Tomorrowland",  sub: "Risk & portfolio agents",       color: "#c084fc", bg: "#0a0018" },
+  { id: "composite",label: "Hogwarts",      sub: "All agents — no category",      color: "#d4a820", bg: "#110d02" },
+  { id: "experimental", label: "Burning Man", sub: "Experimental & creative",    color: "#FF6B35", bg: "#180800" },
+];
+
+function WorldPickerModal({ pipelineName, onConfirm, onCancel }) {
+  const [selected, setSelected] = useState(null);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 999,
+      background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 24,
+    }}>
+      <div style={{
+        background: "#0a111e", border: "1px solid #1e293b",
+        borderRadius: 16, padding: "28px 24px", width: "100%", maxWidth: 480,
+        boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+      }}>
+        <div style={{ color: "#e2e8f0", fontWeight: 800, fontSize: 16, marginBottom: 4 }}>
+          Choose a world
+        </div>
+        <div style={{ color: "#475569", fontSize: 12, marginBottom: 20 }}>
+          Where should <span style={{ color: "#e2e8f0", fontWeight: 600 }}>"{pipelineName}"</span> live?
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+          {WORLDS.map((w) => (
+            <button key={w.id} onClick={() => setSelected(w.id)} style={{
+              background: selected === w.id ? w.bg : "#0f172a",
+              border: `1.5px solid ${selected === w.id ? w.color : "#1e293b"}`,
+              borderRadius: 10, padding: "12px 14px", cursor: "pointer",
+              textAlign: "left", transition: "all 0.15s",
+              boxShadow: selected === w.id ? `0 0 0 1px ${w.color}40` : "none",
+            }}>
+              <div style={{ color: w.color, fontWeight: 700, fontSize: 13 }}>{w.label}</div>
+              <div style={{ color: "#475569", fontSize: 10, marginTop: 3 }}>{w.sub}</div>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={{
+            background: "transparent", border: "1px solid #1e293b",
+            color: "#475569", borderRadius: 8, padding: "8px 16px",
+            fontSize: 13, cursor: "pointer",
+          }}>Cancel</button>
+          <button onClick={() => selected && onConfirm(selected)} disabled={!selected} style={{
+            background: selected ? WORLDS.find(w => w.id === selected)?.color : "#1e293b",
+            border: "none", color: selected ? "#000" : "#475569",
+            borderRadius: 8, padding: "8px 20px",
+            fontSize: 13, fontWeight: 700, cursor: selected ? "pointer" : "not-allowed",
+            transition: "all 0.15s",
+          }}>
+            Deploy to {selected ? WORLDS.find(w => w.id === selected)?.label : "…"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const CATEGORY_COLOR = {
   trading:  { bg: "#064e3b", border: "#10b981", text: "#d1fae5" },
   analysis: { bg: "#1e1b4b", border: "#818cf8", text: "#c7d2fe" },
@@ -77,6 +144,8 @@ function Builder() {
   const [savedId, setSavedId]            = useState(null);  // saved pipeline id
   const [running, setRunning]            = useState(false);
   const [compositeAgentId, setCompositeAgentId] = useState(null);
+  const [showWorldPicker, setShowWorldPicker]   = useState(false);
+  const [deployedWorld, setDeployedWorld]       = useState(null);
   const idCounter = useRef(0);
 
   useEffect(() => {
@@ -186,15 +255,19 @@ function Builder() {
 
   // ── Register pipeline as composite agent ───────────────────────────────────
 
-  const registerAsAgent = async () => {
+  const registerAsAgent = async (worldCategory) => {
     if (!savedId) { setStatus({ ok: false, msg: "Save the pipeline first" }); return; }
+    const world = WORLDS.find(w => w.id === worldCategory);
     const res = await fetch(`${REGISTRY_URL}/pipelines/${savedId}/register-as-agent`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: worldCategory }),
     });
     if (!res.ok) { setStatus({ ok: false, msg: "Registration failed" }); return; }
     const agent = await res.json();
     setCompositeAgentId(agent.id);
-    setStatus({ ok: true, msg: `Registered as agent in registry` });
+    setDeployedWorld(world);
+    setShowWorldPicker(false);
   };
 
   // ── Clear canvas ───────────────────────────────────────────────────────────
@@ -301,6 +374,14 @@ function Builder() {
         )}
       </div>
 
+      {showWorldPicker && (
+        <WorldPickerModal
+          pipelineName={pipelineName}
+          onConfirm={registerAsAgent}
+          onCancel={() => setShowWorldPicker(false)}
+        />
+      )}
+
       {/* ── Right panel — save / run ── */}
       <div style={{
         width: 240, flexShrink: 0, background: "#0a111e",
@@ -360,22 +441,32 @@ function Builder() {
               {running ? "Running…" : "▶ Run Pipeline"}
             </button>
             {!compositeAgentId && (
-              <button onClick={registerAsAgent} style={{
+              <button onClick={() => setShowWorldPicker(true)} style={{
                 background: "#0f172a", color: "#f59e0b",
                 border: "1px solid #b45309", borderRadius: 8,
                 padding: "9px", fontSize: 13, cursor: "pointer", fontWeight: 600,
               }}>
-                ⬡ Register as Agent
+                ⬡ Deploy to a World
               </button>
             )}
-            {compositeAgentId && (
+            {compositeAgentId && deployedWorld && (
               <div style={{
-                background: "#1c1208", border: "1px solid #b45309",
-                borderRadius: 8, padding: "8px 10px", fontSize: 11, color: "#fbbf24",
+                background: deployedWorld.bg, border: `1px solid ${deployedWorld.color}40`,
+                borderRadius: 8, padding: "10px 12px", fontSize: 11,
               }}>
-                ✓ Live in registry as composite agent
-                <br />
-                <span style={{ color: "#64748b" }}>endpoint: /composite/{savedId.slice(0, 8)}…</span>
+                <div style={{ color: deployedWorld.color, fontWeight: 700, marginBottom: 4 }}>
+                  Live in {deployedWorld.label}
+                </div>
+                <div style={{ color: "#475569" }}>
+                  Your agent is now active in the {deployedWorld.label} world
+                </div>
+                <a href="/" style={{
+                  display: "inline-block", marginTop: 8,
+                  color: deployedWorld.color, fontSize: 11, fontWeight: 600,
+                  textDecoration: "none",
+                }}>
+                  Go see it in Agent City →
+                </a>
               </div>
             )}
           </>

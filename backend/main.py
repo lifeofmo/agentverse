@@ -1437,8 +1437,12 @@ async def composite_agent(pipeline_id: str, payload: dict):
     )
     return result["final"]
 
+class RegisterAsAgentRequest(BaseModel):
+    category: Optional[str] = "composite"
+    description: Optional[str] = None
+
 @app.post("/pipelines/{pipeline_id}/register-as-agent", response_model=AgentRecord, status_code=201)
-def register_pipeline_as_agent(pipeline_id: str):
+def register_pipeline_as_agent(pipeline_id: str, body: RegisterAsAgentRequest = RegisterAsAgentRequest()):
     conn = get_db()
     row = conn.execute("SELECT * FROM pipelines WHERE id = ?", (pipeline_id,)).fetchone()
     conn.close()
@@ -1448,16 +1452,18 @@ def register_pipeline_as_agent(pipeline_id: str):
     _self_base = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
     endpoint = f"{_self_base}/composite/{pipeline_id}"
     now      = _now()
+    category = body.category or "composite"
+    desc     = body.description or f"Composite pipeline: {row['name']}"
     conn = get_db()
     conn.execute(
         "INSERT OR REPLACE INTO agents (id, name, description, endpoint, category, price_per_request, status, created_at, reputation) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 5.0)",
-        (agent_id, row["name"], f"Composite pipeline: {row['name']}", endpoint, "composite", 0.0, now)
+        (agent_id, row["name"], desc, endpoint, category, 0.0, now)
     )
     conn.commit()
     conn.close()
     return AgentRecord(
-        id=agent_id, name=row["name"], description=f"Composite pipeline: {row['name']}",
-        endpoint=endpoint, category="composite", price_per_request=0.0,
+        id=agent_id, name=row["name"], description=desc,
+        endpoint=endpoint, category=category, price_per_request=0.0,
         status="active", reputation=5.0, created_at=now,
     )
 
