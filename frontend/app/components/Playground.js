@@ -328,6 +328,187 @@ function buildDemoCanvas(pipeline, agentMap) {
   return { nodes, edges };
 }
 
+// ── Quick-start templates ─────────────────────────────────────────────────────
+
+const TEMPLATES = [
+  {
+    id: "crypto-signal",
+    name: "Crypto Signal",
+    icon: "📈",
+    tagline: "Get BUY / SELL / HOLD in 10s",
+    agents: ["PriceFeedAgent", "SentimentAgent", "MomentumAgent"],
+    color: "#10b981",
+  },
+  {
+    id: "market-scanner",
+    name: "Market Scanner",
+    icon: "🔍",
+    tagline: "Detect trends + volatility",
+    agents: ["PriceFeedAgent", "TrendAnalyzer", "VolatilityScanner"],
+    color: "#3b82f6",
+  },
+  {
+    id: "risk-check",
+    name: "Risk Check",
+    icon: "🛡️",
+    tagline: "Evaluate downside risk",
+    agents: ["PriceFeedAgent", "RiskAgent", "PortfolioOptimizer"],
+    color: "#ef4444",
+  },
+];
+
+const QUICK_MARKETS = ["BTC", "ETH", "SOL", "AVAX"];
+
+function QuickStartBar({ onSelect, running }) {
+  return (
+    <div style={{
+      position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
+      zIndex: 60, display: "flex", alignItems: "center", gap: 8,
+      background: "rgba(15,23,42,0.92)", border: "1px solid rgba(255,255,255,0.12)",
+      borderRadius: 16, padding: "10px 14px",
+      backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+    }}>
+      <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, fontWeight: 600, marginRight: 2, whiteSpace: "nowrap" }}>
+        Try instantly →
+      </div>
+      {TEMPLATES.map(t => (
+        <button key={t.id} onClick={() => onSelect(t)} disabled={running} style={{
+          display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 10,
+          background: `${t.color}18`, border: `1px solid ${t.color}50`,
+          color: "#fff", fontSize: 12, fontWeight: 700,
+          cursor: running ? "not-allowed" : "pointer",
+          opacity: running ? 0.5 : 1, transition: "all 0.15s", whiteSpace: "nowrap",
+        }}
+          onMouseEnter={e => !running && (e.currentTarget.style.background = `${t.color}30`)}
+          onMouseLeave={e => (e.currentTarget.style.background = `${t.color}18`)}
+        >
+          <span style={{ fontSize: 15 }}>{t.icon}</span>
+          {t.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Big result card (centers on canvas after auto-run) ────────────────────────
+
+function BigResultCard({ bigResult, onRetry, onSave, onDismiss }) {
+  const { results, template, market } = bigResult;
+
+  // Pull values from last agent (signal) and first agent (price)
+  const lastResult   = results[template.agents[template.agents.length - 1]] || {};
+  const firstResult  = results[template.agents[0]] || {};
+  const midResult    = results[template.agents[1]] || {};
+
+  const signal     = lastResult.signal || lastResult.trend || lastResult.opportunity || lastResult.recommendation;
+  const confidence = lastResult.confidence;
+  const price      = firstResult.price_usd;
+  const change     = firstResult.change_24h_pct;
+  const sentiment  = midResult.fear_greed_label || midResult.regime;
+  const riskScore  = lastResult.risk_score;
+
+  const isGood = signal === "BUY" || signal === "UPTREND" || signal === "HIGH" || (riskScore != null && Number(riskScore) < 4);
+  const isBad  = signal === "SELL" || signal === "DOWNTREND" || (riskScore != null && Number(riskScore) > 7);
+  const signalColor = isGood ? "#10b981" : isBad ? "#ef4444" : "#f59e0b";
+  const signalBg    = isGood ? "#ecfdf5" : isBad ? "#fef2f2" : "#fefce8";
+
+  const insight = (() => {
+    if (signal === "BUY")       return `Bullish momentum confirmed — sentiment and price action align upward for ${market}.`;
+    if (signal === "SELL")      return `Bearish pressure detected — multiple indicators point downward for ${market}.`;
+    if (signal === "HOLD")      return `Mixed signals — ${market} is consolidating. No clear edge right now.`;
+    if (signal === "UPTREND")   return `${market} is in an established uptrend. Bulls are in control.`;
+    if (signal === "DOWNTREND") return `${market} is trending lower. Proceed with caution on long positions.`;
+    if (signal === "HIGH" && template.id === "risk-check") return `High risk environment for ${market}. Reduce position size.`;
+    if (signal === "LOW"  && template.id === "risk-check") return `Low volatility — risk conditions are favorable for ${market}.`;
+    return `${market} analyzed across ${template.agents.length} live agents. Data fetched in real time.`;
+  })();
+
+  const displaySignal = riskScore != null && !signal
+    ? `Risk: ${Number(riskScore).toFixed(1)} / 10`
+    : signal || "COMPLETE";
+
+  return (
+    <div style={{
+      position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)",
+      zIndex: 100, width: 400, borderRadius: 24, overflow: "hidden",
+      boxShadow: "0 40px 100px rgba(0,0,0,0.6)",
+      animation: "spFadeUp 0.4s ease forwards",
+    }}>
+      {/* Signal header */}
+      <div style={{ background: signalBg, borderBottom: `3px solid ${signalColor}`, padding: "24px 24px 20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+              {market} · {template.name}
+            </div>
+            <div style={{ fontSize: 44, fontWeight: 900, color: signalColor, lineHeight: 1, letterSpacing: "-1px" }}>
+              {displaySignal}
+            </div>
+            {confidence != null && (
+              <div style={{ fontSize: 14, color: "#6b7280", marginTop: 6, fontWeight: 500 }}>
+                {Math.round(Number(confidence) * 100)}% confidence
+              </div>
+            )}
+            {sentiment && (
+              <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+                Sentiment: {sentiment}
+              </div>
+            )}
+          </div>
+          <div style={{ textAlign: "right" }}>
+            {price && (
+              <>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 4 }}>Live Price</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "#111827" }}>
+                  ${Number(price).toLocaleString()}
+                </div>
+                {change != null && (
+                  <div style={{ fontSize: 12, fontWeight: 700, color: Number(change) >= 0 ? "#10b981" : "#ef4444", marginTop: 2 }}>
+                    {Number(change) >= 0 ? "+" : ""}{Number(change).toFixed(2)}%
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Insight */}
+      <div style={{ background: "#fff", padding: "16px 24px", borderBottom: "1px solid #f3f4f6" }}>
+        <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.65 }}>{insight}</div>
+      </div>
+
+      {/* Market re-run + actions */}
+      <div style={{ background: "#fff", padding: "16px 24px" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>
+          Try another market
+        </div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          {QUICK_MARKETS.map(m => (
+            <button key={m} onClick={() => onRetry(template, m)} style={{
+              flex: 1, padding: "9px 0", borderRadius: 8,
+              border: m === market ? `2px solid ${signalColor}` : "2px solid #e5e7eb",
+              background: m === market ? signalColor : "#fff",
+              color: m === market ? "#fff" : "#6b7280",
+              fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.12s",
+            }}>{m}</button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onSave} style={{
+            flex: 1, background: "#111827", color: "#fff", border: "none",
+            borderRadius: 10, padding: "13px", fontSize: 13, fontWeight: 700, cursor: "pointer",
+          }}>Save as Agent</button>
+          <button onClick={onDismiss} style={{
+            flex: 1, background: "#f9fafb", color: "#6b7280", border: "1px solid #e5e7eb",
+            borderRadius: 10, padding: "13px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+          }}>Build manually</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Agent Library sidebar ─────────────────────────────────────────────────────
 
 function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
@@ -882,6 +1063,8 @@ function PlaygroundCanvas() {
   const [pipelineCost, setPipelineCost]        = useState(0);
   const [showResults, setShowResults]          = useState(false);
   const [backendOk, setBackendOk]              = useState(true);
+  const [bigResult, setBigResult]              = useState(null);
+  const [templateRunning, setTemplateRunning]  = useState(false);
 
   const metricsRef  = useRef({});
   const agentsRef   = useRef({});
@@ -1167,6 +1350,92 @@ function PlaygroundCanvas() {
     setShowResults(false); setPipelineResults([]);
   };
 
+  // ── Template auto-run ──────────────────────────────────────────────────────
+
+  const runTemplate = useCallback(async (template, market = "BTC") => {
+    if (!backendOk) { showToast("Server is starting up — try again in a moment."); return; }
+
+    // Find agents by name
+    const agentList = template.agents
+      .map(name => allAgents.find(a => a.name === name))
+      .filter(Boolean);
+
+    if (agentList.length < 2) {
+      showToast("Agents still loading — try again in a second.");
+      return;
+    }
+
+    setBigResult(null);
+    setShowResults(false);
+    setSelected(null);
+    setTemplateRunning(true);
+
+    // Build nodes + edges on canvas
+    const spacing = 270;
+    const totalW  = (agentList.length - 1) * spacing;
+    const newNodes = agentList.map((a, i) => ({
+      id: `tmpl-${a.id}-${i}`,
+      type: "agent",
+      position: { x: i * spacing - totalW / 2, y: 0 },
+      data: { label: a.name, category: a.category, price: a.price_per_request,
+              agentId: a.id, requests: 0, latency: 0, earnings: 0, active: false },
+    }));
+    const newEdges = newNodes.slice(0, -1).map((n, i) => ({
+      id: `tmpl-edge-${i}`, source: n.id, target: newNodes[i + 1].id, ...E_PIPE_IDLE,
+    }));
+
+    setNodes(newNodes);
+    setEdges(newEdges);
+    setSavedId(null);
+    setCompositeId(null);
+
+    // Small pause for React + ReactFlow to render
+    await new Promise(r => setTimeout(r, 350));
+
+    const results = {};
+
+    for (let i = 0; i < agentList.length; i++) {
+      const agent  = agentList[i];
+      const nodeId = newNodes[i].id;
+      const edgeId = `tmpl-edge-${i}`;
+
+      // Light up node
+      setNodes(prev => prev.map(n =>
+        n.id === nodeId ? { ...n, data: { ...n.data, active: true } } : n
+      ));
+
+      try {
+        const res = await fetch(`${API}/call-agent/${agent.id}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ market }),
+        });
+        const output = res.ok ? await res.json() : {};
+        results[agent.name] = output;
+
+        // Update node with output, deactivate
+        setNodes(prev => prev.map(n =>
+          n.id === nodeId ? { ...n, data: { ...n.data, active: false, lastOutput: output } } : n
+        ));
+
+        // Pulse the outgoing edge if there is one
+        if (i < newEdges.length) {
+          setEdges(prev => prev.map(e => e.id === edgeId ? { ...e, ...E_PIPE } : e));
+          await new Promise(r => setTimeout(r, 700));
+          setEdges(prev => prev.map(e => e.id === edgeId ? { ...e, ...E_PIPE_IDLE } : e));
+        } else {
+          await new Promise(r => setTimeout(r, 300));
+        }
+      } catch {
+        setNodes(prev => prev.map(n =>
+          n.id === nodeId ? { ...n, data: { ...n.data, active: false } } : n
+        ));
+      }
+    }
+
+    setTemplateRunning(false);
+    setBigResult({ results, template, market });
+  }, [allAgents, backendOk, showToast, setNodes, setEdges]);
+
   // Empty canvas = no user-placed nodes (only demo nodes are on canvas)
   const isEmpty = nodes.length === 0;
 
@@ -1217,8 +1486,25 @@ function PlaygroundCanvas() {
         />
       )}
 
-      {/* Onboarding hints — only when canvas is empty */}
-      {isEmpty && <OnboardingHints />}
+      {/* Quick-start template bar */}
+      <QuickStartBar onSelect={t => runTemplate(t, "BTC")} running={templateRunning || running} />
+
+      {/* Empty canvas hint (only when no nodes + no result showing) */}
+      {isEmpty && !bigResult && !templateRunning && <OnboardingHints />}
+
+      {/* Big result overlay */}
+      {bigResult && (
+        <BigResultCard
+          bigResult={bigResult}
+          onRetry={(template, market) => runTemplate(template, market)}
+          onSave={() => {
+            setPipelineName(bigResult.template.name);
+            setBigResult(null);
+            showToast(`Named "${bigResult.template.name}" — hit Save in the toolbar to keep it.`);
+          }}
+          onDismiss={() => setBigResult(null)}
+        />
+      )}
 
       <GuideTooltip />
 
