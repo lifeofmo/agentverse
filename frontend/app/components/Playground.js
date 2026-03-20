@@ -51,6 +51,12 @@ const cat = (c) => {
 const CAT_ORDER = ["trading", "analysis", "data", "risk", "composite"];
 const CAT_LABELS = { trading: "Trading", analysis: "Analysis", data: "Market Data", risk: "Risk", composite: "Workflows" };
 
+// ── Category dot ───────────────────────────────────────────────────────────────
+function CatDot({ category, size = 11 }) {
+  const c = cat(category);
+  return <span style={{ display: "inline-block", width: size, height: size, borderRadius: "50%", background: c.color, flexShrink: 0 }} />;
+}
+
 // ── CSS keyframes injected once ───────────────────────────────────────────────
 
 const GLOBAL_CSS = `
@@ -334,7 +340,7 @@ const TEMPLATES = [
   {
     id: "crypto-signal",
     name: "Crypto Signal",
-    icon: "📈",
+    icon: "",
     tagline: "Get BUY / SELL / HOLD in 10s",
     agents: ["PriceFeedAgent", "SentimentAgent", "MomentumAgent"],
     color: "#10b981",
@@ -342,7 +348,7 @@ const TEMPLATES = [
   {
     id: "market-scanner",
     name: "Market Scanner",
-    icon: "🔍",
+    icon: "",
     tagline: "Detect trends + volatility",
     agents: ["PriceFeedAgent", "TrendAnalyzer", "VolatilityScanner"],
     color: "#3b82f6",
@@ -350,7 +356,7 @@ const TEMPLATES = [
   {
     id: "risk-check",
     name: "Risk Check",
-    icon: "🛡️",
+    icon: "",
     tagline: "Evaluate downside risk",
     agents: ["PriceFeedAgent", "RiskAgent", "PortfolioOptimizer"],
     color: "#ef4444",
@@ -373,16 +379,17 @@ function QuickStartBar({ onSelect, running }) {
       </div>
       {TEMPLATES.map(t => (
         <button key={t.id} onClick={() => onSelect(t)} disabled={running} style={{
-          display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 10,
-          background: `${t.color}18`, border: `1px solid ${t.color}50`,
-          color: "#fff", fontSize: 12, fontWeight: 700,
+          display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 20,
+          background: `${t.color}18`, border: `1px solid ${t.color}40`,
+          color: "#fff", fontSize: 12, fontWeight: 600,
           cursor: running ? "not-allowed" : "pointer",
           opacity: running ? 0.5 : 1, transition: "all 0.15s", whiteSpace: "nowrap",
+          letterSpacing: 0.1,
         }}
           onMouseEnter={e => !running && (e.currentTarget.style.background = `${t.color}30`)}
           onMouseLeave={e => (e.currentTarget.style.background = `${t.color}18`)}
         >
-          <span style={{ fontSize: 15 }}>{t.icon}</span>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.color, display: "inline-block", flexShrink: 0 }} />
           {t.name}
         </button>
       ))}
@@ -435,17 +442,24 @@ function BigResultCard({ bigResult, onRetry, onSave, onDismiss }) {
       animation: "spFadeUp 0.4s ease forwards",
     }}>
       {/* Signal header */}
-      <div style={{ background: signalBg, borderBottom: `3px solid ${signalColor}`, padding: "24px 24px 20px" }}>
+      <div style={{ background: "#fff", borderBottom: `1px solid #f3f4f6`, padding: "24px 24px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
               {market} · {template.name}
             </div>
-            <div style={{ fontSize: 44, fontWeight: 900, color: signalColor, lineHeight: 1, letterSpacing: "-1px" }}>
-              {displaySignal}
+            <div style={{ display: "inline-flex", alignItems: "center" }}>
+              <div style={{
+                background: signalBg, border: `1.5px solid ${signalColor}30`,
+                borderRadius: 12, padding: "8px 20px",
+              }}>
+                <span style={{ fontSize: 36, fontWeight: 900, color: signalColor, lineHeight: 1, letterSpacing: "-1px" }}>
+                  {displaySignal}
+                </span>
+              </div>
             </div>
             {confidence != null && (
-              <div style={{ fontSize: 14, color: "#6b7280", marginTop: 6, fontWeight: 500 }}>
+              <div style={{ fontSize: 13, color: "#6b7280", marginTop: 8, fontWeight: 500 }}>
                 {Math.round(Number(confidence) * 100)}% confidence
               </div>
             )}
@@ -459,7 +473,7 @@ function BigResultCard({ bigResult, onRetry, onSave, onDismiss }) {
             {price && (
               <>
                 <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 4 }}>Live Price</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: "#111827" }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#111827" }}>
                   ${Number(price).toLocaleString()}
                 </div>
                 {change != null && (
@@ -483,14 +497,16 @@ function BigResultCard({ bigResult, onRetry, onSave, onDismiss }) {
         <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>
           Try another market
         </div>
-        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 3, marginBottom: 14, gap: 2 }}>
           {QUICK_MARKETS.map(m => (
             <button key={m} onClick={() => onRetry(template, m)} style={{
-              flex: 1, padding: "9px 0", borderRadius: 8,
-              border: m === market ? `2px solid ${signalColor}` : "2px solid #e5e7eb",
-              background: m === market ? signalColor : "#fff",
-              color: m === market ? "#fff" : "#6b7280",
-              fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.12s",
+              flex: 1, padding: "8px 0", borderRadius: 8,
+              border: "none",
+              background: m === market ? "#fff" : "transparent",
+              color: m === market ? "#111827" : "#6b7280",
+              fontSize: 12, fontWeight: m === market ? 700 : 500,
+              cursor: "pointer", transition: "all 0.12s",
+              boxShadow: m === market ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
             }}>{m}</button>
           ))}
         </div>
@@ -498,6 +514,7 @@ function BigResultCard({ bigResult, onRetry, onSave, onDismiss }) {
           <button onClick={onSave} style={{
             flex: 1, background: "#111827", color: "#fff", border: "none",
             borderRadius: 10, padding: "13px", fontSize: 13, fontWeight: 700, cursor: "pointer",
+            letterSpacing: 0.1,
           }}>Save as Agent</button>
           <button onClick={onDismiss} style={{
             flex: 1, background: "#f9fafb", color: "#6b7280", border: "1px solid #e5e7eb",
@@ -740,9 +757,10 @@ function GuideTooltip() {
           borderRadius: 20, padding: "6px 14px",
           fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)",
           cursor: "pointer", backdropFilter: "blur(8px)",
-          display: "flex", alignItems: "center", gap: 6,
+          display: "flex", alignItems: "center", gap: 8,
         }}>
-          ? How does this work?
+          <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#fff", flexShrink: 0 }}>?</span>
+          How does this work?
         </button>
       )}
 
@@ -755,6 +773,11 @@ function GuideTooltip() {
           borderRadius: 16, padding: "18px",
           boxShadow: "0 16px 48px rgba(0,0,0,0.35)",
         }}>
+          {/* Avatar + dismiss */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <span style={{ width: 24, height: 24, borderRadius: "50%", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "#fff", flexShrink: 0 }}>?</span>
+            <button onClick={dismiss} style={{ background: "none", border: "none", color: "#d1d5db", fontSize: 11, cursor: "pointer", padding: 0, fontWeight: 600 }}>Skip</button>
+          </div>
           {/* Progress bar */}
           <div style={{ display: "flex", gap: 3, marginBottom: 14 }}>
             {GUIDE_STEPS.map((_, i) => (
@@ -771,11 +794,7 @@ function GuideTooltip() {
             {s.body}
           </p>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button onClick={dismiss} style={{
-              background: "none", border: "none", color: "#d1d5db",
-              fontSize: 11, cursor: "pointer", padding: 0, fontWeight: 600,
-            }}>Skip</button>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button onClick={next} style={{
               background: "#3b82f6", border: "none", color: "#fff",
               borderRadius: 8, padding: "8px 18px",
