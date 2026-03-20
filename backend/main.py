@@ -376,6 +376,22 @@ def init_db():
         )
     """)
 
+    # ── Pipeline schedules ────────────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS schedules (
+            id            TEXT PRIMARY KEY,
+            pipeline_id   TEXT NOT NULL,
+            pipeline_name TEXT,
+            label         TEXT,
+            interval      TEXT NOT NULL,
+            webhook_url   TEXT,
+            is_active     INTEGER DEFAULT 1,
+            last_run_at   TEXT,
+            next_run_at   TEXT,
+            created_at    TEXT NOT NULL
+        )
+    """)
+
     # ── Migrations ───────────────────────────────────────────────────────────
     _migrate(conn)
     conn.commit()
@@ -2316,6 +2332,137 @@ async def agent_health(agent_id: str):
     conn.commit()
     conn.close()
     return {"agent_id": agent_id, "name": agent["name"], "status": status, "latency_ms": latency_ms}
+
+
+# =============================================================================
+# PIPELINE SCHEDULES  —  store recurring run configs + manual trigger
+# =============================================================================
+
+# Supported interval labels (user-friendly, maps to seconds for next_run_at calc)
+_INTERVAL_SECONDS = {
+    "5m":     5 * 60,
+    "15m":   15 * 60,
+    "30m":   30 * 60,
+    "1h":    60 * 60,
+    "4h":   4 * 60 * 60,
+    "12h": 12 * 60 * 60,
+    "24h": 24 * 60 * 60,
+    "manual": 0,
+}
+
+class ScheduleCreate(BaseModel):
+    pipeline_id: str
+    label:       Optional[str] = None
+    interval:    str            # e.g. "1h", "24h", "manual"
+    webhook_url: Optional[str] = None
+
+@app.post("/schedules", status_code=201, tags=["schedules"])
+async def create_schedule(body: ScheduleCreate):
+    if body.interval not in _INTERVAL_SECONDS:
+        raise HTTPException(400, f"interval must be one of: {', '.join(_INTERVAL_SECONDS)}")
+    conn = get_db()
+    pipeline = conn.execute("SELECT * FROM pipelines WHERE id = ?", (body.pipeline_id,)).fetchone()
+    if not pipeline:
+        conn.close()
+        raise HTTPException(404, "Pipeline not found")
+    sched_id  = str(uuid.uuid4())
+    now       = _now()
+    secs      = _INTERVAL_SECONDS[body.interval]
+    from datetime import timedelta
+    next_run  = (datetime.now(timezone.utc) + timedelta(seconds=secs)).isoformat() if secs else None
+    conn.execute(
+        "INSERT INTO schedules (id, pipeline_id, pipeline_name, label, interval, webhook_url, is_active, last_run_at, next_run_at, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (sched_id, body.pipeline_id, pipeline["name"], body.label or pipeline["name"],
+         body.interval, body.webhook_url, 1, None, next_run, now)
+    )
+    conn.commit()
+    conn.close()
+    return {
+        "id": sched_id, "pipeline_id": body.pipeline_id, "pipeline_name": pipeline["name"],
+        "label": body.label or pipeline["name"], "interval": body.interval,
+        "webhook_url": body.webhook_url, "is_active": True,
+        "next_run_at": next_run, "created_at": now,
+    }
+
+@app.get("/schedules", tags=["schedules"])
+def list_schedules():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM schedules ORDER BY created_at DESC").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+@app.delete("/schedules/{schedule_id}", status_code=204, tags=["schedules"])
+def delete_schedule(schedule_id: str):
+    conn = get_db()
+    conn.execute("DELETE FROM schedules WHERE id = ?", (schedule_id,))
+    conn.commit()
+    conn.close()
+
+@app.patch("/schedules/{schedule_id}/toggle", tags=["schedules"])
+def toggle_schedule(schedule_id: str):
+    conn = get_db()
+    row = conn.execute("SELECT is_active FROM schedules WHERE id = ?", (schedule_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(404, "Schedule not found")
+    new_state = 0 if row["is_active"] else 1
+    conn.execute("UPDATE schedules SET is_active = ? WHERE id = ?", (new_state, schedule_id))
+    conn.commit()
+    conn.close()
+    return {"id": schedule_id, "is_active": bool(new_state)}
+
+@app.post("/schedules/{schedule_id}/trigger", tags=["schedules"])
+async def trigger_schedule(schedule_id: str):
+    """Manually trigger a scheduled pipeline run. Sends result to webhook_url if set."""
+    conn = get_db()
+    sched = conn.execute("SELECT * FROM schedules WHERE id = ?", (schedule_id,)).fetchone()
+    conn.close()
+    if not sched:
+        raise HTTPException(404, "Schedule not found")
+
+    pipeline_id = sched["pipeline_id"]
+    # Run the pipeline inline (sync fallback path, same as /run-pipeline)
+    conn3 = get_db()
+    pipeline_row = conn3.execute("SELECT * FROM pipelines WHERE id = ?", (pipeline_id,)).fetchone()
+    conn3.close()
+    if not pipeline_row:
+        raise HTTPException(404, "Pipeline no longer exists")
+    agent_ids = json.loads(pipeline_row["agent_ids"])
+    run_res = await asyncio.wait_for(
+        execute_pipeline(pipeline_id, pipeline_row["name"], agent_ids, {"market": "BTC"}, DEMO_WALLET),
+        timeout=MAX_RUNTIME_S
+    )
+
+    # Update last_run_at + next_run_at
+    now  = _now()
+    secs = _INTERVAL_SECONDS.get(sched["interval"], 0)
+    from datetime import timedelta
+    next_run = (datetime.now(timezone.utc) + timedelta(seconds=secs)).isoformat() if secs else None
+    conn2 = get_db()
+    conn2.execute("UPDATE schedules SET last_run_at = ?, next_run_at = ? WHERE id = ?",
+                  (now, next_run, schedule_id))
+    conn2.commit()
+    conn2.close()
+
+    # Webhook POST if configured
+    webhook_url = sched["webhook_url"]
+    webhook_ok  = None
+    if webhook_url:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                wr = await client.post(webhook_url, json={
+                    "schedule_id":   schedule_id,
+                    "pipeline_id":   pipeline_id,
+                    "pipeline_name": sched["pipeline_name"],
+                    "result":        run_res,
+                    "triggered_at":  now,
+                })
+                webhook_ok = wr.status_code
+        except Exception as e:
+            webhook_ok = f"error: {e}"
+
+    return {"schedule_id": schedule_id, "result": run_res, "triggered_at": now,
+            "next_run_at": next_run, "webhook_status": webhook_ok}
 
 
 # =============================================================================

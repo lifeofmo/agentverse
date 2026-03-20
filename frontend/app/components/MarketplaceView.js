@@ -2,8 +2,6 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { API } from "@/app/lib/config";
-import { fetchWithX402 } from "@/app/lib/x402";
-import { useWallet } from "./WalletProvider";
 
 // ── Category config ───────────────────────────────────────────────────────────
 const CAT = {
@@ -188,7 +186,6 @@ function FeaturedWorkflows() {
 
 // ── Try Agent Modal ───────────────────────────────────────────────────────────
 function TryAgentModal({ agent, allAgents, onClose }) {
-  const { account, walletClient } = useWallet();
   const [market,  setMarket]  = useState("BTC");
   const [running, setRunning] = useState(false);
   const [result,  setResult]  = useState(null);
@@ -204,10 +201,9 @@ function TryAgentModal({ agent, allAgents, onClose }) {
   const run = async () => {
     setRunning(true); setResult(null); setError(null);
     try {
-      const res = await fetchWithX402(
+      const res = await fetch(
         `${API}/call-agent/${agent.id}`,
         { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ market }) },
-        walletClient, account
       );
       if (!res.ok) { setError("Agent returned an error — try again."); return; }
       setResult(await res.json());
@@ -364,6 +360,7 @@ function AgentCard({ agent, onTry }) {
   const purpose = agentPurpose(agent);
   const [hov, setHov] = useState(false);
   const [tryHov, setTryHov] = useState(false);
+  const verified = !!(agent.health_endpoint || agent.status === "active");
 
   return (
     <div
@@ -382,7 +379,19 @@ function AgentCard({ agent, onTry }) {
     >
       {/* Icon row + TRY button */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
-        <CatIcon category={agent.category} size={44} />
+        <div style={{ position: "relative", display: "inline-block" }}>
+          <CatIcon category={agent.category} size={44} />
+          {verified && (
+            <div title="Active agent" style={{
+              position: "absolute", bottom: -2, right: -2,
+              width: 14, height: 14, borderRadius: "50%",
+              background: "#10b981", border: "2px solid #fff",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <span style={{ color: "#fff", fontSize: 7, fontWeight: 900 }}>✓</span>
+            </div>
+          )}
+        </div>
         <button
           onClick={() => onTry(agent)}
           onMouseEnter={() => setTryHov(true)}

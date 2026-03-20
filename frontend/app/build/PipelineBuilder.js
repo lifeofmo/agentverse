@@ -354,6 +354,165 @@ function ResultCard({ result }) {
   );
 }
 
+// ── Schedule panel ────────────────────────────────────────────────────────────
+
+const INTERVALS = [
+  { id: "manual", label: "Manual only" },
+  { id: "5m",     label: "Every 5 min" },
+  { id: "15m",    label: "Every 15 min" },
+  { id: "30m",    label: "Every 30 min" },
+  { id: "1h",     label: "Every hour" },
+  { id: "4h",     label: "Every 4 hours" },
+  { id: "24h",    label: "Daily" },
+];
+
+function SchedulePanel({ pipelineId }) {
+  const [schedules,        setSchedules]        = useState([]);
+  const [selectedInterval, setSelectedInterval] = useState("1h");
+  const [webhookUrl,  setWebhookUrl]  = useState("");
+  const [creating,    setCreating]    = useState(false);
+  const [triggering,  setTriggering]  = useState(null);
+  const [expanded,    setExpanded]    = useState(false);
+
+  const load = useCallback(() => {
+    fetch(`${REGISTRY_URL}/schedules`)
+      .then(r => r.json())
+      .then(all => setSchedules(all.filter(s => s.pipeline_id === pipelineId)));
+  }, [pipelineId]);
+
+  useEffect(() => { if (expanded && pipelineId) load(); }, [expanded, pipelineId, load]);
+
+  const create = async () => {
+    if (!pipelineId) return;
+    setCreating(true);
+    await fetch(`${REGISTRY_URL}/schedules`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pipeline_id: pipelineId, interval: selectedInterval, webhook_url: webhookUrl || null }),
+    });
+    setWebhookUrl("");
+    load();
+    setCreating(false);
+  };
+
+  const trigger = async schedId => {
+    setTriggering(schedId);
+    await fetch(`${REGISTRY_URL}/schedules/${schedId}/trigger`, { method: "POST" });
+    load();
+    setTriggering(null);
+  };
+
+  const del = async schedId => {
+    await fetch(`${REGISTRY_URL}/schedules/${schedId}`, { method: "DELETE" });
+    load();
+  };
+
+  return (
+    <div style={{ borderTop: "1px solid #1f2937", marginTop: 8 }}>
+      <button
+        onClick={() => setExpanded(v => !v)}
+        style={{
+          width: "100%", background: "transparent", border: "none",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 16px", cursor: "pointer", color: "#6b7280", fontSize: 11,
+          fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8,
+        }}
+      >
+        <span>Schedules</span>
+        <span style={{ fontSize: 10 }}>{expanded ? "▲" : "▼"}</span>
+      </button>
+
+      {expanded && (
+        <div style={{ padding: "0 16px 16px" }}>
+          {!pipelineId ? (
+            <div style={{ color: "#374151", fontSize: 11 }}>Save the pipeline first to add a schedule.</div>
+          ) : (
+            <>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ color: "#9ca3af", fontSize: 10, marginBottom: 6 }}>Interval</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {INTERVALS.map(iv => (
+                    <button key={iv.id} onClick={() => setSelectedInterval(iv.id)} style={{
+                      padding: "4px 9px", borderRadius: 6, fontSize: 10, fontWeight: 600,
+                      cursor: "pointer", border: `1px solid ${selectedInterval === iv.id ? "#6366f1" : "#374151"}`,
+                      background: selectedInterval === iv.id ? "#6366f115" : "transparent",
+                      color: selectedInterval === iv.id ? "#818cf8" : "#6b7280",
+                    }}>{iv.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ color: "#9ca3af", fontSize: 10, marginBottom: 4 }}>Webhook URL (optional)</div>
+                <input
+                  value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)}
+                  placeholder="https://hooks.slack.com/…"
+                  style={{
+                    width: "100%", background: "#1f2937", border: "1px solid #374151",
+                    borderRadius: 7, color: "#e5e7eb", padding: "6px 9px",
+                    fontSize: 11, boxSizing: "border-box", outline: "none",
+                  }}
+                />
+              </div>
+
+              <button onClick={create} disabled={creating} style={{
+                width: "100%", background: creating ? "#1f2937" : "#6366f1",
+                color: creating ? "#6b7280" : "#fff",
+                border: "none", borderRadius: 8, padding: "8px",
+                fontSize: 11, fontWeight: 700, cursor: creating ? "not-allowed" : "pointer",
+                marginBottom: 14,
+              }}>
+                {creating ? "Creating…" : "+ Add Schedule"}
+              </button>
+
+              {schedules.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {schedules.map(s => (
+                    <div key={s.id} style={{
+                      background: "#1f2937", border: "1px solid #374151",
+                      borderRadius: 8, padding: "9px 11px",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ color: "#e5e7eb", fontSize: 11, fontWeight: 600 }}>
+                          {INTERVALS.find(iv => iv.id === s.interval)?.label ?? s.interval}
+                        </span>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={() => trigger(s.id)} disabled={triggering === s.id} style={{
+                            background: triggering === s.id ? "#374151" : "#059669",
+                            border: "none", borderRadius: 5, color: "#fff",
+                            padding: "3px 8px", fontSize: 10, fontWeight: 700, cursor: "pointer",
+                          }}>
+                            {triggering === s.id ? "…" : "▶ Run"}
+                          </button>
+                          <button onClick={() => del(s.id)} style={{
+                            background: "transparent", border: "1px solid #374151",
+                            borderRadius: 5, color: "#6b7280", padding: "3px 7px",
+                            fontSize: 10, cursor: "pointer",
+                          }}>×</button>
+                        </div>
+                      </div>
+                      {s.webhook_url && (
+                        <div style={{ color: "#4b5563", fontSize: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          → {s.webhook_url}
+                        </div>
+                      )}
+                      {s.last_run_at && (
+                        <div style={{ color: "#374151", fontSize: 9, marginTop: 2 }}>
+                          Last run {new Date(s.last_run_at).toLocaleTimeString()}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main builder ──────────────────────────────────────────────────────────────
 
 function Builder() {
@@ -902,6 +1061,9 @@ function Builder() {
             </div>
           )}
         </div>
+
+        {/* Schedules */}
+        <SchedulePanel pipelineId={savedId} />
 
         {/* Cost footer */}
         {nodes.length > 0 && (

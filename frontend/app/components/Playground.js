@@ -35,12 +35,12 @@ function agentPurpose(nameOrAgent) {
 // ── Category palette ──────────────────────────────────────────────────────────
 
 const CAT = {
-  trading:   { color: "#10b981", pill: "#ecfdf5", icon: "📈", label: "Trading"    },
-  analysis:  { color: "#8b5cf6", pill: "#f5f3ff", icon: "🔍", label: "Analysis"   },
-  data:      { color: "#3b82f6", pill: "#eff6ff", icon: "⚡", label: "Market Data" },
-  risk:      { color: "#ef4444", pill: "#fef2f2", icon: "🛡️", label: "Risk"       },
-  composite: { color: "#f59e0b", pill: "#fffbeb", icon: "🔗", label: "Workflow"   },
-  default:   { color: "#6b7280", pill: "#f9fafb", icon: "🤖", label: "Agent"      },
+  trading:   { color: "#10b981", pill: "#ecfdf5", icon: "↗", label: "Trading"    },
+  analysis:  { color: "#8b5cf6", pill: "#f5f3ff", icon: "◎", label: "Analysis"   },
+  data:      { color: "#3b82f6", pill: "#eff6ff", icon: "≋", label: "Market Data" },
+  risk:      { color: "#ef4444", pill: "#fef2f2", icon: "◬", label: "Risk"       },
+  composite: { color: "#f59e0b", pill: "#fffbeb", icon: "⊕", label: "Workflow"   },
+  default:   { color: "#6b7280", pill: "#f9fafb", icon: "·", label: "Agent"      },
 };
 // back-compat aliases used by older code paths
 const cat = (c) => {
