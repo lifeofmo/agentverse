@@ -11,6 +11,26 @@ import "reactflow/dist/style.css";
 
 import { API, WS } from "@/app/lib/config";
 
+// ── Agent purpose map (same as Marketplace) ────────────────────────────────────
+const AGENT_PURPOSE = {
+  MomentumAgent:      { displayName: "Trading Signal",        tagline: "BUY / SELL / HOLD signal",           action: "Get Signal" },
+  SentimentAgent:     { displayName: "Sentiment Analyzer",    tagline: "Fear & greed index",                 action: "Check Sentiment" },
+  PriceFeedAgent:     { displayName: "Live Price Feed",       tagline: "Real-time price + 24h change",       action: "Get Price" },
+  TrendAnalyzer:      { displayName: "Trend Detector",        tagline: "Up / down / sideways",               action: "Detect Trend" },
+  RiskAgent:          { displayName: "Risk Scanner",          tagline: "Volatility & downside risk",         action: "Scan Risk" },
+  ArbitrageAgent:     { displayName: "Arbitrage Finder",      tagline: "Price gaps across exchanges",        action: "Find Gaps" },
+  VolatilityScanner:  { displayName: "Volatility Meter",      tagline: "Current volatility level",           action: "Measure" },
+  CorrelationAgent:   { displayName: "Correlation Tracker",   tagline: "How assets move together",           action: "Check Correlation" },
+  PortfolioOptimizer: { displayName: "Portfolio Optimizer",   tagline: "Ideal allocation weights",           action: "Optimize" },
+  PatternRecognizer:  { displayName: "Chart Pattern Scanner", tagline: "Technical patterns forming",         action: "Scan Patterns" },
+  LiquidityAnalyzer:  { displayName: "Liquidity Analyzer",    tagline: "Buying & selling pressure",          action: "Check Liquidity" },
+  MarketDepthAgent:   { displayName: "Market Depth Agent",    tagline: "Order book price direction",         action: "Read Depth" },
+};
+function agentPurpose(nameOrAgent) {
+  const name = typeof nameOrAgent === "string" ? nameOrAgent : nameOrAgent?.name;
+  return AGENT_PURPOSE[name] ?? { displayName: name, tagline: "Live market data", action: "Run" };
+}
+
 
 // ── Category palette ──────────────────────────────────────────────────────────
 
@@ -137,6 +157,7 @@ const AgentNode = memo(({ data, selected }) => {
   const { zoom } = useViewport();
   const c = cat(data.category);
   const showDetails = zoom > 0.5;
+  const p = agentPurpose(data.label);
   return (
     <div className={data.active ? "agent-node-active" : ""} style={{
       "--pulse-color": c.glow,
@@ -177,7 +198,7 @@ const AgentNode = memo(({ data, selected }) => {
       </div>
 
       <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: showDetails ? 13 : 11, lineHeight: 1.2 }}>
-        {data.label}
+        {p.displayName}
       </div>
 
       {showDetails && (
@@ -367,8 +388,8 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
         {!collapsed && (
           <div style={{ flex: 1 }}>
             <div style={{ color: "#2d5a7a", fontSize: 11, fontWeight: 800,
-              textTransform: "uppercase", letterSpacing: 1.2 }}>Agent Library</div>
-            <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 1 }}>drag onto canvas</div>
+              textTransform: "uppercase", letterSpacing: 1.2 }}>Agents</div>
+            <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 1 }}>drag to canvas to add</div>
           </div>
         )}
         <button onClick={onToggle} style={{ background: "none", border: "none",
@@ -393,32 +414,33 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
                     {CAT_LABELS[catKey]}
                   </span>
                 </div>
-                {grouped[catKey].map((a) => (
+                {grouped[catKey].map((a) => {
+                    const p = agentPurpose(a);
+                    return (
                   <div key={a.id} draggable onDragStart={(e) => onDragAgent(e, a)}
                     style={{ background: "#fff", border: "1px solid #e6d6bd",
                       borderLeft: `3px solid ${c.border}`,
-                      borderRadius: 7, padding: "7px 9px", marginBottom: 5,
+                      borderRadius: 7, padding: "8px 9px", marginBottom: 5,
                       cursor: "grab", userSelect: "none",
                       boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                       transition: "box-shadow 0.15s",
                     }}
                     onMouseEnter={(e) => { e.currentTarget.style.boxShadow = `0 2px 8px ${c.border}30`; }}
                     onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}>
-                    <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12, lineHeight: 1.2 }}>{a.name}</div>
-                    <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 3 }}>
-                      ${a.price_per_request}/call
-                      {a.requests > 0 && <span style={{ color: c.border, marginLeft: 6 }}>·{a.requests} calls</span>}
-                    </div>
+                    <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12, lineHeight: 1.2 }}>{p.displayName}</div>
+                    <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 2, lineHeight: 1.4 }}>{p.tagline}</div>
                   </div>
-                ))}
+                    );
+                  })}
               </div>
             );
           })}
 
           {agents.length === 0 && (
-            <div style={{ color: "#9aabb8", fontSize: 11, fontStyle: "italic", padding: "12px 4px",
-              textAlign: "center", lineHeight: 1.5 }}>
-              No agents registered.<br />Go to Developer Hub to add one.
+            <div style={{ color: "#9aabb8", fontSize: 11, padding: "16px 4px",
+              textAlign: "center", lineHeight: 1.6 }}>
+              Loading agents…<br />
+              <span style={{ fontSize: 10 }}>If this persists, the server may be restarting.</span>
             </div>
           )}
 
@@ -455,16 +477,19 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
                 marginBottom: 6, paddingBottom: 4, borderBottom: "1px solid #E6C36B40" }}>
                 Composite Agents
               </div>
-              {composites.map((a) => (
+              {composites.map((a) => {
+                const p = agentPurpose(a);
+                return (
                 <div key={a.id} draggable onDragStart={(e) => onDragAgent(e, a)}
                   style={{ background: "#fff", border: "1px solid #e6d6bd",
                     borderLeft: "3px solid #E6C36B",
-                    borderRadius: 7, padding: "7px 9px", marginBottom: 5,
+                    borderRadius: 7, padding: "8px 9px", marginBottom: 5,
                     cursor: "grab", userSelect: "none" }}>
-                  <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12 }}>{a.name}</div>
-                  <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 2 }}>composite · ${a.price_per_request}/call</div>
+                  <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12 }}>{p.displayName}</div>
+                  <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 2 }}>multi-agent workflow</div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -478,28 +503,28 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
 const GUIDE_STEPS = [
   {
     title: "Welcome to the Playground",
-    body: "This is where you chain AI agents together — like building an assembly line. Each agent does one job and passes its result to the next.",
-    cta: "Show me how",
+    body: "Chain AI agents together to build a real market intelligence pipeline. Each agent fetches live data and passes it to the next — like an assembly line for insights.",
+    cta: "Show me",
   },
   {
-    title: "Step 1 — Pick an agent",
-    body: "See the panel on the left? Those are your agents. Drag one onto the canvas — try PriceFeedAgent or MomentumAgent.",
+    title: "Step 1 — Add an agent",
+    body: "The left panel lists available agents. Try dragging \"Live Price Feed\" onto the canvas to start — it fetches the latest BTC price.",
     cta: "Got it",
   },
   {
-    title: "Step 2 — Connect them",
-    body: "Drag a second agent onto the canvas. Then hover over the first one — a dot appears on its right edge. Drag from that dot to the second agent.",
+    title: "Step 2 — Add a second agent",
+    body: "Drag \"Trading Signal\" onto the canvas. Hover the first agent — a dot appears on its right edge. Drag from that dot to the Trading Signal agent to connect them.",
     cta: "Got it",
   },
   {
-    title: "Step 3 — Run it",
-    body: "Hit the Run button at the top. Watch live data flow from agent to agent. Each one calls a real API and passes its result forward.",
+    title: "Step 3 — Hit Run",
+    body: "Click Run at the bottom toolbar. Watch data flow live: price feeds into the signal agent, which gives you a BUY / SELL / HOLD result in real time.",
     cta: "Got it",
   },
   {
-    title: "That's it",
-    body: "You just built a real AI pipeline. Each call costs a tiny fee (fractions of a cent) — that's how developers earn on AgentVerse.",
-    cta: "Let's go",
+    title: "Save it as a workflow",
+    body: "Once it works the way you want, name it and save. You can then deploy it to the Marketplace so others can run your pipeline in one click.",
+    cta: "Let's build",
   },
 ];
 
@@ -621,19 +646,22 @@ function OnboardingHints() {
       transform: "translate(-50%, -50%)",
       textAlign: "center", pointerEvents: "none", zIndex: 10,
     }}>
-      <div style={{ color: "#b8a898", fontSize: 14, fontWeight: 700, marginBottom: 20 }}>
-        Build AI pipelines by connecting agents
+      <div style={{ color: "#b8a898", fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+        Build a live market signal pipeline
+      </div>
+      <div style={{ color: "#c8b898", fontSize: 12, marginBottom: 20 }}>
+        Drag agents from the left, connect them, hit Run
       </div>
       <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
         {[
-          ["①", "Drag an agent", "from the left panel"],
-          ["②", "Connect agents", "draw edges between nodes"],
-          ["③", "Click Run", "watch revenue flow"],
+          ["①", "Live Price Feed", "drag from left panel"],
+          ["②", "→  Trading Signal", "connect the two agents"],
+          ["③", "Run", "see BUY / SELL / HOLD"],
         ].map(([num, title, sub]) => (
           <div key={num} style={{ background: "rgba(255,252,248,0.9)", border: "1px solid #e6d6bd",
-            borderRadius: 12, padding: "14px 16px", minWidth: 120,
+            borderRadius: 12, padding: "14px 16px", minWidth: 130,
             boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-            <div style={{ color: "#c4a85a", fontSize: 20, fontWeight: 800, marginBottom: 6 }}>{num}</div>
+            <div style={{ color: "#c4a85a", fontSize: 18, fontWeight: 800, marginBottom: 6 }}>{num}</div>
             <div style={{ color: "#2d3a4a", fontSize: 11, fontWeight: 700 }}>{title}</div>
             <div style={{ color: "#9aabb8", fontSize: 10, marginTop: 3 }}>{sub}</div>
           </div>
@@ -671,25 +699,40 @@ function ResultsPanel({ results, totalCost, running, onClose }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {results.map((r, i) => {
           const c = cat(r.category);
+          const p = agentPurpose(r.agentName);
+          // Pull a meaningful value from lastOutput if available
+          const out = r.lastOutput || {};
+          const signal = out.signal || out.trend || out.opportunity || out.recommendation;
+          const signalColors = { BUY: "#10b981", SELL: "#ef4444", HOLD: "#f59e0b", UPTREND: "#10b981", DOWNTREND: "#ef4444", HIGH: "#10b981", LOW: "#6b7280" };
           return (
             <div key={i} style={{ background: "#f8f6f2", borderRadius: 8, padding: "8px 10px",
               borderLeft: `3px solid ${r.done ? c.border : "#e6d6bd"}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: r.done ? 5 : 0 }}>
                 <CatDot category={r.category} size={11} />
-                <span style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12 }}>{r.agentName}</span>
+                <span style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 11 }}>{p.displayName}</span>
                 {r.done && <span style={{ marginLeft: "auto", color: "#6BCF8B", fontSize: 10 }}>✓</span>}
                 {!r.done && <span style={{ marginLeft: "auto", color: c.border, fontSize: 9 }}>●</span>}
               </div>
-              {r.done && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10 }}>
-                  <span style={{ color: "#9aabb8" }}>latency</span>
-                  <span style={{ color: "#2d3a4a", fontWeight: 600 }}>{Math.round(r.latency)}ms</span>
+              {r.done && signal && (
+                <div style={{ fontSize: 12, fontWeight: 800, color: signalColors[signal] ?? c.border, marginBottom: 2 }}>
+                  {signal}
                 </div>
               )}
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, marginTop: 2 }}>
-                <span style={{ color: "#9aabb8" }}>cost</span>
-                <span style={{ color: c.border, fontWeight: 700 }}>${r.cost.toFixed(4)}</span>
-              </div>
+              {r.done && out.price_usd && (
+                <div style={{ fontSize: 11, color: "#2d3a4a", fontWeight: 600 }}>
+                  ${Number(out.price_usd).toLocaleString()}
+                  {out.change_24h_pct != null && (
+                    <span style={{ marginLeft: 6, color: out.change_24h_pct >= 0 ? "#10b981" : "#ef4444", fontSize: 10 }}>
+                      {out.change_24h_pct >= 0 ? "+" : ""}{Number(out.change_24h_pct).toFixed(2)}%
+                    </span>
+                  )}
+                </div>
+              )}
+              {r.done && out.confidence != null && (
+                <div style={{ fontSize: 10, color: "#9aabb8" }}>
+                  Confidence: {Math.round(Number(out.confidence) * 100)}%
+                </div>
+              )}
             </div>
           );
         })}
@@ -711,6 +754,7 @@ function ResultsPanel({ results, totalCost, running, onClose }) {
 function Inspector({ node, onCall, onClose, lastOutput }) {
   if (!node) return null;
   const c = cat(node.data.category);
+  const p = agentPurpose(node.data.label);
   return (
     <div style={{
       position: "absolute", right: 16, top: 16, width: 240,
@@ -720,29 +764,15 @@ function Inspector({ node, onCall, onClose, lastOutput }) {
       overflowY: "auto", backdropFilter: "blur(20px)",
       boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
         <div>
           <div style={{ color: c.border, fontSize: 9, fontWeight: 700,
             textTransform: "uppercase", letterSpacing: 1 }}>{node.data.category}</div>
-          <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 15, marginTop: 3 }}>{node.data.label}</div>
+          <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 15, marginTop: 3 }}>{p.displayName}</div>
+          <div style={{ color: "#9aabb8", fontSize: 11, marginTop: 2 }}>{p.tagline}</div>
         </div>
         <button onClick={onClose} style={{ background: "none", border: "none",
           color: "#9aabb8", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>×</button>
-      </div>
-
-      <div style={{ background: "#f8f6f2", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
-        {[
-          ["Requests",    node.data.requests || 0],
-          ["Avg latency", node.data.latency ? `${Math.round(node.data.latency)}ms` : "—"],
-          ["Earnings",    node.data.earnings ? `$${Number(node.data.earnings).toFixed(4)}` : "—"],
-          ["Price/call",  `$${node.data.price}`],
-        ].map(([k, v]) => (
-          <div key={k} style={{ display: "flex", justifyContent: "space-between",
-            padding: "4px 0", fontSize: 12, borderBottom: "1px solid #e6d6bd" }}>
-            <span style={{ color: "#9aabb8" }}>{k}</span>
-            <span style={{ color: "#2d3a4a", fontWeight: 600 }}>{v}</span>
-          </div>
-        ))}
       </div>
 
       {lastOutput && (
@@ -1082,7 +1112,7 @@ function PlaygroundCanvas() {
 
   const savePipeline = async () => {
     if (!pipelineName || !canRun) return;
-    if (!backendOk) { showToast("Start the backend to save pipelines: uvicorn main:app --port 8000"); return; }
+    if (!backendOk) { showToast("Server is offline — try again in a moment."); return; }
     const ids = topoSort(nodes, edges)
       .map((id) => nodes.find((n) => n.id === id)?.data.agentId)
       .filter(Boolean);
@@ -1113,7 +1143,7 @@ function PlaygroundCanvas() {
   const runDemoPipeline = async () => {
     const demo = allPipelines[0];
     if (!demo) return;
-    if (!backendOk) { showToast("Start the backend to run pipelines: uvicorn main:app --port 8000"); return; }
+    if (!backendOk) { showToast("Server is offline — try again in a moment."); return; }
     setRunning(true);
     try {
       await fetch(`${API}/run-pipeline/${demo.id}`, {
@@ -1171,7 +1201,7 @@ function PlaygroundCanvas() {
           display: "flex", alignItems: "center", gap: 8,
         }}>
           <span style={{ fontSize: 14 }}>⚠</span>
-          Backend offline — run <code style={{ background: "rgba(255,255,255,0.2)", borderRadius: 4, padding: "1px 6px" }}>uvicorn main:app --port 8000</code> then reload
+          Agents offline — the server is restarting. Try again in a moment.
         </div>
       )}
 
