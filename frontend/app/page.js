@@ -8,8 +8,6 @@ import MarketplaceView from "./components/MarketplaceView";
 import DeveloperView from "./components/DeveloperView";
 import LobbySelect from "./components/LobbySelect";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { WalletProvider } from "./components/WalletProvider";
-import WalletButton from "./components/WalletButton";
 
 const ExperimentalWorld = dynamic(() => import("./components/ExperimentalWorld"), { ssr: false });
 const MatrixWorld       = dynamic(() => import("./components/MatrixWorld"),       { ssr: false });
@@ -17,137 +15,129 @@ const SimsWorld         = dynamic(() => import("./components/SimsWorld"),       
 const TomorrowlandWorld = dynamic(() => import("./components/TomorrowlandWorld"), { ssr: false });
 const LasVegasWorld     = dynamic(() => import("./components/LasVegasWorld"),     { ssr: false });
 const HogwartsWorld     = dynamic(() => import("./components/HogwartsWorld"),     { ssr: false });
+const AgentCity         = dynamic(() => import("./components/AgentCity"),         { ssr: false });
 
 import { API } from "@/app/lib/config";
 
-// ── Splash screen ─────────────────────────────────────────────────────────────
+// ── Splash ─────────────────────────────────────────────────────────────────────
+
 const WORLDS_CYCLE = [
-  { name: "Matrix",       bg: "#010d01", color: "#00FF41", sub: "Data agents in a digital grid"        },
-  { name: "Hogwarts",     bg: "#110d02", color: "#d4a820", sub: "Wizards casting spells on data"       },
-  { name: "Tomorrowland", bg: "#0a0018", color: "#c084fc", sub: "Festival of signals and beats"        },
-  { name: "Sims",         bg: "#1a2e10", color: "#7ec87e", sub: "Agents with homes, jobs and neighbors"},
-  { name: "Las Vegas",    bg: "#0d0005", color: "#ff2d78", sub: "High-stakes trading agents on the strip" },
-  { name: "Burning Man",  bg: "#180800", color: "#FF6B35", sub: "Art installations on the playa"       },
+  { name: "Las Vegas",    color: "#ff2d78", bg: "#0d0005", sub: "High-stakes trading agents" },
+  { name: "Matrix",       color: "#00FF41", bg: "#010d01", sub: "Data feeds in a digital grid" },
+  { name: "Tomorrowland", color: "#c084fc", bg: "#0a0018", sub: "Composite pipelines at festival scale" },
+  { name: "Sims",         color: "#7ec87e", bg: "#1a2e10", sub: "Analysis agents with real neighborhoods" },
+  { name: "Burning Man",  color: "#FF6B35", bg: "#180800", sub: "Experimental builds on the playa" },
+  { name: "Hogwarts",     color: "#d4a820", bg: "#110d02", sub: "All agents, one campus" },
 ];
 
 function SplashScreen({ onEnter }) {
-  const [idx, setIdx]       = useState(0);
-  const [fade, setFade]     = useState(true);
+  const [idx, setIdx]         = useState(0);
+  const [fade, setFade]       = useState(true);
   const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
     const iv = setInterval(() => {
       setFade(false);
-      setTimeout(() => {
-        setIdx(i => (i + 1) % WORLDS_CYCLE.length);
-        setFade(true);
-      }, 300);
-    }, 2600);
+      setTimeout(() => { setIdx(i => (i + 1) % WORLDS_CYCLE.length); setFade(true); }, 280);
+    }, 2800);
     return () => clearInterval(iv);
   }, []);
 
-  const world = WORLDS_CYCLE[idx];
-
-  const handleEnter = () => {
-    setExiting(true);
-    setTimeout(onEnter, 450);
-  };
+  const w = WORLDS_CYCLE[idx];
+  const enter = () => { setExiting(true); setTimeout(onEnter, 420); };
 
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
-      background: world.bg,
+      background: w.bg,
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       padding: "32px 24px",
       opacity: exiting ? 0 : 1,
-      transition: "background 0.6s ease, opacity 0.45s ease",
+      transition: "background 0.7s ease, opacity 0.42s ease",
       overflow: "hidden",
     }}>
       <style>{`
-        @keyframes spFadeUp { from { opacity:0; transform:translateY(14px);} to { opacity:1; transform:translateY(0);} }
-        .sp-ui { animation: spFadeUp 0.6s ease forwards; opacity: 0; }
-        .sp-btn:hover  { opacity: 0.8; }
-        .sp-btn:active { transform: scale(0.97); }
+        @keyframes spUp { from { opacity:0; transform:translateY(12px);} to { opacity:1; transform:translateY(0);} }
+        .sp-in { animation: spUp 0.7s ease forwards; opacity:0; }
+        @keyframes pulse { 0%,100% { transform:scale(1);} 50% { transform:scale(1.04);} }
       `}</style>
 
-      {/* Giant world name — full bleed background text */}
+      {/* Giant ghost watermark */}
       <div style={{
-        position: "absolute", inset: 0,
-        display: "flex", alignItems: "center", justifyContent: "center",
+        position: "absolute", inset: 0, display: "flex",
+        alignItems: "center", justifyContent: "center",
         pointerEvents: "none", userSelect: "none",
-        opacity: fade ? 0.07 : 0,
-        transition: "opacity 0.3s ease",
+        opacity: fade ? 0.055 : 0, transition: "opacity 0.28s ease",
       }}>
         <span style={{
-          fontSize: "clamp(80px, 18vw, 200px)",
-          fontWeight: 900, letterSpacing: "-4px",
-          color: world.color,
-          whiteSpace: "nowrap",
-          lineHeight: 1,
-        }}>{world.name}</span>
+          fontSize: "clamp(70px, 20vw, 220px)", fontWeight: 900,
+          color: w.color, letterSpacing: "-4px", lineHeight: 1, whiteSpace: "nowrap",
+        }}>{w.name}</span>
       </div>
 
-      {/* Foreground content */}
-      <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 560 }}>
-
+      <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 540 }}>
         {/* Wordmark */}
-        <div className="sp-ui" style={{ animationDelay: "0s", marginBottom: 48 }}>
-          <span style={{ color: "#ffffff60", fontWeight: 300, fontSize: 18 }}>Agent</span>
-          <span style={{ color: "#fff",      fontWeight: 800, fontSize: 18 }}>Verse</span>
+        <div className="sp-in" style={{ animationDelay: "0s", marginBottom: 52 }}>
+          <span style={{ color: "rgba(255,255,255,0.4)", fontWeight: 300, fontSize: 17, letterSpacing: "0.3px", fontFamily: "system-ui, -apple-system, sans-serif" }}>Agent</span>
+          <span style={{ color: "#fff", fontWeight: 800, fontSize: 17, letterSpacing: "0.3px", fontFamily: "system-ui, -apple-system, sans-serif" }}>Verse</span>
         </div>
 
-        {/* Cycling world name */}
+        {/* Cycling world */}
         <div style={{
-          marginBottom: 16,
-          opacity: fade ? 1 : 0,
-          transform: fade ? "translateY(0)" : "translateY(8px)",
-          transition: "opacity 0.3s ease, transform 0.3s ease",
+          marginBottom: 18,
+          opacity: fade ? 1 : 0, transform: fade ? "translateY(0)" : "translateY(10px)",
+          transition: "opacity 0.28s ease, transform 0.28s ease",
         }}>
           <div style={{
-            fontSize: "clamp(36px, 7vw, 72px)",
-            fontWeight: 900, letterSpacing: "-2px", lineHeight: 1,
-            color: world.color,
-          }}>{world.name}</div>
-          <div style={{ color: world.color + "80", fontSize: 14, marginTop: 8, fontWeight: 400 }}>
-            {world.sub}
+            fontSize: "clamp(38px, 8vw, 78px)", fontWeight: 900,
+            letterSpacing: "-2px", lineHeight: 1, color: w.color,
+            fontFamily: "system-ui, -apple-system, sans-serif",
+          }}>{w.name}</div>
+          <div style={{ color: w.color + "70", fontSize: 14, marginTop: 10, fontWeight: 400, fontFamily: "system-ui, sans-serif" }}>
+            {w.sub}
           </div>
         </div>
 
-        {/* Static headline */}
-        <div className="sp-ui" style={{ animationDelay: "0.2s", marginTop: 40, marginBottom: 10 }}>
-          <p style={{ margin: 0, color: "#ffffff90", fontSize: 15, lineHeight: 1.6 }}>
-            Deploy an agent. Watch it inhabit a world. Earn per API call.
-          </p>
-        </div>
-
         {/* Dots */}
-        <div className="sp-ui" style={{ animationDelay: "0.3s", marginBottom: 36 }}>
-          <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 20 }}>
+        <div className="sp-in" style={{ animationDelay: "0.25s", marginTop: 30, marginBottom: 20 }}>
+          <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
             {WORLDS_CYCLE.map((_, i) => (
               <div key={i} style={{
-                width: i === idx ? 20 : 6, height: 6,
-                borderRadius: 3,
-                background: i === idx ? world.color : "#ffffff30",
+                width: i === idx ? 22 : 6, height: 6, borderRadius: 3,
+                background: i === idx ? w.color : "rgba(255,255,255,0.2)",
                 transition: "all 0.3s ease",
               }} />
             ))}
           </div>
         </div>
 
+        {/* Tagline */}
+        <div className="sp-in" style={{ animationDelay: "0.35s", marginBottom: 32 }}>
+          <p style={{ margin: 0, color: "rgba(255,255,255,0.55)", fontSize: 14, lineHeight: 1.65, fontFamily: "system-ui, sans-serif" }}>
+            Deploy an agent. Watch it inhabit a world. Earn per API call.
+          </p>
+        </div>
+
         {/* CTA */}
-        <div className="sp-ui" style={{ animationDelay: "0.4s" }}>
-          <button className="sp-btn" onClick={handleEnter} style={{
-            padding: "13px 38px", borderRadius: 10, border: `1.5px solid ${world.color}`,
-            background: "transparent", color: world.color,
+        <div className="sp-in" style={{ animationDelay: "0.45s" }}>
+          <button onClick={enter} style={{
+            padding: "13px 42px", borderRadius: 12,
+            border: `1.5px solid ${w.color}`,
+            background: "transparent", color: w.color,
             fontSize: 14, fontWeight: 700,
-            cursor: "pointer", transition: "opacity 0.15s",
+            cursor: "pointer",
+            fontFamily: "system-ui, sans-serif",
+            transition: "background 0.15s, color 0.15s",
             marginBottom: 14,
-          }}>
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = w.color; e.currentTarget.style.color = "#000"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = w.color; }}
+          >
             Enter AgentVerse
           </button>
-          <div style={{ color: "#ffffff30", fontSize: 12 }}>
-            Free to deploy · Pay per call · Open to all developers
+          <div style={{ color: "rgba(255,255,255,0.22)", fontSize: 12, fontFamily: "system-ui, sans-serif" }}>
+            Free to deploy · Pay per call · Open to all
           </div>
         </div>
       </div>
@@ -155,51 +145,52 @@ function SplashScreen({ onEnter }) {
   );
 }
 
-// Three.js cannot SSR
-const AgentCity = dynamic(() => import("./components/AgentCity"), { ssr: false });
+// ── Nav config ─────────────────────────────────────────────────────────────────
 
 const NAV = [
-  { id: "playground",  label: "Playground" },
-  { id: "city",        label: "Agent City",  accent: "#6BCF8B" },
-  { id: "challenges",  label: "Challenges"  },
-  { id: "marketplace", label: "Marketplace" },
-  { id: "developer",   label: "Developer",   accent: "#4a9fd4" },
+  { id: "playground",  label: "Playground",  icon: "◈" },
+  { id: "city",        label: "Worlds",       icon: "⬡" },
+  { id: "marketplace", label: "Store",        icon: "◉" },
+  { id: "challenges",  label: "Challenges",   icon: "◆" },
+  { id: "developer",   label: "Developer",    icon: "⚙" },
 ];
 
-function WalletHUD() {
+// ── Credits HUD ────────────────────────────────────────────────────────────────
+
+function CreditsHUD() {
   const [balance, setBalance] = useState(null);
 
   useEffect(() => {
     const load = () =>
       fetch(`${API}/wallets/demo`)
-        .then((r) => r.json())
-        .then((w) => setBalance(w.balance))
+        .then(r => r.json())
+        .then(w => setBalance(w.balance))
         .catch(() => {});
     load();
-    const iv = setInterval(load, 8000);
+    const iv = setInterval(load, 10000);
     return () => clearInterval(iv);
   }, []);
 
   if (balance === null) return null;
 
-  // 1 credit = $0.01  (so $100 demo balance = 10,000 credits)
   const credits = Math.round(balance * 100);
-  const color   = credits < 500 ? "#E67B7B" : credits < 2000 ? "#E6C36B" : "#6BCF8B";
+  const color   = credits < 500 ? "#f87171" : credits < 2000 ? "#fbbf24" : "#34d399";
 
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 6,
-      background: `${color}14`, border: `1px solid ${color}40`,
-      borderRadius: 20, padding: "4px 14px",
-      fontSize: 12, fontFamily: "inherit",
-      title: `$${balance.toFixed(2)} (demo credits — not real money)`,
+      background: `${color}12`, border: `1px solid ${color}35`,
+      borderRadius: 8, padding: "5px 12px",
+      fontFamily: "system-ui, sans-serif",
     }}>
-      <div style={{ width: 7, height: 7, borderRadius: "50%", background: color }} />
-      <span style={{ color: "#6b7d92", fontWeight: 600 }}>Credits</span>
-      <span style={{ color, fontWeight: 800 }}>{credits.toLocaleString()}</span>
+      <div style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
+      <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Credits</span>
+      <span style={{ color, fontSize: 12, fontWeight: 800 }}>{credits.toLocaleString()}</span>
     </div>
   );
 }
+
+// ── App ────────────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [tab,         setTab]         = useState("playground");
@@ -207,15 +198,14 @@ export default function App() {
   const [showSplash,  setShowSplash]  = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem("av_entered") !== "v3") setShowSplash(true);
+    if (localStorage.getItem("av_entered") !== "v4") setShowSplash(true);
   }, []);
 
   const handleEnter = () => {
-    localStorage.setItem("av_entered", "v3");
+    localStorage.setItem("av_entered", "v4");
     setShowSplash(false);
   };
 
-  // Reset lobby when leaving the city tab
   const handleTabChange = (id) => {
     if (id !== "city") setActiveLobby(null);
     setTab(id);
@@ -224,128 +214,157 @@ export default function App() {
   const inCity = tab === "city" && activeLobby !== null;
 
   return (
-    <WalletProvider>
-    {showSplash && <SplashScreen onEnter={handleEnter} />}
-    <div style={{
-      display: "flex", flexDirection: "column", height: "100vh",
-      background: "linear-gradient(180deg, #cfe9ff 0%, #f4e7d0 14%, #f4e7d0 100%)",
-      overflow: "hidden",
-      fontFamily: "var(--font-nunito), Nunito, system-ui, sans-serif",
-    }}>
-
-      {/* ── Top nav ── */}
-      <nav style={{
-        display: "flex", alignItems: "center", gap: 4,
-        padding: "0 20px", height: 52, flexShrink: 0,
-        borderBottom: "1px solid #e6d6bd",
-        background: "rgba(253,250,246,0.97)",
-        backdropFilter: "blur(12px)",
-        zIndex: 100,
-        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+    <>
+      {showSplash && <SplashScreen onEnter={handleEnter} />}
+      <div style={{
+        display: "flex", flexDirection: "column", height: "100vh",
+        background: "#0a0a0f", overflow: "hidden",
+        fontFamily: "system-ui, -apple-system, sans-serif",
       }}>
+        <style>{`
+          * { box-sizing: border-box; }
+          ::-webkit-scrollbar { width: 5px; height: 5px; }
+          ::-webkit-scrollbar-track { background: #0a0a0f; }
+          ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 3px; }
+          .nav-tab { transition: all 0.15s; }
+          .nav-tab:hover { background: rgba(255,255,255,0.05) !important; }
+        `}</style>
 
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: 0, marginRight: 20 }}>
-          <span style={{ color: "#2d5a7a", fontWeight: 300, fontSize: 17, letterSpacing: "-0.3px" }}>Agent</span>
-          <span style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 17, letterSpacing: "-0.3px" }}>Verse</span>
-        </div>
-
-        {/* Pill tabs */}
-        {NAV.map((n) => {
-          const active = tab === n.id;
-          const color  = n.accent ?? "#4a9fd4";
-          return (
-            <button key={n.id} onClick={() => handleTabChange(n.id)} style={{
-              padding: "5px 16px", borderRadius: 20, border: "none",
-              cursor: "pointer", fontSize: 13, fontWeight: 600,
-              background: active ? `${color}18` : "transparent",
-              color: active ? color : "#9aabb8",
-              boxShadow: active ? `inset 0 0 0 1px ${color}40` : "none",
-              transition: "all 0.15s",
-            }}>
-              {n.label}
-            </button>
-          );
-        })}
-
-        {/* Active lobby breadcrumb */}
-        {inCity && (
-          <>
-            <div style={{ color: "#c8d4e0", fontSize: 13, margin: "0 4px" }}>›</div>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "4px 12px", borderRadius: 20,
-              background: `${activeLobby.color}18`,
-              border: `1px solid ${activeLobby.color}40`,
-            }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: "50%", background: activeLobby.color,
-              }} />
-              <span style={{ color: activeLobby.color, fontSize: 12, fontWeight: 700 }}>
-                {activeLobby.label}
-              </span>
-            </div>
-            <button
-              onClick={() => setActiveLobby(null)}
-              style={{
-                background: "none", border: "none", color: "#9aabb8",
-                fontSize: 11, fontWeight: 600, cursor: "pointer",
-                padding: "4px 8px", borderRadius: 8,
-              }}
-            >← Worlds</button>
-          </>
-        )}
-
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
-
-        {/* Wallet HUD */}
-        <WalletHUD />
-
-        {/* Web3 wallet connect (for x402 payments) */}
-        <WalletButton />
-
-        {/* Builder link */}
-        <a href="/build" style={{
-          color: "#B59CE6", fontSize: 12, fontWeight: 700,
-          textDecoration: "none", padding: "5px 14px",
-          background: "rgba(139,111,212,0.1)",
-          border: "1px solid rgba(139,111,212,0.3)",
-          borderRadius: 20, marginLeft: 6,
+        {/* ── Top nav ───────────────────────────────────────────────────────── */}
+        <nav style={{
+          display: "flex", alignItems: "center",
+          padding: "0 20px", height: 56, flexShrink: 0,
+          background: "rgba(10,10,15,0.95)",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          backdropFilter: "blur(16px)",
+          zIndex: 100,
         }}>
-          + Pipeline Builder
-        </a>
-      </nav>
+          {/* Logo */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 0,
+            marginRight: 28, cursor: "default", userSelect: "none",
+          }}>
+            <span style={{
+              background: "linear-gradient(135deg, #818cf8, #34d399)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+              fontWeight: 800, fontSize: 16, letterSpacing: "-0.3px",
+            }}>AgentVerse</span>
+          </div>
 
-      {/* ── Content ── */}
-      <ErrorBoundary key={`${tab}-${activeLobby?.id}`}>
-        <div style={{ flex: 1, overflow: "hidden", position: "relative", height: "100%" }}>
-          {tab === "playground"  && <Playground />}
-          {tab === "city" && activeLobby === null && (
-            <LobbySelect onEnter={setActiveLobby} />
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 2 }}>
+            {NAV.map(n => {
+              const active = tab === n.id;
+              return (
+                <button
+                  key={n.id}
+                  className="nav-tab"
+                  onClick={() => handleTabChange(n.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "6px 14px", borderRadius: 8, border: "none",
+                    cursor: "pointer", fontSize: 13, fontWeight: 600,
+                    background: active ? "rgba(255,255,255,0.08)" : "transparent",
+                    color: active ? "#f1f5f9" : "rgba(255,255,255,0.38)",
+                    position: "relative",
+                  }}
+                >
+                  <span style={{
+                    fontSize: 11,
+                    color: active ? "#818cf8" : "rgba(255,255,255,0.25)",
+                  }}>{n.icon}</span>
+                  {n.label}
+                  {active && (
+                    <div style={{
+                      position: "absolute", bottom: 0, left: "50%",
+                      transform: "translateX(-50%)",
+                      width: 20, height: 2, borderRadius: 1,
+                      background: "linear-gradient(90deg, #818cf8, #34d399)",
+                    }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* World breadcrumb */}
+          {inCity && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 12 }}>
+              <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 12 }}>›</span>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: `${activeLobby.color}18`,
+                border: `1px solid ${activeLobby.color}40`,
+                borderRadius: 8, padding: "4px 10px",
+              }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: activeLobby.color }} />
+                <span style={{ color: activeLobby.color, fontSize: 12, fontWeight: 700 }}>
+                  {activeLobby.label}
+                </span>
+              </div>
+              <button onClick={() => setActiveLobby(null)} style={{
+                background: "transparent", border: "none",
+                color: "rgba(255,255,255,0.3)", fontSize: 12,
+                cursor: "pointer", padding: "3px 8px",
+                borderRadius: 6, fontWeight: 500,
+                fontFamily: "inherit",
+              }}>← Worlds</button>
+            </div>
           )}
-          {tab === "city" && activeLobby !== null && !["experimental","data","analysis","defi","trading","all"].includes(activeLobby.id) && (
-            <AgentCity
-              key={activeLobby.id}
-              lobbyId={activeLobby.id}
-              lobbyCategories={activeLobby.categories}
-              lobbyLabel={activeLobby.label}
-              lobbyColor={activeLobby.color}
-              theme={activeLobby.theme}
-            />
-          )}
-          {tab === "city" && activeLobby?.id === "experimental" && <ExperimentalWorld key="experimental" />}
-          {tab === "city" && activeLobby?.id === "data"         && <MatrixWorld       key="data" />}
-          {tab === "city" && activeLobby?.id === "analysis"     && <SimsWorld         key="analysis" />}
-          {tab === "city" && activeLobby?.id === "defi"         && <TomorrowlandWorld key="defi" />}
-          {tab === "city" && activeLobby?.id === "trading"      && <LasVegasWorld     key="trading" />}
-          {tab === "city" && activeLobby?.id === "all"          && <HogwartsWorld     key="all" />}
-          {tab === "challenges"  && <ChallengesView />}
-          {tab === "marketplace" && <MarketplaceView />}
-          {tab === "developer"   && <DeveloperView />}
-        </div>
-      </ErrorBoundary>
-    </div>
-    </WalletProvider>
+
+          <div style={{ flex: 1 }} />
+
+          {/* Credits */}
+          <CreditsHUD />
+
+          {/* Build CTA */}
+          <a href="/build" style={{
+            display: "flex", alignItems: "center", gap: 6,
+            color: "#818cf8", fontSize: 12, fontWeight: 700,
+            textDecoration: "none", padding: "6px 14px",
+            background: "rgba(129,140,248,0.1)",
+            border: "1px solid rgba(129,140,248,0.25)",
+            borderRadius: 8, marginLeft: 10,
+            transition: "all 0.15s",
+            fontFamily: "inherit",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(129,140,248,0.18)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(129,140,248,0.1)"; }}
+          >
+            <span style={{ fontSize: 11 }}>+</span>
+            Build
+          </a>
+        </nav>
+
+        {/* ── Content ───────────────────────────────────────────────────────── */}
+        <ErrorBoundary key={`${tab}-${activeLobby?.id}`}>
+          <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+            {tab === "playground"  && <Playground />}
+            {tab === "city" && activeLobby === null && (
+              <LobbySelect onEnter={setActiveLobby} />
+            )}
+            {tab === "city" && activeLobby !== null && !["experimental","data","analysis","defi","trading","all"].includes(activeLobby.id) && (
+              <AgentCity
+                key={activeLobby.id}
+                lobbyId={activeLobby.id}
+                lobbyCategories={activeLobby.categories}
+                lobbyLabel={activeLobby.label}
+                lobbyColor={activeLobby.color}
+                theme={activeLobby.theme}
+              />
+            )}
+            {tab === "city" && activeLobby?.id === "experimental" && <ExperimentalWorld key="experimental" />}
+            {tab === "city" && activeLobby?.id === "data"         && <MatrixWorld       key="data" />}
+            {tab === "city" && activeLobby?.id === "analysis"     && <SimsWorld         key="analysis" />}
+            {tab === "city" && activeLobby?.id === "defi"         && <TomorrowlandWorld key="defi" />}
+            {tab === "city" && activeLobby?.id === "trading"      && <LasVegasWorld     key="trading" />}
+            {tab === "city" && activeLobby?.id === "all"          && <HogwartsWorld     key="all" />}
+            {tab === "challenges"  && <ChallengesView />}
+            {tab === "marketplace" && <MarketplaceView />}
+            {tab === "developer"   && <DeveloperView />}
+          </div>
+        </ErrorBoundary>
+      </div>
+    </>
   );
 }
