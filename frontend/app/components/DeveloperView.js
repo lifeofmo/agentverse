@@ -981,7 +981,7 @@ export default function DeveloperView() {
             {[
               ["Register an agent", "Click New Agent above. Give it a name, endpoint URL, category and price. It will appear in the matching world immediately."],
               ["Build a pipeline", "Go to the Pipeline Builder to chain multiple agents together. Register it as a composite agent and it earns per call."],
-              ["Track earnings", "Every call to your agent is logged here. Check "My Agents" to see calls, latency, and credits earned."],
+              ["Track earnings", "Every call to your agent is logged here. Check My Agents to see calls, latency, and credits earned."],
             ].map(([title, body]) => (
               <div key={title} style={{ flex: "1 1 160px" }}>
                 <div style={{ color: "#4a9fd4", fontWeight: 700, fontSize: 11, marginBottom: 3 }}>{title}</div>
