@@ -35,17 +35,21 @@ function agentPurpose(nameOrAgent) {
 // ── Category palette ──────────────────────────────────────────────────────────
 
 const CAT = {
-  trading:   { border: "#6BCF8B", bg: "#f0fdf5", text: "#1a5c3a", glow: "rgba(107,207,139,0.25)"  },
-  analysis:  { border: "#B59CE6", bg: "#f8f5ff", text: "#3d2580", glow: "rgba(181,156,230,0.25)"  },
-  data:      { border: "#6BB6E6", bg: "#f0f8ff", text: "#1a4d7a", glow: "rgba(107,182,230,0.25)"  },
-  risk:      { border: "#E67B7B", bg: "#fff4f4", text: "#7a1a1a", glow: "rgba(230,123,123,0.25)"  },
-  composite: { border: "#E6C36B", bg: "#fffcf0", text: "#7a5a0a", glow: "rgba(230,195,107,0.25)"  },
-  default:   { border: "#9aabb8", bg: "#f5f7fa", text: "#3d5470", glow: "rgba(154,171,184,0.15)"  },
+  trading:   { color: "#10b981", pill: "#ecfdf5", icon: "📈", label: "Trading"    },
+  analysis:  { color: "#8b5cf6", pill: "#f5f3ff", icon: "🔍", label: "Analysis"   },
+  data:      { color: "#3b82f6", pill: "#eff6ff", icon: "⚡", label: "Market Data" },
+  risk:      { color: "#ef4444", pill: "#fef2f2", icon: "🛡️", label: "Risk"       },
+  composite: { color: "#f59e0b", pill: "#fffbeb", icon: "🔗", label: "Workflow"   },
+  default:   { color: "#6b7280", pill: "#f9fafb", icon: "🤖", label: "Agent"      },
 };
-const cat = (c) => CAT[c] ?? CAT.default;
+// back-compat aliases used by older code paths
+const cat = (c) => {
+  const v = CAT[c] ?? CAT.default;
+  return { ...v, border: v.color, bg: v.pill, text: v.color, glow: `${v.color}40` };
+};
 
 const CAT_ORDER = ["trading", "analysis", "data", "risk", "composite"];
-const CAT_LABELS = { trading: "Trading", analysis: "Analysis", data: "Data", risk: "Risk", composite: "Composite" };
+const CAT_LABELS = { trading: "Trading", analysis: "Analysis", data: "Market Data", risk: "Risk", composite: "Workflows" };
 
 // ── CSS keyframes injected once ───────────────────────────────────────────────
 
@@ -62,50 +66,33 @@ const GLOBAL_CSS = `
 .agent-node-active { animation: nodePulse 0.9s ease-out infinite; }
 `;
 
-// ── Plaza map grid background ─────────────────────────────────────────────────
+// ── Canvas dot grid ───────────────────────────────────────────────────────────
 
-function PlazaGrid() {
-  const canvasRef = useRef(null);
+function CanvasGrid() {
+  const ref = useRef(null);
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = ref.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
     const draw = () => {
       canvas.width  = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
-      const cx = canvas.width / 2, cy = canvas.height / 2;
-      const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.hypot(cx, cy));
-      bg.addColorStop(0, "#f8f0e3");
-      bg.addColorStop(1, "#f4e7d0");
-      ctx.fillStyle = bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const gridSize = 48;
-      ctx.strokeStyle = "rgba(200,184,154,0.3)"; ctx.lineWidth = 0.7;
-      for (let x = cx % gridSize; x < canvas.width; x += gridSize) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const gap = 32;
+      ctx.fillStyle = "rgba(255,255,255,0.07)";
+      for (let x = gap / 2; x < canvas.width; x += gap) {
+        for (let y = gap / 2; y < canvas.height; y += gap) {
+          ctx.beginPath();
+          ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
-      for (let y = cy % gridSize; y < canvas.height; y += gridSize) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-      }
-      for (let r = 70; r < 900; r += 70) {
-        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(180,160,120,${Math.max(0.04, 0.18 - r / 900 * 0.14)})`;
-        ctx.lineWidth = r < 210 ? 1.2 : 0.7; ctx.stroke();
-      }
-      for (let i = 0; i < 12; i++) {
-        const a = (i / 12) * Math.PI * 2;
-        ctx.beginPath(); ctx.moveTo(cx, cy);
-        ctx.lineTo(cx + Math.cos(a) * 900, cy + Math.sin(a) * 900);
-        ctx.strokeStyle = "rgba(160,140,100,0.08)"; ctx.lineWidth = 0.8; ctx.stroke();
-      }
-      const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, 180);
-      grd.addColorStop(0, "rgba(196,153,60,0.10)"); grd.addColorStop(1, "rgba(196,153,60,0)");
-      ctx.fillStyle = grd; ctx.fillRect(0, 0, canvas.width, canvas.height);
     };
     draw();
     window.addEventListener("resize", draw);
     return () => window.removeEventListener("resize", draw);
   }, []);
-  return <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }} />;
+  return <canvas ref={ref} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }} />;
 }
 
 // ── Pipe edge ─────────────────────────────────────────────────────────────────
@@ -141,161 +128,157 @@ const edgeTypes = { particle: ParticleEdge };
 
 // ── Node components ───────────────────────────────────────────────────────────
 
-function CatDot({ category, size = 14 }) {
-  const c = cat(category);
-  const L = { trading: "T", analysis: "A", data: "D", risk: "R", composite: "C", default: "·" };
+// Shared node card shell
+function NodeShell({ color, selected, active, revenueFlash, children, minW = 160 }) {
   return (
-    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.3), flexShrink: 0,
-      background: c.border, display: "flex", alignItems: "center", justifyContent: "center",
-      color: "#fff", fontSize: Math.round(size * 0.58), fontWeight: 800, lineHeight: 1 }}>
-      {L[category] ?? "·"}
+    <div className={active ? "agent-node-active" : ""} style={{
+      "--pulse-color": `${color}50`,
+      background: "#fff",
+      border: selected ? `2px solid ${color}` : "2px solid rgba(255,255,255,0.12)",
+      borderRadius: 14,
+      padding: "12px 14px",
+      minWidth: minW,
+      cursor: "pointer", position: "relative",
+      boxShadow: selected
+        ? `0 0 0 3px ${color}30, 0 8px 32px rgba(0,0,0,0.35)`
+        : "0 4px 20px rgba(0,0,0,0.28)",
+      transition: "border-color 0.18s, box-shadow 0.18s",
+    }}>
+      {revenueFlash && (
+        <div style={{ position: "absolute", top: -24, left: "50%",
+          color: "#10b981", fontWeight: 800, fontSize: 12,
+          animation: "floatUp 1.5s ease-out forwards", pointerEvents: "none",
+          whiteSpace: "nowrap" }}>
+          ↑ {revenueFlash}
+        </div>
+      )}
+      {children}
     </div>
   );
 }
 
 const AgentNode = memo(({ data, selected }) => {
-  const { zoom } = useViewport();
+  const { zoom }  = useViewport();
   const c = cat(data.category);
-  const showDetails = zoom > 0.5;
   const p = agentPurpose(data.label);
+  const showDetails = zoom > 0.55;
+
+  // Pick best single value from lastOutput to show on node
+  const out = data.lastOutput || {};
+  const highlight = out.signal || out.trend || out.opportunity;
+
   return (
-    <div className={data.active ? "agent-node-active" : ""} style={{
-      "--pulse-color": c.glow,
-      background: "#fff",
-      borderTop: `3px solid ${c.border}`,
-      borderRight: `1px solid ${selected ? c.border : "#e6d6bd"}`,
-      borderBottom: `1px solid ${selected ? c.border : "#e6d6bd"}`,
-      borderLeft: `1px solid ${selected ? c.border : "#e6d6bd"}`,
-      borderRadius: 12,
-      padding: showDetails ? "9px 13px" : "7px 11px",
-      minWidth: showDetails ? 155 : 110,
-      cursor: "pointer", position: "relative",
-      transition: "border-color 0.2s, min-width 0.2s",
-      boxShadow: selected
-        ? `0 0 0 2px ${c.border}40, 0 4px 16px rgba(0,0,0,0.10)`
-        : "0 2px 8px rgba(0,0,0,0.07)",
-    }}>
-      {/* Floating revenue text */}
-      {data.revenueFlash && (
-        <div style={{ position: "absolute", top: -26, left: "50%",
-          color: "#6BCF8B", fontWeight: 800, fontSize: 12,
-          animation: "floatUp 1.5s ease-out forwards", pointerEvents: "none",
-          whiteSpace: "nowrap", textShadow: "0 1px 4px rgba(0,0,0,0.15)" }}>
-          +${data.revenueFlash}
-        </div>
-      )}
-
+    <NodeShell color={c.color} selected={selected}
+      active={data.active} revenueFlash={data.revenueFlash}>
       <Handle type="target" position={Position.Left}
-        style={{ background: c.border, border: "none", width: 8, height: 8 }} />
+        style={{ background: c.color, border: "2px solid #fff", width: 10, height: 10, left: -6 }} />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: showDetails ? 5 : 3 }}>
-        <CatDot category={data.category} size={13} />
-        <div style={{ background: `${c.border}18`, color: c.border,
-          borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700,
-          textTransform: "uppercase", letterSpacing: 0.8 }}>
-          {data.category}
+      {/* Icon + category */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div style={{ width: 32, height: 32, background: c.pill, borderRadius: 8,
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
+          {c.icon}
         </div>
+        <span style={{ background: c.pill, color: c.color, fontSize: 9, fontWeight: 700,
+          padding: "2px 7px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          {c.label}
+        </span>
       </div>
 
-      <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: showDetails ? 13 : 11, lineHeight: 1.2 }}>
+      {/* Name */}
+      <div style={{ color: "#111827", fontWeight: 700, fontSize: 13, lineHeight: 1.2, marginBottom: showDetails ? 4 : 0 }}>
         {p.displayName}
       </div>
 
-      {showDetails && (
-        <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 3 }}>
-          ${data.price}/call
+      {/* Live output highlight */}
+      {showDetails && highlight && (
+        <div style={{ marginTop: 6, fontSize: 12, fontWeight: 800,
+          color: highlight === "BUY" || highlight === "UPTREND" || highlight === "HIGH" ? "#10b981"
+               : highlight === "SELL" || highlight === "DOWNTREND" ? "#ef4444"
+               : "#f59e0b" }}>
+          {highlight}
         </div>
       )}
-
-      {showDetails && data.requests > 0 && (
-        <div style={{ marginTop: 5, display: "flex", gap: 8, fontSize: 10 }}>
-          <span style={{ color: c.border, fontWeight: 700 }}>{data.requests} calls</span>
-          <span style={{ color: "#9aabb8" }}>{data.latency ? `${Math.round(data.latency)}ms` : ""}</span>
+      {showDetails && out.price_usd && !highlight && (
+        <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: "#374151" }}>
+          ${Number(out.price_usd).toLocaleString()}
         </div>
       )}
-
-      {showDetails && data.lastOutput && !data.active && (
-        <div style={{ marginTop: 7, background: "#f8f6f2", borderRadius: 6,
-          padding: "5px 8px", border: "1px solid #e6d6bd" }}>
-          {Object.entries(data.lastOutput)
-            .filter(([k]) => k !== "market" && k !== "agent_id" && k !== "_mock")
-            .slice(0, 3)
-            .map(([k, v]) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 10, lineHeight: 1.75 }}>
-                <span style={{ color: "#9aabb8" }}>{k}</span>
-                <span style={{ color: c.text, fontWeight: 700 }}>
-                  {typeof v === "number" ? (v % 1 !== 0 ? v.toFixed(3) : v) : String(v).toUpperCase()}
-                </span>
-              </div>
-            ))}
+      {showDetails && out.confidence != null && (
+        <div style={{ fontSize: 10, color: "#9ca3af" }}>
+          {Math.round(Number(out.confidence) * 100)}% confidence
         </div>
       )}
 
       {data.active && (
-        <div style={{ marginTop: 4, color: c.border, fontSize: 9, fontWeight: 700,
-          textTransform: "uppercase", letterSpacing: 1 }}>● processing</div>
+        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 5 }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: c.color,
+            animation: "nodePulse 0.9s ease-out infinite", "--pulse-color": `${c.color}40` }} />
+          <span style={{ color: c.color, fontSize: 10, fontWeight: 700 }}>running…</span>
+        </div>
       )}
 
       <Handle type="source" position={Position.Right}
-        style={{ background: c.border, border: "none", width: 8, height: 8 }} />
-    </div>
+        style={{ background: c.color, border: "2px solid #fff", width: 10, height: 10, right: -6 }} />
+    </NodeShell>
   );
 });
 AgentNode.displayName = "AgentNode";
 
 const CompositeNode = memo(({ data, selected }) => {
   const { zoom } = useViewport();
-  const showDetails = zoom > 0.5;
+  const c = cat("composite");
+  const p = agentPurpose(data.label);
   return (
-    <div style={{ background: "#fff", border: `1px solid ${selected ? "#E6C36B" : "#e6d6bd"}`,
-      borderTop: "3px solid #E6C36B", borderRadius: 12,
-      padding: showDetails ? "9px 13px" : "7px 11px",
-      minWidth: showDetails ? 165 : 120, position: "relative",
-      boxShadow: selected ? "0 0 0 2px rgba(196,153,60,0.3), 0 4px 16px rgba(0,0,0,0.10)" : "0 2px 8px rgba(0,0,0,0.07)" }}>
-      <Handle type="target" position={Position.Left} style={{ background: "#E6C36B", border: "none", width: 8, height: 8 }} />
-      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
-        <CatDot category="composite" size={13} />
-        <div style={{ background: "rgba(230,195,107,0.15)", color: "#E6C36B", borderRadius: 4,
-          padding: "1px 6px", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Composite</div>
+    <NodeShell color={c.color} selected={selected} active={data.active} minW={175}>
+      <Handle type="target" position={Position.Left}
+        style={{ background: c.color, border: "2px solid #fff", width: 10, height: 10, left: -6 }} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div style={{ width: 32, height: 32, background: c.pill, borderRadius: 8,
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{c.icon}</div>
+        <span style={{ background: c.pill, color: c.color, fontSize: 9, fontWeight: 700,
+          padding: "2px 7px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.6 }}>Workflow</span>
       </div>
-      <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: showDetails ? 13 : 11 }}>{data.label}</div>
-      {showDetails && data.requests > 0 && (
-        <div style={{ marginTop: 5, fontSize: 10, color: "#9aabb8" }}>
-          <span style={{ color: "#E6C36B", fontWeight: 700 }}>{data.requests}</span> calls
+      <div style={{ color: "#111827", fontWeight: 700, fontSize: 13 }}>{p.displayName}</div>
+      {zoom > 0.55 && data.requests > 0 && (
+        <div style={{ marginTop: 4, fontSize: 10, color: "#9ca3af" }}>
+          {data.requests} runs
         </div>
       )}
-      <Handle type="source" position={Position.Right} style={{ background: "#E6C36B", border: "none", width: 8, height: 8 }} />
-    </div>
+      <Handle type="source" position={Position.Right}
+        style={{ background: c.color, border: "2px solid #fff", width: 10, height: 10, right: -6 }} />
+    </NodeShell>
   );
 });
 CompositeNode.displayName = "CompositeNode";
 
 const PipelineNode = memo(({ data, selected }) => (
-  <div style={{ background: "#fff",
-    borderTop: "3px solid #8b6fd4",
-    borderRight: `1.5px dashed ${selected ? "#8b6fd4" : "#c0aee8"}`,
-    borderBottom: `1.5px dashed ${selected ? "#8b6fd4" : "#c0aee8"}`,
-    borderLeft: `1.5px dashed ${selected ? "#8b6fd4" : "#c0aee8"}`,
-    borderRadius: 12, padding: "10px 14px", minWidth: 200,
-    boxShadow: selected ? "0 0 0 2px rgba(139,111,212,0.25), 0 4px 16px rgba(0,0,0,0.08)" : "0 2px 8px rgba(0,0,0,0.07)" }}>
-    <Handle type="target" position={Position.Left} style={{ background: "#8b6fd4", border: "none", width: 8, height: 8 }} />
-    <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
-      <div style={{ width: 10, height: 10, borderRadius: "50%", border: "2px solid #8b6fd4" }} />
-      <div style={{ color: "#8b6fd4", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Pipeline</div>
+  <NodeShell color="#8b5cf6" selected={selected} minW={200}>
+    <Handle type="target" position={Position.Left}
+      style={{ background: "#8b5cf6", border: "2px solid #fff", width: 10, height: 10, left: -6 }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+      <div style={{ width: 32, height: 32, background: "#f5f3ff", borderRadius: 8,
+        display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🔗</div>
+      <span style={{ background: "#f5f3ff", color: "#8b5cf6", fontSize: 9, fontWeight: 700,
+        padding: "2px 7px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.6 }}>Pipeline</span>
     </div>
-    <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 13, marginBottom: 7 }}>{data.label}</div>
+    <div style={{ color: "#111827", fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{data.label}</div>
     {(data.agentNames || []).length > 0 && (
       <div style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap" }}>
         {data.agentNames.map((name, i) => (
           <span key={i} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            <span style={{ background: "rgba(139,111,212,0.12)", color: "#8b6fd4", borderRadius: 5, padding: "2px 6px", fontSize: 9, fontWeight: 600 }}>{name}</span>
-            {i < data.agentNames.length - 1 && <span style={{ color: "#c0aee8", fontSize: 10 }}>→</span>}
+            <span style={{ background: "#f5f3ff", color: "#8b5cf6", borderRadius: 4,
+              padding: "2px 6px", fontSize: 9, fontWeight: 600 }}>
+              {agentPurpose(name).displayName}
+            </span>
+            {i < data.agentNames.length - 1 && <span style={{ color: "#c4b5fd", fontSize: 10 }}>→</span>}
           </span>
         ))}
       </div>
     )}
-    <Handle type="source" position={Position.Right} style={{ background: "#8b6fd4", border: "none", width: 8, height: 8 }} />
-  </div>
+    <Handle type="source" position={Position.Right}
+      style={{ background: "#8b5cf6", border: "2px solid #fff", width: 10, height: 10, right: -6 }} />
+  </NodeShell>
 ));
 PipelineNode.displayName = "PipelineNode";
 
@@ -303,9 +286,9 @@ const nodeTypes = { agent: AgentNode, composite: CompositeNode, pipeline: Pipeli
 
 // ── Edge presets ──────────────────────────────────────────────────────────────
 
-const E_IDLE      = { type: "particle", animated: false, style: { stroke: "#d0c4b0", strokeWidth: 1.5 }, data: { particles: false } };
-const E_PIPE      = { type: "particle", style: { stroke: "#E6C36B", strokeWidth: 3 },   data: { particles: true, speed: 0.9 } };
-const E_PIPE_IDLE = { type: "particle", animated: false, style: { stroke: "#b59ce6", strokeWidth: 2, strokeDasharray: "6 4" }, data: { particles: false } };
+const E_IDLE      = { type: "particle", animated: false, style: { stroke: "rgba(255,255,255,0.2)", strokeWidth: 1.5 }, data: { particles: false } };
+const E_PIPE      = { type: "particle", style: { stroke: "#10b981", strokeWidth: 3 }, data: { particles: true, speed: 0.9 } };
+const E_PIPE_IDLE = { type: "particle", animated: false, style: { stroke: "#8b5cf6", strokeWidth: 2, strokeDasharray: "6 4" }, data: { particles: false } };
 
 // ── Topo sort ─────────────────────────────────────────────────────────────────
 
@@ -375,25 +358,24 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
   return (
     <div style={{
       position: "absolute", left: 16, top: 16, bottom: 16,
-      width: collapsed ? 44 : 224,
-      background: "rgba(255,252,248,0.97)", border: "1px solid #e6d6bd",
-      borderRadius: 14, zIndex: 50, backdropFilter: "blur(12px)",
+      width: collapsed ? 44 : 228,
+      background: "#fff", border: "1px solid #e5e7eb",
+      borderRadius: 16, zIndex: 50,
       transition: "width 0.2s ease", overflow: "hidden",
-      boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+      boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
       display: "flex", flexDirection: "column",
     }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", padding: "12px 14px",
-        borderBottom: "1px solid #e6d6bd", flexShrink: 0 }}>
+        borderBottom: "1px solid #f3f4f6", flexShrink: 0 }}>
         {!collapsed && (
           <div style={{ flex: 1 }}>
-            <div style={{ color: "#2d5a7a", fontSize: 11, fontWeight: 800,
-              textTransform: "uppercase", letterSpacing: 1.2 }}>Agents</div>
-            <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 1 }}>drag to canvas to add</div>
+            <div style={{ color: "#111827", fontSize: 12, fontWeight: 700 }}>Agents</div>
+            <div style={{ color: "#9ca3af", fontSize: 10, marginTop: 1 }}>drag onto canvas</div>
           </div>
         )}
         <button onClick={onToggle} style={{ background: "none", border: "none",
-          color: "#334155", cursor: "pointer", fontSize: 18, padding: 0, marginLeft: "auto" }}>
+          color: "#6b7280", cursor: "pointer", fontSize: 18, padding: 0, marginLeft: "auto" }}>
           {collapsed ? "›" : "‹"}
         </button>
       </div>
@@ -407,10 +389,10 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
             return (
               <div key={catKey} style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5,
-                  marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${c.border}30` }}>
-                  <div style={{ width: 7, height: 7, borderRadius: 2, background: c.border }} />
-                  <span style={{ color: c.border, fontSize: 9, fontWeight: 800,
-                    textTransform: "uppercase", letterSpacing: 1.2 }}>
+                  marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${c.color}20` }}>
+                  <span style={{ fontSize: 12 }}>{c.icon}</span>
+                  <span style={{ color: c.color, fontSize: 9, fontWeight: 700,
+                    textTransform: "uppercase", letterSpacing: 1 }}>
                     {CAT_LABELS[catKey]}
                   </span>
                 </div>
@@ -418,15 +400,14 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
                     const p = agentPurpose(a);
                     return (
                   <div key={a.id} draggable onDragStart={(e) => onDragAgent(e, a)}
-                    style={{ background: "#fff", border: "1px solid #e6d6bd",
-                      borderLeft: `3px solid ${c.border}`,
-                      borderRadius: 7, padding: "8px 9px", marginBottom: 5,
+                    style={{ background: "#f9fafb", border: "1px solid #e5e7eb",
+                      borderLeft: `3px solid ${c.color}`,
+                      borderRadius: 8, padding: "8px 9px", marginBottom: 5,
                       cursor: "grab", userSelect: "none",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-                      transition: "box-shadow 0.15s",
+                      transition: "all 0.15s",
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.boxShadow = `0 2px 8px ${c.border}30`; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}>
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = `0 2px 8px ${c.color}20`; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "#f9fafb"; e.currentTarget.style.boxShadow = "none"; }}>
                     <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12, lineHeight: 1.2 }}>{p.displayName}</div>
                     <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 2, lineHeight: 1.4 }}>{p.tagline}</div>
                   </div>
@@ -437,31 +418,35 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
           })}
 
           {agents.length === 0 && (
-            <div style={{ color: "#9aabb8", fontSize: 11, padding: "16px 4px",
+            <div style={{ color: "#9ca3af", fontSize: 11, padding: "20px 4px",
               textAlign: "center", lineHeight: 1.6 }}>
               Loading agents…<br />
-              <span style={{ fontSize: 10 }}>If this persists, the server may be restarting.</span>
+              <span style={{ fontSize: 10 }}>Server may be restarting.</span>
             </div>
           )}
 
           {/* Saved Pipelines */}
           {pipelines.length > 0 && (
             <div style={{ marginTop: 4 }}>
-              <div style={{ color: "#8b6fd4", fontSize: 9, fontWeight: 800,
-                textTransform: "uppercase", letterSpacing: 1.2,
-                marginBottom: 6, paddingBottom: 4, borderBottom: "1px solid #c0aee840" }}>
-                Saved Pipelines
+              <div style={{ display: "flex", alignItems: "center", gap: 5,
+                marginBottom: 6, paddingBottom: 4, borderBottom: "1px solid #8b5cf620" }}>
+                <span style={{ fontSize: 12 }}>🔗</span>
+                <span style={{ color: "#8b5cf6", fontSize: 9, fontWeight: 700,
+                  textTransform: "uppercase", letterSpacing: 1 }}>Saved Pipelines</span>
               </div>
               {pipelines.map((p) => {
                 const names = p.agent_ids.map((id) => agentMap[id] ?? "…");
                 return (
                   <div key={p.id} draggable onDragStart={(e) => onDragPipeline(e, p, names)}
-                    style={{ background: "#fff", border: "1.5px dashed #c0aee8",
-                      borderRadius: 7, padding: "7px 9px", marginBottom: 5,
-                      cursor: "grab", userSelect: "none" }}>
-                    <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12 }}>{p.name}</div>
-                    <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 2 }}>
-                      {names.slice(0, 3).join(" → ")}{names.length > 3 ? " …" : ""}
+                    style={{ background: "#f9fafb", border: "1px solid #e5e7eb",
+                      borderLeft: "3px solid #8b5cf6",
+                      borderRadius: 8, padding: "8px 9px", marginBottom: 5,
+                      cursor: "grab", userSelect: "none", transition: "all 0.15s" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "#fff"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "#f9fafb"; }}>
+                    <div style={{ color: "#111827", fontWeight: 700, fontSize: 12 }}>{p.name}</div>
+                    <div style={{ color: "#9ca3af", fontSize: 9, marginTop: 2 }}>
+                      {names.slice(0, 3).map(n => agentPurpose(n).displayName).join(" → ")}{names.length > 3 ? " …" : ""}
                     </div>
                   </div>
                 );
@@ -472,21 +457,24 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
           {/* Composite Agents */}
           {composites.length > 0 && (
             <div style={{ marginTop: 4 }}>
-              <div style={{ color: "#E6C36B", fontSize: 9, fontWeight: 800,
-                textTransform: "uppercase", letterSpacing: 1.2,
-                marginBottom: 6, paddingBottom: 4, borderBottom: "1px solid #E6C36B40" }}>
-                Composite Agents
+              <div style={{ display: "flex", alignItems: "center", gap: 5,
+                marginBottom: 6, paddingBottom: 4, borderBottom: "1px solid #f59e0b20" }}>
+                <span style={{ fontSize: 12 }}>🔗</span>
+                <span style={{ color: "#f59e0b", fontSize: 9, fontWeight: 700,
+                  textTransform: "uppercase", letterSpacing: 1 }}>Workflows</span>
               </div>
               {composites.map((a) => {
                 const p = agentPurpose(a);
                 return (
                 <div key={a.id} draggable onDragStart={(e) => onDragAgent(e, a)}
-                  style={{ background: "#fff", border: "1px solid #e6d6bd",
-                    borderLeft: "3px solid #E6C36B",
-                    borderRadius: 7, padding: "8px 9px", marginBottom: 5,
-                    cursor: "grab", userSelect: "none" }}>
-                  <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12 }}>{p.displayName}</div>
-                  <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 2 }}>multi-agent workflow</div>
+                  style={{ background: "#f9fafb", border: "1px solid #e5e7eb",
+                    borderLeft: "3px solid #f59e0b",
+                    borderRadius: 8, padding: "8px 9px", marginBottom: 5,
+                    cursor: "grab", userSelect: "none", transition: "all 0.15s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "#fff"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "#f9fafb"; }}>
+                  <div style={{ color: "#111827", fontWeight: 700, fontSize: 12 }}>{p.displayName}</div>
+                  <div style={{ color: "#9ca3af", fontSize: 9, marginTop: 2 }}>multi-agent workflow</div>
                 </div>
                 );
               })}
@@ -563,73 +551,55 @@ function GuideTooltip() {
 
   return (
     <>
-      {/* Re-open button when dismissed */}
+      {/* Re-open button */}
       {!visible && (
         <button onClick={reopen} style={{
-          position: "absolute", bottom: 90, left: 16, zIndex: 200,
-          background: "rgba(255,252,248,0.97)", border: "1px solid #e6d6bd",
+          position: "absolute", bottom: 90, left: 256, zIndex: 200,
+          background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.15)",
           borderRadius: 20, padding: "6px 14px",
-          fontSize: 11, fontWeight: 700, color: "#9aabb8",
-          cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+          fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)",
+          cursor: "pointer", backdropFilter: "blur(8px)",
           display: "flex", alignItems: "center", gap: 6,
         }}>
-          <span style={{ fontSize: 13 }}>?</span> How does this work?
+          ? How does this work?
         </button>
       )}
 
       {/* Guide bubble */}
       {visible && open && (
         <div style={{
-          position: "absolute", bottom: 90, left: 16, zIndex: 200,
-          width: 270,
-          background: "rgba(255,252,248,0.99)", border: "1px solid #e6d6bd",
-          borderRadius: 16, padding: "16px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
-          animation: "spFadeUp 0.3s ease forwards",
+          position: "absolute", bottom: 90, left: 256, zIndex: 200,
+          width: 280,
+          background: "#fff", border: "1px solid #e5e7eb",
+          borderRadius: 16, padding: "18px",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.35)",
         }}>
-          {/* Progress dots */}
-          <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+          {/* Progress bar */}
+          <div style={{ display: "flex", gap: 3, marginBottom: 14 }}>
             {GUIDE_STEPS.map((_, i) => (
               <div key={i} style={{
-                height: 3, flex: i === step ? 2 : 1,
-                borderRadius: 2,
-                background: i === step ? "#4a9fd4" : i < step ? "#4a9fd460" : "#e6d6bd",
+                height: 3, flex: i === step ? 2 : 1, borderRadius: 2,
+                background: i === step ? "#3b82f6" : i < step ? "#93c5fd" : "#e5e7eb",
                 transition: "all 0.3s ease",
               }} />
             ))}
           </div>
 
-          {/* Avatar + title */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: "50%",
-              background: "linear-gradient(135deg, #4a9fd4, #6BCF8B)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 13, flexShrink: 0,
-            }}>A</div>
-            <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 13 }}>{s.title}</div>
-          </div>
-
-          {/* Body */}
-          <p style={{ color: "#6b7d92", fontSize: 12, lineHeight: 1.6, margin: "0 0 14px 0" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 6 }}>{s.title}</div>
+          <p style={{ color: "#6b7280", fontSize: 12, lineHeight: 1.65, margin: "0 0 16px 0" }}>
             {s.body}
           </p>
 
-          {/* Actions */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <button onClick={dismiss} style={{
-              background: "none", border: "none", color: "#b8c4d0",
+              background: "none", border: "none", color: "#d1d5db",
               fontSize: 11, cursor: "pointer", padding: 0, fontWeight: 600,
-            }}>
-              Skip
-            </button>
+            }}>Skip</button>
             <button onClick={next} style={{
-              background: "#4a9fd4", border: "none", color: "#fff",
-              borderRadius: 8, padding: "7px 16px",
+              background: "#3b82f6", border: "none", color: "#fff",
+              borderRadius: 8, padding: "8px 18px",
               fontSize: 12, fontWeight: 700, cursor: "pointer",
-            }}>
-              {s.cta}
-            </button>
+            }}>{s.cta}</button>
           </div>
         </div>
       )}
@@ -646,24 +616,26 @@ function OnboardingHints() {
       transform: "translate(-50%, -50%)",
       textAlign: "center", pointerEvents: "none", zIndex: 10,
     }}>
-      <div style={{ color: "#b8a898", fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+      <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
         Build a live market signal pipeline
       </div>
-      <div style={{ color: "#c8b898", fontSize: 12, marginBottom: 20 }}>
-        Drag agents from the left, connect them, hit Run
+      <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginBottom: 24 }}>
+        Drag agents from the left → connect them → hit Run
       </div>
-      <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
         {[
           ["①", "Live Price Feed", "drag from left panel"],
-          ["②", "→  Trading Signal", "connect the two agents"],
-          ["③", "Run", "see BUY / SELL / HOLD"],
+          ["②", "Trading Signal", "connect the two"],
+          ["③", "Run", "get BUY / SELL / HOLD"],
         ].map(([num, title, sub]) => (
-          <div key={num} style={{ background: "rgba(255,252,248,0.9)", border: "1px solid #e6d6bd",
-            borderRadius: 12, padding: "14px 16px", minWidth: 130,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-            <div style={{ color: "#c4a85a", fontSize: 18, fontWeight: 800, marginBottom: 6 }}>{num}</div>
-            <div style={{ color: "#2d3a4a", fontSize: 11, fontWeight: 700 }}>{title}</div>
-            <div style={{ color: "#9aabb8", fontSize: 10, marginTop: 3 }}>{sub}</div>
+          <div key={num} style={{
+            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 14, padding: "16px 14px", minWidth: 120,
+            backdropFilter: "blur(8px)",
+          }}>
+            <div style={{ color: "#3b82f6", fontSize: 20, fontWeight: 800, marginBottom: 8 }}>{num}</div>
+            <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: 700 }}>{title}</div>
+            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 4 }}>{sub}</div>
           </div>
         ))}
       </div>
@@ -677,23 +649,22 @@ function ResultsPanel({ results, totalCost, running, onClose }) {
   if (!results.length && !running) return null;
   return (
     <div style={{
-      position: "absolute", right: 16, top: 16, width: 240,
-      background: "rgba(255,252,248,0.97)", border: "1px solid #e6d6bd",
-      borderTop: "3px solid #6BCF8B",
-      borderRadius: 14, padding: "14px", zIndex: 50,
-      backdropFilter: "blur(20px)",
-      boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
+      position: "absolute", right: 16, top: 16, width: 248,
+      background: "#fff", border: "1px solid #e5e7eb",
+      borderTop: "3px solid #10b981",
+      borderRadius: 16, padding: "14px", zIndex: 50,
+      boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div>
-          <div style={{ color: "#9aabb8", fontSize: 9, fontWeight: 700,
-            textTransform: "uppercase", letterSpacing: 1 }}>Pipeline Results</div>
+          <div style={{ color: "#9ca3af", fontSize: 9, fontWeight: 700,
+            textTransform: "uppercase", letterSpacing: 1 }}>Live Results</div>
           {running && (
-            <div style={{ color: "#6BCF8B", fontSize: 10, fontWeight: 700, marginTop: 2 }}>● executing…</div>
+            <div style={{ color: "#10b981", fontSize: 10, fontWeight: 700, marginTop: 2 }}>● running…</div>
           )}
         </div>
         {!running && <button onClick={onClose} style={{ background: "none", border: "none",
-          color: "#9aabb8", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>}
+          color: "#9ca3af", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 0 }}>×</button>}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -739,10 +710,10 @@ function ResultsPanel({ results, totalCost, running, onClose }) {
       </div>
 
       {!running && results.length > 0 && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #e6d6bd",
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #f3f4f6",
           display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ color: "#9aabb8", fontSize: 11, fontWeight: 600 }}>Total cost</span>
-          <span style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 14 }}>${totalCost.toFixed(4)}</span>
+          <span style={{ color: "#9ca3af", fontSize: 11 }}>Total cost</span>
+          <span style={{ color: "#111827", fontWeight: 700, fontSize: 13 }}>${totalCost.toFixed(4)}</span>
         </div>
       )}
     </div>
@@ -757,12 +728,12 @@ function Inspector({ node, onCall, onClose, lastOutput }) {
   const p = agentPurpose(node.data.label);
   return (
     <div style={{
-      position: "absolute", right: 16, top: 16, width: 240,
-      background: "rgba(255,252,248,0.97)", border: `1px solid #e6d6bd`,
-      borderTop: `3px solid ${c.border}`,
-      borderRadius: 14, padding: "16px 14px", zIndex: 51,
-      overflowY: "auto", backdropFilter: "blur(20px)",
-      boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
+      position: "absolute", right: 16, top: 16, width: 248,
+      background: "#fff", border: "1px solid #e5e7eb",
+      borderTop: `3px solid ${c.color}`,
+      borderRadius: 16, padding: "16px 14px", zIndex: 51,
+      overflowY: "auto",
+      boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
         <div>
@@ -794,25 +765,33 @@ function Inspector({ node, onCall, onClose, lastOutput }) {
       )}
 
       <button onClick={() => onCall(node.id)} style={{
-        width: "100%", background: `${c.border}18`, color: c.border,
-        border: `1px solid ${c.border}44`, borderRadius: 8, padding: "9px",
-        fontSize: 13, cursor: "pointer", fontWeight: 700,
-      }}>Call Agent</button>
+        width: "100%", background: c.color, color: "#fff",
+        border: "none", borderRadius: 10, padding: "10px",
+        fontSize: 12, cursor: "pointer", fontWeight: 700,
+      }}>▶ Run this agent</button>
     </div>
   );
 }
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
 
-function Btn({ onClick, color, disabled, children, large }) {
+function TBtn({ onClick, disabled, children, variant = "ghost" }) {
+  const styles = {
+    primary: { background: "#10b981", color: "#fff", border: "none" },
+    solid:   { background: "#8b5cf6", color: "#fff", border: "none" },
+    outline: { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.8)", border: "1px solid rgba(255,255,255,0.15)" },
+    ghost:   { background: "transparent", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" },
+  };
+  const s = styles[variant] || styles.ghost;
   return (
     <button onClick={onClick} disabled={disabled} style={{
-      background: disabled ? "#f0ece6" : `${color}18`,
-      color: disabled ? "#c0b8ae" : color,
-      border: `1px solid ${disabled ? "#e6d6bd" : `${color}50`}`,
-      borderRadius: 9, padding: large ? "8px 20px" : "6px 14px",
-      fontSize: large ? 13 : 12, cursor: disabled ? "not-allowed" : "pointer",
-      fontWeight: 700, transition: "background 0.15s",
+      ...s,
+      borderRadius: 9, padding: "8px 16px",
+      fontSize: 12, fontWeight: 700,
+      cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.4 : 1,
+      transition: "opacity 0.15s",
+      whiteSpace: "nowrap",
     }}>{children}</button>
   );
 }
@@ -823,32 +802,43 @@ function Toolbar({ pipelineName, setPipelineName, onSave, onRun, onRegister, onC
     <div style={{
       position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)",
       zIndex: 50, display: "flex", alignItems: "center", gap: 8,
-      background: "rgba(255,252,248,0.97)", border: "1px solid #e6d6bd",
-      borderRadius: 14, padding: "8px 14px",
+      background: "rgba(15,23,42,0.88)", border: "1px solid rgba(255,255,255,0.12)",
+      borderRadius: 16, padding: "10px 16px",
       backdropFilter: "blur(20px)",
-      boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+      boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
     }}>
-      {/* Demo run — primary CTA */}
       {demoName && (
-        <Btn onClick={onDemoRun} color="#4DD9B8" disabled={running} large>
-          {running ? "⏳ Running…" : `▶ Run Demo`}
-        </Btn>
+        <TBtn onClick={onDemoRun} disabled={running} variant="primary">
+          {running ? "⏳ Running…" : "▶ Run Pipeline"}
+        </TBtn>
       )}
 
-      <div style={{ width: 1, height: 22, background: "#e6d6bd" }} />
+      <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.12)" }} />
 
       <input value={pipelineName} onChange={(e) => setPipelineName(e.target.value)}
         placeholder="Name your pipeline…" style={{
-          background: "#f8f6f2", border: "1px solid #e6d6bd", borderRadius: 8,
-          color: "#2d3a4a", padding: "7px 12px", fontSize: 12, width: 160, outline: "none",
+          background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 8, color: "#fff", padding: "8px 12px",
+          fontSize: 12, width: 156, outline: "none",
         }} />
-      <Btn onClick={onSave} color="#6BCF8B" disabled={!pipelineName || !canRun}>Save</Btn>
-      {savedId && <Btn onClick={onRun} color="#8b6fd4" disabled={running}>{running ? "Running…" : "Run"}</Btn>}
-      {savedId && !compositeId && <Btn onClick={onRegister} color="#E6C36B">Register</Btn>}
-      {compositeId && <span style={{ color: "#E6C36B", fontSize: 11, fontWeight: 700 }}>✓ Registered</span>}
 
-      <div style={{ width: 1, height: 22, background: "#e6d6bd" }} />
-      <Btn onClick={onClear} color="#9aabb8">Clear</Btn>
+      <TBtn onClick={onSave} disabled={!pipelineName || !canRun} variant="outline">Save</TBtn>
+
+      {savedId && (
+        <TBtn onClick={onRun} disabled={running} variant="solid">
+          {running ? "Running…" : "▶ Run"}
+        </TBtn>
+      )}
+
+      {savedId && !compositeId && (
+        <TBtn onClick={onRegister} variant="outline">Deploy →</TBtn>
+      )}
+      {compositeId && (
+        <span style={{ color: "#10b981", fontSize: 11, fontWeight: 700 }}>✓ Deployed</span>
+      )}
+
+      <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.12)" }} />
+      <TBtn onClick={onClear}>Reset</TBtn>
     </div>
   );
 }
@@ -860,10 +850,10 @@ function Toast({ msg }) {
   return (
     <div style={{
       position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)",
-      zIndex: 200, background: "rgba(255,252,248,0.97)", border: "1px solid #6BCF8B",
-      borderRadius: 10, padding: "8px 24px", color: "#1a6642", fontSize: 12,
+      zIndex: 200, background: "rgba(15,23,42,0.92)", border: "1px solid rgba(16,185,129,0.4)",
+      borderRadius: 10, padding: "9px 20px", color: "#fff", fontSize: 12,
       fontWeight: 600, backdropFilter: "blur(12px)",
-      boxShadow: "0 4px 16px rgba(74,184,122,0.15)", whiteSpace: "nowrap",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.4)", whiteSpace: "nowrap",
     }}>{msg}</div>
   );
 }
@@ -1183,21 +1173,21 @@ function PlaygroundCanvas() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ width: "100%", height: "100%", position: "relative", background: "#f4e7d0" }}
+    <div style={{ width: "100%", height: "100%", position: "relative", background: "#0f172a" }}
       ref={wrapperRef} onDragOver={onDragOver} onDrop={onDrop}>
 
       <style>{GLOBAL_CSS}</style>
 
-      <PlazaGrid />
+      <CanvasGrid />
       <Toast msg={toast} />
 
       {/* Backend offline banner */}
       {!backendOk && (
         <div style={{
           position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)",
-          zIndex: 200, background: "rgba(230,123,123,0.97)", borderRadius: 10,
-          padding: "8px 20px", color: "#fff", fontSize: 12, fontWeight: 700,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.15)", whiteSpace: "nowrap",
+          zIndex: 200, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 10,
+          padding: "8px 20px", color: "#fca5a5", fontSize: 12, fontWeight: 600,
+          backdropFilter: "blur(8px)", boxShadow: "0 4px 16px rgba(0,0,0,0.3)", whiteSpace: "nowrap",
           display: "flex", alignItems: "center", gap: 8,
         }}>
           <span style={{ fontSize: 14 }}>⚠</span>
@@ -1251,8 +1241,8 @@ function PlaygroundCanvas() {
         snapToGrid snapGrid={[24, 24]}
         style={{ background: "transparent" }}
       >
-        <Background color="transparent" />
-        <Controls style={{ bottom: 90, right: 16 }} />
+        <Background color="transparent" gap={0} />
+        <Controls style={{ bottom: 90, right: 16, background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10 }} />
       </ReactFlow>
     </div>
   );
