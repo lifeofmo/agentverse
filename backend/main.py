@@ -322,15 +322,6 @@ def _migrate(conn):
         except Exception:
             pass
 
-    new_wallet_cols = [
-        ("payment_method", "TEXT DEFAULT 'credits'"),
-    ]
-    for col, typedef in new_wallet_cols:
-        try:
-            conn.execute(f"ALTER TABLE wallets ADD COLUMN {col} {typedef}")
-        except Exception:
-            pass  # already exists
-
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -1732,31 +1723,6 @@ async def run_pipeline(pipeline_id: str, payload: dict, request: Request):
         pipeline_id, row["name"], agent_ids, payload, user_wallet_id
     )
 
-@app.get("/jobs/recent")
-async def get_recent_jobs(limit: int = 10):
-    """Must be declared before /jobs/{job_id} so FastAPI doesn't match 'recent' as a job_id."""
-    conn = get_db()
-    rows = conn.execute(
-        "SELECT * FROM pipeline_jobs ORDER BY created_at DESC LIMIT ?", (min(limit, 100),)
-    ).fetchall()
-    conn.close()
-    out = []
-    for r in rows:
-        entry = {
-            "job_id": r["id"], "pipeline_id": r["pipeline_id"],
-            "pipeline_name": r["pipeline_name"], "status": r["status"],
-            "created_at": r["created_at"], "completed_at": r["completed_at"],
-        }
-        if r["status"] == "completed" and r["result"]:
-            try:
-                parsed = json.loads(r["result"])
-                entry["result"] = parsed
-                entry["signal"] = parsed.get("final", {}).get("signal") or parsed.get("signal")
-            except Exception:
-                pass
-        out.append(entry)
-    return out
-
 @app.get("/jobs/{job_id}")
 async def get_job_status(job_id: str):
     """Poll the status of a queued pipeline execution."""
@@ -1783,6 +1749,7 @@ async def get_job_status(job_id: str):
 
 
 @app.get("/jobs")
+@app.get("/jobs/recent")
 async def list_recent_jobs(limit: int = 20):
     """Return the most recent pipeline jobs with full result data."""
     conn = get_db()
@@ -1913,45 +1880,6 @@ def deposit_wallet(wallet_id: str, body: WalletDeposit, user: dict = Depends(_re
     new_bal = conn.execute("SELECT balance FROM wallets WHERE id = ?", (wallet_id,)).fetchone()["balance"]
     conn.close()
     return {"wallet_id": wallet_id, "deposited": body.amount, "balance": round(new_bal, 4)}
-
-class WalletWorldChainDeposit(BaseModel):
-    tx_hash: str
-    amount:  float
-    chain:   str = "world-chain"
-
-@app.post("/wallets/{wallet_id}/deposit/worldchain")
-def deposit_wallet_worldchain(
-    wallet_id: str,
-    body: WalletWorldChainDeposit,
-    user: dict = Depends(_require_auth),
-):
-    # TODO: verify tx_hash on-chain (World Chain RPC) before crediting — currently optimistic
-    if body.amount <= 0:
-        raise HTTPException(status_code=400, detail="Amount must be positive")
-    # Verify the authenticated user owns this wallet
-    conn = get_db()
-    profile = conn.execute(
-        "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
-    ).fetchone()
-    user_wallet = profile["wallet_id"] if profile else None
-    if user_wallet != wallet_id:
-        conn.close()
-        raise HTTPException(403, "You can only deposit to your own wallet")
-    row = _get_wallet(conn, wallet_id)
-    if not row:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Wallet not found")
-    conn.execute(
-        "UPDATE wallets SET balance = balance + ?, payment_method = ? WHERE id = ?",
-        (body.amount, "worldchain", wallet_id),
-    )
-    conn.commit()
-    new_bal = conn.execute(
-        "SELECT balance FROM wallets WHERE id = ?", (wallet_id,)
-    ).fetchone()["balance"]
-    conn.close()
-    logger.info("worldchain_deposit", extra={"wallet_id": wallet_id, "amount": body.amount, "tx_hash": body.tx_hash, "chain": body.chain})
-    return {"success": True, "balance": round(new_bal, 4), "tx_hash": body.tx_hash}
 
 class WalletWithdraw(BaseModel):
     amount:      float
