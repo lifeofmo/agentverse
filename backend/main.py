@@ -513,6 +513,9 @@ def init_db():
         )
     """)
 
+    # ── Migrations first (adds columns before indexes reference them) ─────────
+    _migrate(conn)
+
     # ── Indexes ──────────────────────────────────────────────────────────────
     conn.execute("CREATE INDEX IF NOT EXISTS idx_agents_category       ON agents(category)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_agents_owner_wallet   ON agents(owner_wallet)")
@@ -521,9 +524,6 @@ def init_db():
     conn.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_jobs_created_at  ON pipeline_jobs(created_at)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id    ON transactions(user_wallet)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_schedules_next_run_at     ON schedules(next_run_at)")
-
-    # ── Migrations ───────────────────────────────────────────────────────────
-    _migrate(conn)
     conn.commit()
 
     # ── Seed wallets if they don't exist ─────────────────────────────────────
