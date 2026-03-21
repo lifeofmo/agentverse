@@ -1757,6 +1757,8 @@ async def list_recent_jobs(limit: int = 20):
 @app.get("/jobs/{job_id}")
 async def get_job_status(job_id: str):
     """Poll the status of a queued pipeline execution."""
+    if job_id == "recent":
+        return await list_recent_jobs()
     conn = get_db()
     row = conn.execute("SELECT * FROM pipeline_jobs WHERE id = ?", (job_id,)).fetchone()
     conn.close()
