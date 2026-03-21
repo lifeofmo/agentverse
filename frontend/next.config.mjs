@@ -1,12 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Required for Docker standalone image (copies only needed files)
-  output: "standalone",
-  // Make backend URL configurable at build/runtime
-  env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000",
-    NEXT_PUBLIC_WS_URL:  process.env.NEXT_PUBLIC_WS_URL  || "",
-  },
+  // "standalone" is only for Docker self-hosting — Vercel handles its own output.
+  // Enable only when DOCKER=true so Railway/Docker builds still work.
+  ...(process.env.DOCKER === "true" ? { output: "standalone" } : {}),
+
   // Security headers for production
   async headers() {
     return [
