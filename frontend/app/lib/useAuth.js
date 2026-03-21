@@ -37,7 +37,7 @@ export function useAuth({ fetchWallet = false } = {}) {
       if (t && u) {
         try {
           const parsed = JSON.parse(u);
-          const walletId = parsed.wallet_id || parsed.id;
+          const walletId = parsed.wallet_id;
           if (walletId) {
             fetch(`${API}/wallets/${walletId}`, {
               headers: { Authorization: `Bearer ${t}` },

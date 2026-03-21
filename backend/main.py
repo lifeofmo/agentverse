@@ -1131,8 +1131,9 @@ async def delete_agent(agent_id: str, request: Request):
 def all_metrics():
     conn = get_db()
     agent_ids = [r["id"] for r in conn.execute("SELECT id FROM agents").fetchall()]
+    bulk = get_metrics_bulk(conn, agent_ids)
     conn.close()
-    return [get_metrics(aid) for aid in agent_ids]
+    return list(bulk.values())
 
 @app.get("/metrics/{agent_id}")
 def agent_metrics(agent_id: str):
