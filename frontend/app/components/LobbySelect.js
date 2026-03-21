@@ -692,10 +692,10 @@ function StatsBar({ agents }) {
   }, []);
 
   const items = [
-    { label: "Agents",      value: agents.length || "—" },
-    { label: "Total calls", value: stats?.total_requests ? stats.total_requests.toLocaleString() : "—" },
-    { label: "Revenue",     value: stats?.total_revenue  ? `$${Number(stats.total_revenue).toFixed(2)}` : "—" },
-    { label: "Developers",  value: stats?.developer_count ?? "—" },
+    { label: "Agents",      value: (stats?.agents ?? agents.length) || "—" },
+    { label: "Total calls", value: stats?.total_transactions ? stats.total_transactions.toLocaleString() : "—" },
+    { label: "Revenue",     value: stats?.platform_revenue  ? `$${Number(stats.platform_revenue).toFixed(2)}` : "—" },
+    { label: "Volume",      value: stats?.total_volume      ? `$${Number(stats.total_volume).toFixed(2)}` : "—" },
   ];
 
   return (

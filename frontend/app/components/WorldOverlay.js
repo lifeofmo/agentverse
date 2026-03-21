@@ -295,7 +295,7 @@ function VegasPanel() {
   useEffect(() => {
     fetch(`${API}/agents`).then(r => r.json()).then(d => {
       const sorted = [...d].sort((a, b) =>
-        (b.metrics_summary?.total_calls || 0) - (a.metrics_summary?.total_calls || 0)
+        (b.requests || 0) - (a.requests || 0)
       );
       setAgents(sorted.slice(0, 8));
     }).catch(() => {});
@@ -324,9 +324,9 @@ function VegasPanel() {
         {/* Platform stats */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 14 }}>
           {[
-            { label: "Total Calls", value: stats?.total_requests ? stats.total_requests.toLocaleString() : "—" },
-            { label: "Revenue",     value: stats?.total_revenue  ? `$${Number(stats.total_revenue).toFixed(2)}` : "—" },
-            { label: "Agents",      value: stats?.agent_count ?? (agents.length || "—") },
+            { label: "Total Calls", value: stats?.total_transactions ? stats.total_transactions.toLocaleString() : "—" },
+            { label: "Revenue",     value: stats?.platform_revenue  ? `$${Number(stats.platform_revenue).toFixed(2)}` : "—" },
+            { label: "Agents",      value: stats?.agents ?? (agents.length || "—") },
           ].map(s => (
             <div key={s.label} style={{
               background: "rgba(255,255,255,0.03)",
@@ -366,7 +366,7 @@ function VegasPanel() {
                   {a.name}
                 </div>
                 <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontFamily: "monospace" }}>
-                  {a.metrics_summary?.total_calls ?? 0} calls
+                  {a.requests ?? 0} calls
                 </div>
               </div>
               <div style={{ ...dataValue, fontSize: 11, color: "#34d399", flexShrink: 0 }}>
@@ -607,7 +607,7 @@ function MatrixPanel() {
     return a?.name ?? id?.slice(0, 8) ?? "?";
   };
 
-  const totalSteps = pipelines.reduce((sum, p) => sum + (p.steps?.length || 0), 0);
+  const totalSteps = pipelines.reduce((sum, p) => sum + (p.agent_ids?.length || 0), 0);
 
   const randomDataBit = () => Math.random() > 0.5
     ? (Math.random() * 9999).toFixed(0).padStart(4, "0")
@@ -671,7 +671,7 @@ function MatrixPanel() {
             <div style={mutedLabel}>No pipelines found.</div>
           )}
           {pipelines.map(p => {
-            const steps = p.steps || [];
+            const steps = p.agent_ids || [];
             return (
               <div key={p.id} style={{
                 background: "rgba(0,255,65,0.025)",
@@ -683,8 +683,8 @@ function MatrixPanel() {
                   {p.name}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 3 }}>
-                  {steps.map((step, i) => {
-                    const name = agentNameById(step.agent_id);
+                  {steps.map((agentId, i) => {
+                    const name = agentNameById(agentId);
                     return (
                       <span key={i} style={{ display: "flex", alignItems: "center", gap: 3 }}>
                         <span style={{

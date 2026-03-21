@@ -4079,7 +4079,7 @@ export default function AgentCity({ lobbyId = "all", lobbyCategories = null, lob
         setMetrics(m => ({ ...m, [ev.agent_id]: ev.metrics }));
         spawnReward(ev.agent_id); spawnBubble(ev.agent_id, ev.result);
         triggerCrowdReaction(ev.agent_id);
-        const parts = Object.entries(ev.result).filter(([k]) => k !== "market").slice(0,3).map(([k,v]) => `${k}: ${v}`).join("  ·  ");
+        const parts = ev.result ? Object.entries(ev.result).filter(([k]) => k !== "market").slice(0,3).map(([k,v]) => `${k}: ${v}`).join("  ·  ") : "";
         showToast(`${ev.agent_name}  →  ${parts}`);
         const agent = agentsRef.current.find(a => a.id === ev.agent_id);
         pushBoardEvent(ev.agent_name, parts, agent ? cat(agent.category).primary : "#4DA6FF");

@@ -193,8 +193,8 @@ export default function AgentGraph() {
 
       if (ev.type === "agent_call_done") {
         if (ev.metrics) { metricsRef.current[ev.agent_id] = ev.metrics; rebuildNodes(); }
-        const parts = Object.entries(ev.result).filter(([k]) => k !== "market")
-          .map(([k, v]) => `${k}: ${v}`).join("  ·  ");
+        const parts = ev.result ? Object.entries(ev.result).filter(([k]) => k !== "market")
+          .map(([k, v]) => `${k}: ${v}`).join("  ·  ") : "";
         showToast(`${ev.agent_name}  →  ${parts}`);
       }
 
@@ -210,8 +210,8 @@ export default function AgentGraph() {
         activeRef.current.delete(ev.agent_id);
         if (ev.metrics) metricsRef.current[ev.agent_id] = ev.metrics;
         rebuildNodes();
-        const parts = Object.entries(ev.output).filter(([k]) => k !== "market")
-          .map(([k, v]) => `${k}: ${v}`).join("  ·  ");
+        const parts = ev.output ? Object.entries(ev.output).filter(([k]) => k !== "market")
+          .map(([k, v]) => `${k}: ${v}`).join("  ·  ") : "";
         showToast(`${ev.agent_name}  →  ${parts}`);
       }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 
 import { API } from "@/app/lib/config";
+import { useAuth } from "@/app/lib/useAuth";
 
 const FIELD_OPTIONS = ["confidence", "volatility", "bullish_score", "change_24h_pct"];
 
@@ -70,7 +71,8 @@ function RankBadge({ rank }) {
 // ── Mission card ───────────────────────────────────────────────────────────────
 
 function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [lastResult,  setLastResult]  = useState(null); // { score, latency_ms }
   const top = board?.[0];
   const fieldColor = FIELD_COLOR[c.scoring_field] ?? "#9aabb8";
   const isOpen = c.status === "open";
@@ -212,7 +214,7 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
               No pipelines saved yet — build one in Playground.
             </div>
           ) : pipelines.map((p) => (
-            <div key={p.id} onClick={() => { onSubmit(c.id, p.id); setSubmitting(false); }}
+            <div key={p.id} onClick={async () => { setSubmitting(false); const r = await onSubmit(c.id, p.id); if (r) setLastResult({ score: r.score, latency_ms: r.latency_ms }); }}
               style={{
                 padding: "8px 11px", borderRadius: 8, marginBottom: 5, cursor: "pointer",
                 background: "#1a1a2e", border: "1px solid #374151",
@@ -224,6 +226,22 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
               {p.name}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Submit result flash */}
+      {lastResult && (
+        <div style={{
+          background: "rgba(107,207,139,0.08)", border: "1px solid rgba(107,207,139,0.25)",
+          borderRadius: 9, padding: "9px 13px", marginBottom: 10,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <span style={{ color: "#6BCF8B", fontSize: 12, fontWeight: 700 }}>
+            Submitted! Score: {lastResult.score}
+          </span>
+          <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontFamily: "monospace" }}>
+            {lastResult.latency_ms != null ? `${lastResult.latency_ms}ms` : ""}
+          </span>
         </div>
       )}
 
@@ -247,9 +265,16 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <RankBadge rank={i + 1} />
-                <span style={{ color: "#e5e7eb", fontWeight: i === 0 ? 700 : 500, fontSize: 13 }}>
-                  {entry.pipeline_name}
-                </span>
+                <div>
+                  <span style={{ color: "#e5e7eb", fontWeight: i === 0 ? 700 : 500, fontSize: 13 }}>
+                    {entry.pipeline_name}
+                  </span>
+                  {entry.total_latency_ms != null && (
+                    <div style={{ color: "#9aabb8", fontSize: 9, fontFamily: "monospace", marginTop: 1 }}>
+                      {entry.total_latency_ms}ms
+                    </div>
+                  )}
+                </div>
               </div>
               <span style={{
                 color: i === 0 ? "#E6C36B" : "#9aabb8",
@@ -257,7 +282,7 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
                 background: "#0d1117", borderRadius: 5, padding: "2px 8px",
                 border: "1px solid #1f2937",
               }}>
-                {entry.score}
+                {typeof entry.score === "number" ? entry.score.toFixed(4) : entry.score}
               </span>
             </div>
           ))}
@@ -319,42 +344,63 @@ function PostForm({ onPost, onCancel }) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function ChallengesView() {
+  const { token } = useAuth();
   const [challenges,   setChallenges]   = useState([]);
   const [pipelines,    setPipelines]    = useState([]);
   const [leaderboards, setLeaderboards] = useState({});
   const [openBoard,    setOpenBoard]    = useState(null);
   const [showForm,     setShowForm]     = useState(false);
   const [loading,      setLoading]      = useState(true);
+  const [loadError,    setLoadError]    = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [c, p] = await Promise.all([
-      fetch(`${API}/challenges`).then((r) => r.json()),
-      fetch(`${API}/pipelines`).then((r) => r.json()),
-    ]);
-    setChallenges(c); setPipelines(p); setLoading(false);
+    setLoadError(false);
+    try {
+      const [c, p] = await Promise.all([
+        fetch(`${API}/challenges`).then((r) => r.json()),
+        fetch(`${API}/pipelines`).then((r) => r.json()),
+      ]);
+      setChallenges(Array.isArray(c) ? c : []);
+      setPipelines(Array.isArray(p) ? p : []);
+    } catch { setLoadError(true); }
+    setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const loadBoard = async (id) => {
-    const rows = await fetch(`${API}/challenges/${id}/leaderboard`).then((r) => r.json());
-    setLeaderboards((p) => ({ ...p, [id]: rows }));
+    try {
+      const rows = await fetch(`${API}/challenges/${id}/leaderboard`).then((r) => r.json());
+      setLeaderboards((p) => ({ ...p, [id]: Array.isArray(rows) ? rows : [] }));
+    } catch {}
   };
 
   const postChallenge = async (form) => {
-    const saved = await fetch(`${API}/challenges`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    }).then((r) => r.json());
-    setChallenges((c) => [...c, saved]);
-    setShowForm(false);
+    if (!token) return;
+    try {
+      const saved = await fetch(`${API}/challenges`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify(form),
+      }).then((r) => r.json());
+      setChallenges((c) => [...c, saved]);
+      setShowForm(false);
+    } catch {}
   };
 
   const submit = async (challengeId, pipelineId) => {
-    await fetch(`${API}/challenges/${challengeId}/submit/${pipelineId}`, { method: "POST" });
-    loadBoard(challengeId);
-    setOpenBoard(challengeId);
+    try {
+      const res = await fetch(`${API}/challenges/${challengeId}/submit/${pipelineId}`, { method: "POST" });
+      const data = res.ok ? await res.json() : null;
+      loadBoard(challengeId);
+      setOpenBoard(challengeId);
+      return data;
+    } catch {
+      loadBoard(challengeId);
+      setOpenBoard(challengeId);
+      return null;
+    }
   };
 
   const toggleBoard = (id) => {
@@ -384,15 +430,17 @@ export default function ChallengesView() {
           </div>
           <PlazaTree size={26} />
         </div>
-        <button onClick={() => setShowForm((v) => !v)} style={{
-          background: showForm ? "rgba(99,102,241,0.1)" : "rgba(196,153,60,0.1)",
-          color:      showForm ? "#818cf8" : "#E6C36B",
-          border: `1px solid ${showForm ? "rgba(99,102,241,0.3)" : "rgba(196,153,60,0.3)"}`,
-          borderRadius: 20, padding: "9px 20px", fontSize: 13,
-          cursor: "pointer", fontWeight: 700,
-        }}>
-          {showForm ? "Cancel" : "+ Post Mission"}
-        </button>
+        {token && (
+          <button onClick={() => setShowForm((v) => !v)} style={{
+            background: showForm ? "rgba(99,102,241,0.1)" : "rgba(196,153,60,0.1)",
+            color:      showForm ? "#818cf8" : "#E6C36B",
+            border: `1px solid ${showForm ? "rgba(99,102,241,0.3)" : "rgba(196,153,60,0.3)"}`,
+            borderRadius: 20, padding: "9px 20px", fontSize: 13,
+            cursor: "pointer", fontWeight: 700,
+          }}>
+            {showForm ? "Cancel" : "+ Post Mission"}
+          </button>
+        )}
       </div>
 
       {/* How it works */}
@@ -440,7 +488,17 @@ export default function ChallengesView() {
             </div>
           ))
         )}
-        {!loading && challenges.length === 0 && !showForm && (
+        {!loading && loadError && (
+          <div style={{
+            background: "#0d1117", border: "1px dashed #7f1d1d", borderRadius: 14,
+            padding: "48px 32px", color: "#f87171", fontSize: 14,
+            display: "flex", alignItems: "center", gap: 12,
+          }}>
+            <span>Could not load missions.</span>
+            <button onClick={load} style={{ background: "none", border: "1px solid #7f1d1d", color: "#f87171", borderRadius: 8, padding: "4px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Retry</button>
+          </div>
+        )}
+        {!loading && !loadError && challenges.length === 0 && !showForm && (
           <div style={{
             background: "#0d1117", border: "1px dashed #1f2937", borderRadius: 14,
             padding: "48px 32px", color: "#9ca3af", fontSize: 14, fontStyle: "italic",

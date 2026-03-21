@@ -60,12 +60,52 @@ function StatusBadge({ status }) {
 /* ── Auth forms ───────────────────────────────────────────────────────────── */
 
 function AuthPanel({ onAuth }) {
-  const [mode, setMode]   = useState("login");  // "login" | "register" | "forgot" | "reset"
-  const [form, setForm]   = useState({ email: "", username: "", password: "", resetToken: "", newPassword: "" });
-  const [busy, setBusy]   = useState(false);
-  const [err,  setErr]    = useState("");
-  const [ok,   setOk]     = useState("");
+  const [mode, setMode]         = useState("login");  // "login" | "register" | "forgot" | "reset"
+  const [form, setForm]         = useState({ email: "", username: "", password: "", resetToken: "", newPassword: "" });
+  const [busy, setBusy]         = useState(false);
+  const [err,  setErr]          = useState("");
+  const [ok,   setOk]           = useState("");
+  const [worldVerified, setWorldVerified] = useState(null); // nullifier_hash when verified
+  const [verifying, setVerifying]         = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const verifyWithWorld = async () => {
+    const { MiniKit, VerificationLevel } = await import("@worldcoin/minikit-js");
+    if (!MiniKit.isInstalled()) {
+      setErr("Open AgentVerse inside World App to verify your identity.");
+      return;
+    }
+    setVerifying(true); setErr("");
+    try {
+      const { finalPayload } = await MiniKit.commandsAsync.verify({
+        action: process.env.NEXT_PUBLIC_WLD_ACTION || "register_developer",
+        verification_level: VerificationLevel.Device,
+      });
+      if (finalPayload.status === "error") {
+        setErr("World ID verification cancelled.");
+        return;
+      }
+      const res = await fetch("/api/verify-worldid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proof: finalPayload,
+          action: process.env.NEXT_PUBLIC_WLD_ACTION || "register_developer",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWorldVerified(data.nullifier_hash);
+        setOk("World ID verified! You're confirmed as a unique human.");
+      } else {
+        setErr(data.error || "Verification failed.");
+      }
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const submit = async () => {
     setBusy(true); setErr(""); setOk("");
@@ -96,7 +136,7 @@ function AuthPanel({ onAuth }) {
       }
       const body = mode === "login"
         ? { email: form.email, password: form.password }
-        : { email: form.email, username: form.username, password: form.password };
+        : { email: form.email, username: form.username, password: form.password, world_nullifier: worldVerified };
       const res = await fetch(`${API}/auth/${mode}`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
@@ -130,6 +170,15 @@ function AuthPanel({ onAuth }) {
           <div><Label>Reset Token</Label><input value={form.resetToken} onChange={e => set("resetToken", e.target.value)} placeholder="Paste token here" style={FIELD} /></div>
           <div><Label>New Password</Label><input type="password" value={form.newPassword} onChange={e => set("newPassword", e.target.value)} placeholder="••••••••" style={FIELD} onKeyDown={e => e.key === "Enter" && submit()} /></div>
         </>)}
+        {mode === "register" && (
+          <button onClick={verifyWithWorld} disabled={verifying || !!worldVerified} style={{
+            ...BTN(worldVerified ? "#065f46" : "#1a1a2e", verifying || !!worldVerified),
+            border: `1px solid ${worldVerified ? "#34d399" : "#374151"}`,
+            color: worldVerified ? "#34d399" : "#9aabb8",
+          }}>
+            {worldVerified ? "✓ Verified with World ID" : verifying ? "Verifying…" : "Verify with World ID (optional)"}
+          </button>
+        )}
         {err && <div style={{ color: "#fca5a5", fontSize: 11, background: "#450a0a", border: "1px solid #ef4444", borderRadius: 7, padding: "6px 10px" }}>{err}</div>}
         {ok  && <div style={{ color: "#6ee7b7", fontSize: 11, background: "#064e3b20", border: "1px solid #064e3b80", borderRadius: 7, padding: "8px 10px", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{ok}</div>}
         <button onClick={submit} disabled={busy} style={{ ...BTN("#6366f1", busy), marginTop: 4 }}>
@@ -431,7 +480,7 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
         {[
           ["Total Calls",  m.requests || 0,                                        "#6366f1"],
-          ["Earnings",     `${Math.round((m.earnings || 0) * 100)} credits`,       "#6BCF8B"],
+          ["Earnings",     `$${(m.earnings || 0).toFixed(4)}`,                    "#6BCF8B"],
           ["Avg Latency",  m.avg_latency_ms ? `${m.avg_latency_ms}ms` : "—",      "#B59CE6"],
           ["Success Rate", m.success_rate != null ? `${(m.success_rate * 100).toFixed(1)}%` : "—", "#E6C36B"],
         ].map(([k, v, color]) => (
@@ -828,7 +877,10 @@ function JobsPanel() {
                   onClick={() => toggleExpand(j.job_id)}
                   style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 80px 80px", gap: 8, padding: "9px 10px", borderBottom: "1px solid #1f2937", cursor: "pointer", fontSize: 12, alignItems: "center", background: isOpen ? "#1a1a2e" : "transparent" }}
                 >
-                  <div style={{ fontWeight: 600, color: "#e5e7eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.pipeline_name || j.pipeline_id.slice(0, 8)}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, color: "#e5e7eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.pipeline_name || j.pipeline_id.slice(0, 8)}</div>
+                    {j.status === "failed" && j.error && <div style={{ color: "#f87171", fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.error}</div>}
+                  </div>
                   <div><JobStatusBadge status={j.status} /></div>
                   <div style={{ color: "#9aabb8" }}>{created}</div>
                   <div style={{ color: "#9aabb8" }}>{durationMs != null ? `${durationMs}ms` : "—"}</div>
@@ -873,6 +925,7 @@ function JobsPanel() {
 function CreditsPanel({ auth }) {
   const [balance,    setBalance]    = useState(null);
   const [walletId,   setWalletId]   = useState(null);
+  const [txns,       setTxns]       = useState([]);
   const [busy,       setBusy]       = useState(false);
   const [ok,         setOk]         = useState("");
 
@@ -880,7 +933,15 @@ function CreditsPanel({ auth }) {
     if (!auth?.token) return;
     fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${auth.token}` } })
       .then(r => r.json())
-      .then(d => { setWalletId(d.wallet_id); if (d.wallet_id) fetch(`${API}/wallets/${d.wallet_id}`).then(r => r.json()).then(w => setBalance(w.balance)).catch(() => {}); })
+      .then(d => {
+        setWalletId(d.wallet_id);
+        if (d.wallet_id) {
+          fetch(`${API}/wallets/${d.wallet_id}`)
+            .then(r => r.json())
+            .then(w => { setBalance(w.balance); setTxns(w.recent_transactions || []); })
+            .catch(() => {});
+        }
+      })
       .catch(() => {});
   };
 
@@ -920,6 +981,23 @@ function CreditsPanel({ auth }) {
         ))}
       </div>
       {ok && <div style={{ marginTop: 8, color: "#34d399", fontSize: 11, fontWeight: 600 }}>{ok}</div>}
+      {txns.length > 0 && (
+        <div style={{ marginTop: 14, borderTop: "1px solid #1f2937", paddingTop: 12 }}>
+          <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, marginBottom: 8 }}>Recent Transactions</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {txns.slice(0, 8).map((t, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10, fontFamily: "monospace" }}>
+                <span style={{ color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "60%" }}>
+                  {t.agent_id ? t.agent_id.slice(0, 8) : t.pipeline_id ? `pipe:${t.pipeline_id.slice(0, 6)}` : "deposit"}
+                </span>
+                <span style={{ color: t.amount > 0 ? "#f87171" : "#34d399", fontWeight: 700, flexShrink: 0 }}>
+                  {t.amount > 0 ? "-" : "+"}{Math.round(Math.abs(t.amount) * 100)} cr
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1012,7 +1090,7 @@ export default function DeveloperView() {
       <div style={{ display: "flex", gap: 10, marginBottom: 22, flexWrap: "wrap" }}>
         <Pill label="Agents" value={agents.length} color="#6366f1" />
         <Pill label="Total Calls" value={totalCalls} color="#6BCF8B" />
-        <Pill label="Total Earned" value={`${Math.round(parseFloat(totalEarnings) * 100)} credits`} color="#E6C36B" />
+        <Pill label="Total Earned" value={`$${parseFloat(totalEarnings).toFixed(4)}`} color="#E6C36B" />
       </div>
 
       {/* First-time guide — shown when signed in with no agents */}

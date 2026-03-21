@@ -590,7 +590,8 @@ function Builder() {
     const bounds = reactFlowWrapper.current.getBoundingClientRect();
     const raw = e.dataTransfer.getData("application/agentverse");
     if (!raw || !rfInstance) return;
-    const agent = JSON.parse(raw);
+    let agent;
+    try { agent = JSON.parse(raw); } catch { return; }
     const pos = rfInstance.screenToFlowPosition({ x: e.clientX - bounds.left, y: e.clientY - bounds.top });
     idCounter.current += 1;
     setNodes(ns => [...ns, {
@@ -676,6 +677,7 @@ function Builder() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: pipelineName, agent_ids: orderedIds }),
       });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Save failed"); }
       const saved = await res.json();
       setSavedId(saved.id);
       newId = saved.id;

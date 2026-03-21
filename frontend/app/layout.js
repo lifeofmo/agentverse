@@ -1,5 +1,6 @@
 import { Nunito } from "next/font/google";
 import "./globals.css";
+import MiniKitProvider from "@/app/providers/MiniKitProvider";
 
 const nunito = Nunito({
   variable: "--font-nunito",
@@ -21,7 +22,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${nunito.variable} antialiased`}>
-        {children}
+        <MiniKitProvider>
+          {children}
+        </MiniKitProvider>
       </body>
     </html>
   );

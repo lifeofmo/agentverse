@@ -301,9 +301,15 @@ def init_db():
             username     TEXT NOT NULL,
             password_hash TEXT NOT NULL,
             created_at   TEXT NOT NULL,
-            is_active    INTEGER DEFAULT 1
+            is_active    INTEGER DEFAULT 1,
+            world_nullifier TEXT UNIQUE
         )
     """)
+    # Migration: add world_nullifier to existing users tables
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN world_nullifier TEXT UNIQUE")
+    except Exception:
+        pass  # Column already exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS api_keys (
             id         TEXT PRIMARY KEY,
@@ -1555,6 +1561,7 @@ async def list_recent_jobs(limit: int = 20):
             "status":        r["status"],
             "created_at":    r["created_at"],
             "completed_at":  r["completed_at"],
+            "error":         r["error"],
         }
         if r["status"] == "completed" and r["result"]:
             try:
@@ -1727,7 +1734,7 @@ def platform_stats():
 # ── Challenge routes ──────────────────────────────────────────────────────────
 
 @app.post("/challenges", response_model=ChallengeRecord, status_code=201)
-def create_challenge(challenge: Challenge):
+def create_challenge(challenge: Challenge, user: dict = Depends(_require_auth)):
     cid = str(uuid.uuid4())
     conn = get_db()
     conn.execute(
@@ -2070,6 +2077,7 @@ class RegisterRequest(BaseModel):
     email: str
     username: str
     password: str
+    world_nullifier: Optional[str] = None
 
 class LoginRequest(BaseModel):
     email: str
@@ -2104,11 +2112,15 @@ async def auth_register(req: RegisterRequest):
     if conn.execute("SELECT id FROM users WHERE email = ?", (req.email.lower(),)).fetchone():
         conn.close()
         raise HTTPException(409, "Email already registered")
+    if req.world_nullifier:
+        if conn.execute("SELECT id FROM users WHERE world_nullifier = ?", (req.world_nullifier,)).fetchone():
+            conn.close()
+            raise HTTPException(409, "A World ID account already exists. Each human can only register once.")
     user_id = str(uuid.uuid4())
     now = _now()
     conn.execute(
-        "INSERT INTO users VALUES (?, ?, ?, ?, ?, 1)",
-        (user_id, req.email.lower(), req.username, _hash_password(req.password), now),
+        "INSERT INTO users VALUES (?, ?, ?, ?, ?, 1, ?)",
+        (user_id, req.email.lower(), req.username, _hash_password(req.password), now, req.world_nullifier),
     )
     # Create linked wallet with welcome credits ($1 = 100 credits free to start)
     wallet_id = f"w_{user_id[:8]}"
@@ -2234,6 +2246,7 @@ async def auth_me(request: Request):
         "wallet_id": wallet_id,
         "wallet_balance": wallet_balance,
         "api_keys": [dict(k) for k in keys],
+        "world_verified": bool(user.get("world_nullifier")),
     }
 
 @app.post("/auth/create-api-key", tags=["auth"])

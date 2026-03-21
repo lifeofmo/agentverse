@@ -206,7 +206,11 @@ function TryAgentModal({ agent, allAgents, onClose }) {
         `${API}/call-agent/${agent.id}`,
         { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ market }) },
       );
-      if (!res.ok) { setError("Agent returned an error — try again."); return; }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(res.status === 402 ? `Insufficient credits — top up your wallet to call agents.` : (body.detail || "Agent returned an error — try again."));
+        return;
+      }
       setResult(await res.json());
     } catch {
       setError("Could not reach the agent. Check your connection.");
