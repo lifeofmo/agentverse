@@ -324,13 +324,15 @@ export default function ChallengesView() {
   const [leaderboards, setLeaderboards] = useState({});
   const [openBoard,    setOpenBoard]    = useState(null);
   const [showForm,     setShowForm]     = useState(false);
+  const [loading,      setLoading]      = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     const [c, p] = await Promise.all([
       fetch(`${API}/challenges`).then((r) => r.json()),
       fetch(`${API}/pipelines`).then((r) => r.json()),
     ]);
-    setChallenges(c); setPipelines(p);
+    setChallenges(c); setPipelines(p); setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -429,7 +431,16 @@ export default function ChallengesView() {
           />
         ))}
 
-        {challenges.length === 0 && !showForm && (
+        {loading && challenges.length === 0 && (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 14, padding: "22px 20px", minHeight: 160, opacity: 0.5 + i * 0.1 }}>
+              <div style={{ height: 14, borderRadius: 4, background: "#1f2937", width: "60%", marginBottom: 10 }} />
+              <div style={{ height: 10, borderRadius: 4, background: "#1a1a2e", width: "85%", marginBottom: 6 }} />
+              <div style={{ height: 10, borderRadius: 4, background: "#1a1a2e", width: "70%" }} />
+            </div>
+          ))
+        )}
+        {!loading && challenges.length === 0 && !showForm && (
           <div style={{
             background: "#0d1117", border: "1px dashed #1f2937", borderRadius: 14,
             padding: "48px 32px", color: "#9ca3af", fontSize: 14, fontStyle: "italic",

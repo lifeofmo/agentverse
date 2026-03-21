@@ -2306,24 +2306,17 @@ async def developer_dashboard(request: Request):
         "SELECT * FROM agents WHERE owner_wallet = ? OR developer_name = ?",
         (wallet_id or "", user["username"]),
     ).fetchall()
-    conn.close()
-    agent_list = []
-    for a in agents:
-        m = get_metrics(a["id"])
-        agent_list.append({
-            **dict(a),
-            "metrics": m,
-            "health": a["status"],
-        })
-    dev_wallet_id = dict(profile)["wallet_id"] if profile else None
+    agent_ids = [a["id"] for a in agents]
+    metrics_map = get_metrics_bulk(conn, agent_ids)
+    agent_list = [
+        {**dict(a), "metrics": metrics_map[a["id"]], "health": a["status"]}
+        for a in agents
+    ]
     wallet = None
-    if dev_wallet_id:
-        wallet_id = dev_wallet_id
     if wallet_id:
-        conn = get_db()
         w = conn.execute("SELECT * FROM wallets WHERE id = ?", (wallet_id,)).fetchone()
-        conn.close()
         wallet = dict(w) if w else None
+    conn.close()
     return {
         "user": {"id": user["id"], "username": user["username"], "email": user["email"]},
         "wallet": wallet,
