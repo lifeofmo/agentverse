@@ -922,12 +922,22 @@ function JobsPanel() {
 
 /* ── Credits top-up widget ───────────────────────────────────────────────── */
 
+const PLATFORM_WALLET_ADDRESS = process.env.NEXT_PUBLIC_PLATFORM_ETH_ADDRESS || "0x0000000000000000000000000000000000000000";
+
 function CreditsPanel({ auth }) {
   const [balance,    setBalance]    = useState(null);
   const [walletId,   setWalletId]   = useState(null);
   const [txns,       setTxns]       = useState([]);
   const [busy,       setBusy]       = useState(false);
   const [ok,         setOk]         = useState("");
+
+  // USDC top-up state
+  const [showUsdc,   setShowUsdc]   = useState(false);
+  const [txHash,     setTxHash]     = useState("");
+  const [usdcAmt,    setUsdcAmt]    = useState("");
+  const [usdcBusy,   setUsdcBusy]   = useState(false);
+  const [usdcMsg,    setUsdcMsg]    = useState("");
+  const [copied,     setCopied]     = useState(false);
 
   const load = () => {
     if (!auth?.token) return;
@@ -963,6 +973,31 @@ function CreditsPanel({ auth }) {
     finally { setBusy(false); }
   };
 
+  const submitUsdcDeposit = async () => {
+    if (!txHash.trim() || !usdcAmt) return;
+    setUsdcBusy(true); setUsdcMsg("");
+    try {
+      const res = await fetch(`${API}/wallets/${walletId}/deposit/worldchain`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ tx_hash: txHash.trim(), amount_usd: parseFloat(usdcAmt) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Verification failed");
+      load();
+      setUsdcMsg(`+${data.credits_added} credits added! ($${data.deposited_usd.toFixed(2)} USDC verified)`);
+      setTxHash(""); setUsdcAmt("");
+      setTimeout(() => { setUsdcMsg(""); setShowUsdc(false); }, 5000);
+    } catch (e) { setUsdcMsg(`Error: ${e.message}`); }
+    finally { setUsdcBusy(false); }
+  };
+
+  const copyAddress = () => {
+    navigator.clipboard.writeText(PLATFORM_WALLET_ADDRESS).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   const credits = balance !== null ? Math.round(balance * 100) : null;
   const color   = credits === null ? "#9aabb8" : credits < 500 ? "#E67B7B" : credits < 2000 ? "#E6C36B" : "#6BCF8B";
 
@@ -981,6 +1016,58 @@ function CreditsPanel({ auth }) {
         ))}
       </div>
       {ok && <div style={{ marginTop: 8, color: "#34d399", fontSize: 11, fontWeight: 600 }}>{ok}</div>}
+
+      {/* USDC on World Chain top-up */}
+      <div style={{ marginTop: 10, borderTop: "1px solid #1f2937", paddingTop: 10 }}>
+        <button onClick={() => setShowUsdc(v => !v)} style={{ background: "none", border: "1px solid #374151", borderRadius: 8, padding: "5px 10px", fontSize: 11, fontWeight: 700, color: "#a78bfa", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ fontSize: 14 }}>⛓</span> Top up with USDC {showUsdc ? "▲" : "▼"}
+        </button>
+        {showUsdc && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ color: "#9aabb8", fontSize: 10, marginBottom: 6, lineHeight: 1.5 }}>
+              Send USDC on <span style={{ color: "#a78bfa" }}>World Chain</span> to the address below,
+              then paste your tx hash to get credits instantly.
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+              <div style={{ flex: 1, background: "#0d1117", border: "1px solid #374151", borderRadius: 6, padding: "5px 8px", fontSize: 9, fontFamily: "monospace", color: "#d1d5db", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {PLATFORM_WALLET_ADDRESS}
+              </div>
+              <button onClick={copyAddress} style={{ background: "#1a1a2e", border: "1px solid #374151", borderRadius: 6, padding: "5px 8px", fontSize: 10, color: copied ? "#34d399" : "#9aabb8", cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+              <input
+                value={usdcAmt}
+                onChange={e => setUsdcAmt(e.target.value)}
+                placeholder="Amount (USDC)"
+                type="number" min="0.01" step="0.01"
+                style={{ flex: 1, background: "#0d1117", border: "1px solid #374151", borderRadius: 6, padding: "5px 8px", fontSize: 11, color: "#f9fafb", fontFamily: "inherit", outline: "none" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              <input
+                value={txHash}
+                onChange={e => setTxHash(e.target.value)}
+                placeholder="Transaction hash (0x...)"
+                style={{ flex: 1, background: "#0d1117", border: "1px solid #374151", borderRadius: 6, padding: "5px 8px", fontSize: 11, color: "#f9fafb", fontFamily: "monospace", outline: "none" }}
+              />
+            </div>
+            <button
+              onClick={submitUsdcDeposit}
+              disabled={usdcBusy || !txHash.trim() || !usdcAmt}
+              style={{ width: "100%", background: usdcBusy ? "#374151" : "#4f46e5", border: "none", borderRadius: 8, padding: "7px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: usdcBusy ? "default" : "pointer", fontFamily: "inherit" }}>
+              {usdcBusy ? "Verifying on-chain..." : "Verify & Add Credits"}
+            </button>
+            {usdcMsg && (
+              <div style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: usdcMsg.startsWith("Error") ? "#f87171" : "#34d399" }}>
+                {usdcMsg}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {txns.length > 0 && (
         <div style={{ marginTop: 14, borderTop: "1px solid #1f2937", paddingTop: 12 }}>
           <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, marginBottom: 8 }}>Recent Transactions</div>

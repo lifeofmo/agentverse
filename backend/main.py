@@ -188,6 +188,16 @@ RATE_LIMIT_WINDOW       = 60         # seconds
 RATE_LIMIT_MAX          = 100        # requests per window per key/IP
 MAX_PRICE_PER_REQUEST   = 10.0       # hard cap per agent call (USD)
 MAX_AGENTS_PER_USER     = 20         # max agents a single developer can register
+
+# ── World Chain / USDC deposit constants ──────────────────────────────────────
+WORLD_CHAIN_RPC_URL     = os.environ.get("WORLD_CHAIN_RPC_URL", "https://worldchain-mainnet.g.alchemy.com/public")
+PLATFORM_ETH_ADDRESS    = os.environ.get("PLATFORM_ETH_ADDRESS", "").lower()
+# USDC on World Chain (same as Base/Optimism)
+USDC_CONTRACT_ADDRESS   = os.environ.get("USDC_CONTRACT_ADDRESS", "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1").lower()
+# ERC-20 Transfer topic: keccak256("Transfer(address,address,uint256)")
+ERC20_TRANSFER_TOPIC    = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+USDC_DECIMALS           = 6
+MAX_USDC_DEPOSIT        = 10_000.0   # USD cap per single deposit
 _rate_store: dict[str, list[float]] = defaultdict(list)
 _pipeline_semaphore = asyncio.Semaphore(MAX_CONCURRENT_PIPELINES)
 
@@ -296,6 +306,16 @@ def _validate_public_url(url: str, field: str = "endpoint") -> None:
 
 def _migrate(conn):
     """Safe migration: add columns/tables that may not exist yet."""
+    # ── WorldChain deposit idempotency table ──────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS used_tx_hashes (
+            tx_hash    TEXT PRIMARY KEY,
+            wallet_id  TEXT NOT NULL,
+            amount_usd REAL NOT NULL,
+            ts         TEXT NOT NULL
+        )
+    """)
+
     new_agent_cols = [
         ("schema_endpoint",   "TEXT"),
         ("health_endpoint",   "TEXT"),
@@ -812,6 +832,10 @@ class WalletCreate(BaseModel):
 
 class WalletDeposit(BaseModel):
     amount: float
+
+class WalletWorldChainDeposit(BaseModel):
+    tx_hash:    str
+    amount_usd: float   # claimed amount — verified on-chain
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Metrics helpers
@@ -1882,6 +1906,115 @@ def deposit_wallet(wallet_id: str, body: WalletDeposit, user: dict = Depends(_re
     new_bal = conn.execute("SELECT balance FROM wallets WHERE id = ?", (wallet_id,)).fetchone()["balance"]
     conn.close()
     return {"wallet_id": wallet_id, "deposited": body.amount, "balance": round(new_bal, 4)}
+
+@app.post("/wallets/{wallet_id}/deposit/worldchain")
+async def deposit_worldchain(wallet_id: str, body: WalletWorldChainDeposit, user: dict = Depends(_require_auth)):
+    """Verify a World Chain USDC transfer on-chain, then credit the user's wallet."""
+    if not PLATFORM_ETH_ADDRESS:
+        raise HTTPException(503, "World Chain deposits not configured on this server")
+    if body.amount_usd <= 0 or body.amount_usd > MAX_USDC_DEPOSIT:
+        raise HTTPException(400, f"Deposit amount must be between 0 and ${MAX_USDC_DEPOSIT}")
+
+    # Normalise tx_hash
+    tx_hash = body.tx_hash.strip().lower()
+    if not re.match(r'^0x[0-9a-f]{64}$', tx_hash):
+        raise HTTPException(400, "Invalid tx_hash format")
+
+    conn = get_db()
+
+    # Check wallet ownership
+    profile = conn.execute(
+        "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
+    ).fetchone()
+    if not profile or profile["wallet_id"] != wallet_id:
+        conn.close()
+        raise HTTPException(403, "You can only deposit to your own wallet")
+
+    # Idempotency — reject already-used tx hashes
+    existing = conn.execute(
+        "SELECT wallet_id FROM used_tx_hashes WHERE tx_hash = ?", (tx_hash,)
+    ).fetchone()
+    if existing:
+        conn.close()
+        raise HTTPException(409, "This transaction has already been used for a deposit")
+
+    # ── On-chain verification via World Chain RPC ─────────────────────────────
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            rpc_resp = await client.post(WORLD_CHAIN_RPC_URL, json={
+                "jsonrpc": "2.0", "id": 1,
+                "method": "eth_getTransactionReceipt",
+                "params": [tx_hash]
+            })
+        rpc_data = rpc_resp.json()
+    except Exception as e:
+        conn.close()
+        logger.warning("World Chain RPC error", extra={"error": str(e)})
+        raise HTTPException(502, "Could not reach World Chain RPC — try again")
+
+    receipt = rpc_data.get("result")
+    if receipt is None:
+        conn.close()
+        raise HTTPException(404, "Transaction not found on World Chain — it may still be pending")
+    if receipt.get("status") != "0x1":
+        conn.close()
+        raise HTTPException(400, "Transaction failed or was reverted on-chain")
+
+    # ── Decode ERC-20 Transfer logs ────────────────────────────────────────────
+    verified_amount_usd = None
+    for log_entry in receipt.get("logs", []):
+        # Must be the USDC contract
+        if log_entry.get("address", "").lower() != USDC_CONTRACT_ADDRESS:
+            continue
+        topics = log_entry.get("topics", [])
+        # Transfer(address,address,uint256): 3 topics
+        if len(topics) < 3 or topics[0].lower() != ERC20_TRANSFER_TOPIC:
+            continue
+        # topics[2] = to address (zero-padded 32 bytes)
+        to_addr = "0x" + topics[2][-40:]
+        if to_addr.lower() != PLATFORM_ETH_ADDRESS:
+            continue
+        # data = uint256 amount
+        raw_amount = int(log_entry.get("data", "0x0"), 16)
+        usdc_amount = raw_amount / (10 ** USDC_DECIMALS)
+        if usdc_amount >= body.amount_usd * 0.999:  # 0.1% tolerance for rounding
+            verified_amount_usd = usdc_amount
+            break
+
+    if verified_amount_usd is None:
+        conn.close()
+        raise HTTPException(400, "No matching USDC transfer to platform wallet found in this transaction")
+
+    # ── Credit the wallet ──────────────────────────────────────────────────────
+    # Record tx as used first (prevents race via UNIQUE constraint)
+    try:
+        conn.execute(
+            "INSERT INTO used_tx_hashes (tx_hash, wallet_id, amount_usd, ts) VALUES (?, ?, ?, ?)",
+            (tx_hash, wallet_id, verified_amount_usd, _now())
+        )
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(409, "This transaction was just processed by another request")
+
+    conn.execute(
+        "UPDATE wallets SET balance = balance + ? WHERE id = ?",
+        (verified_amount_usd, wallet_id)
+    )
+    conn.commit()
+    new_bal = conn.execute("SELECT balance FROM wallets WHERE id = ?", (wallet_id,)).fetchone()["balance"]
+    conn.close()
+
+    logger.info("WorldChain deposit verified", extra={
+        "wallet_id": wallet_id, "tx_hash": tx_hash, "amount_usd": verified_amount_usd
+    })
+    return {
+        "wallet_id": wallet_id,
+        "deposited_usd": round(verified_amount_usd, 6),
+        "credits_added": round(verified_amount_usd * 100),
+        "balance": round(new_bal, 4),
+        "tx_hash": tx_hash,
+    }
+
 
 class WalletWithdraw(BaseModel):
     amount:      float
