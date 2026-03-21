@@ -754,7 +754,11 @@ async def bill_transaction(
     tx_id    = str(uuid.uuid4())
 
     conn = get_db()
-    # Deduct from user (allow negative for demo mode — soft billing)
+    wallet_row = _get_wallet(conn, user_wallet_id)
+    MIN_BALANCE = -1.0  # allow $1 overdraft for demo/grace period
+    if wallet_row and wallet_row["balance"] - price < MIN_BALANCE:
+        conn.close()
+        raise HTTPException(402, "Insufficient credits. Top up your wallet to continue.")
     conn.execute("""
         UPDATE wallets SET
             balance     = balance - ?,
@@ -2014,6 +2018,12 @@ async def _get_current_user(request: Request) -> dict | None:
             conn.execute("UPDATE api_keys SET last_used = ? WHERE key_hash = ?", (_now(), key_hash))
             conn.commit()
             user = dict(row)
+    # Enrich user with wallet_id from developer_profiles so ownership checks work
+    if user:
+        profile = conn.execute(
+            "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
+        ).fetchone()
+        user["wallet_id"] = profile["wallet_id"] if profile else None
     conn.close()
     return user
 
@@ -2080,11 +2090,12 @@ async def auth_register(req: RegisterRequest):
         "INSERT INTO users VALUES (?, ?, ?, ?, ?, 1)",
         (user_id, req.email.lower(), req.username, _hash_password(req.password), now),
     )
-    # Create linked wallet
+    # Create linked wallet with welcome credits ($1 = 100 credits free to start)
     wallet_id = f"w_{user_id[:8]}"
+    WELCOME_CREDITS = 1.0  # $1.00 free
     conn.execute(
         "INSERT INTO wallets VALUES (?, ?, ?, ?, ?, ?)",
-        (wallet_id, req.username, 0.0, 0.0, 0.0, now),
+        (wallet_id, req.username, WELCOME_CREDITS, 0.0, 0.0, now),
     )
     # Developer profile
     conn.execute(
@@ -2179,6 +2190,11 @@ async def auth_me(request: Request):
         raise HTTPException(401, "Not authenticated")
     conn = get_db()
     profile = conn.execute("SELECT * FROM developer_profiles WHERE user_id = ?", (user["id"],)).fetchone()
+    wallet_id = dict(profile)["wallet_id"] if profile else None
+    wallet_balance = None
+    if wallet_id:
+        w = conn.execute("SELECT balance FROM wallets WHERE id = ?", (wallet_id,)).fetchone()
+        wallet_balance = round(w["balance"], 4) if w else None
     keys = conn.execute(
         "SELECT id, name, created_at, last_used FROM api_keys WHERE user_id = ? AND is_active = 1",
         (user["id"],),
@@ -2189,7 +2205,8 @@ async def auth_me(request: Request):
         "email": user["email"],
         "username": user["username"],
         "created_at": user["created_at"],
-        "wallet_id": dict(profile)["wallet_id"] if profile else None,
+        "wallet_id": wallet_id,
+        "wallet_balance": wallet_balance,
         "api_keys": [dict(k) for k in keys],
     }
 
@@ -2441,6 +2458,21 @@ async def _schedule_loop():
                 logger.info("Schedule auto-triggered", extra={"step": sched["id"], "pipeline_id": sched["pipeline_id"]})
         except Exception as e:
             logger.warning(f"Schedule loop error: {e}")
+
+        # Purge old completed/failed jobs (keep last 7 days)
+        try:
+            from datetime import timedelta
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+            _c = get_db()
+            _c.execute(
+                "DELETE FROM pipeline_jobs WHERE status IN ('completed','failed') AND created_at < ?",
+                (cutoff,)
+            )
+            _c.commit()
+            _c.close()
+        except Exception:
+            pass
+
         await asyncio.sleep(60)
 
 @app.on_event("startup")

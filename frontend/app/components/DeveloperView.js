@@ -103,7 +103,7 @@ function AuthPanel({ onAuth }) {
       if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Failed"); }
       const data = await res.json();
       localStorage.setItem("av_token", data.token);
-      localStorage.setItem("av_user", JSON.stringify({ id: data.user_id, username: data.username }));
+      localStorage.setItem("av_user", JSON.stringify({ id: data.user_id, username: data.username, wallet_id: data.wallet_id }));
       onAuth(data);
     } catch (e) { setErr(e.message); }
     finally { setBusy(false); }
@@ -968,10 +968,7 @@ export default function DeveloperView() {
   const handleLogout = () => { localStorage.removeItem("av_token"); localStorage.removeItem("av_user"); setAuth(null); showToast("Signed out", "warning"); };
 
   const myAgents = useMemo(() =>
-    auth ? agents.filter(a =>
-      a.developer_name === auth.username ||
-      a.owner_id === auth.user_id
-    ) : [],
+    auth ? agents.filter(a => a.developer_name === auth.username) : [],
     [agents, auth]
   );
 
