@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 
 import { API } from "@/app/lib/config";
+import { useToast } from "@/app/components/Toast";
 
 const CAT = {
   trading:   { border: "#6BCF8B", letter: "T" },
@@ -300,13 +301,18 @@ function AgentRow({ agent, metrics, selected, onClick }) {
   );
 }
 
-function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDeleted }) {
+function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDeleted, onUpdated }) {
   const m = metrics || {};
   const c = cat(agent.category);
-  const [checking,  setChecking]  = useState(false);
-  const [health,    setHealth]    = useState(null);
-  const [deleting,  setDeleting]  = useState(false);
+  const [checking,   setChecking]   = useState(false);
+  const [health,     setHealth]     = useState(null);
+  const [deleting,   setDeleting]   = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [editing,    setEditing]    = useState(false);
+  const [editForm,   setEditForm]   = useState({ name: agent.name, description: agent.description || "", price_per_request: String(agent.price_per_request), health_endpoint: agent.health_endpoint || "" });
+  const [saving,     setSaving]     = useState(false);
+  const [editErr,    setEditErr]    = useState("");
+  const setEF = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
 
   const handleDelete = async () => {
     if (!confirmDel) { setConfirmDel(true); return; }
@@ -316,6 +322,19 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
       await fetch(`${API}/agents/${agent.id}`, { method: "DELETE", headers });
       onDeleted?.();
     } catch { /* ignore */ } finally { setDeleting(false); setConfirmDel(false); }
+  };
+
+  const handleSaveEdit = async () => {
+    setSaving(true); setEditErr("");
+    try {
+      const headers = { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) };
+      const body = { name: editForm.name, description: editForm.description, price_per_request: parseFloat(editForm.price_per_request) || 0, health_endpoint: editForm.health_endpoint };
+      const res = await fetch(`${API}/agents/${agent.id}`, { method: "PATCH", headers, body: JSON.stringify(body) });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Update failed"); }
+      setEditing(false);
+      onUpdated?.();
+    } catch (e) { setEditErr(e.message); }
+    finally { setSaving(false); }
   };
 
   const checkHealth = async () => {
@@ -343,6 +362,15 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
             {checking ? "Checking…" : "Check Health"}
           </button>
           {token && (
+            <button onClick={() => { setEditing(e => !e); setEditErr(""); }} style={{
+              ...BTN("transparent", false), padding: "5px 12px", fontSize: 10,
+              color: editing ? "#818cf8" : "#9aabb8",
+              border: `1px solid ${editing ? "#818cf840" : "#374151"}`,
+            }}>
+              {editing ? "Cancel" : "Edit"}
+            </button>
+          )}
+          {token && (
             <button onClick={handleDelete} disabled={deleting} style={{
               ...BTN(confirmDel ? "#dc2626" : "transparent", deleting),
               padding: "5px 12px", fontSize: 10,
@@ -354,6 +382,22 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
           )}
         </div>
       </div>
+
+      {editing && (
+        <div style={{ background: "#1a1a2e", border: "1px solid #374151", borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
+          <div style={{ color: "#818cf8", fontSize: 11, fontWeight: 700, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.8 }}>Edit Agent</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ gridColumn: "1/-1" }}><Label>Name</Label><input value={editForm.name} onChange={e => setEF("name", e.target.value)} style={FIELD} /></div>
+            <div><Label>Price / Call ($)</Label><input type="number" step="0.001" min="0" value={editForm.price_per_request} onChange={e => setEF("price_per_request", e.target.value)} style={FIELD} /></div>
+            <div><Label>Health Endpoint</Label><input value={editForm.health_endpoint} onChange={e => setEF("health_endpoint", e.target.value)} placeholder="https://…/health" style={FIELD} /></div>
+            <div style={{ gridColumn: "1/-1" }}><Label>Description</Label><textarea rows={2} value={editForm.description} onChange={e => setEF("description", e.target.value)} style={{ ...FIELD, resize: "vertical" }} /></div>
+          </div>
+          {editErr && <div style={{ color: "#fca5a5", fontSize: 11, marginTop: 6 }}>{editErr}</div>}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+            <button onClick={handleSaveEdit} disabled={saving} style={BTN("#6366f1", saving)}>{saving ? "Saving…" : "Save Changes"}</button>
+          </div>
+        </div>
+      )}
 
       {health && (
         <div style={{ background: health.status === "active" ? "#064e3b20" : "#7f1d1d20", border: `1px solid ${health.status === "active" ? "#064e3b60" : "#7f1d1d60"}`, borderRadius: 8, padding: "8px 12px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -887,6 +931,7 @@ export default function DeveloperView() {
   const [filter,    setFilter]    = useState("");
   const [tab,       setTab]       = useState("agents");   // "agents" | "mine" | "register" | "keys"
   const [auth,      setAuth]      = useState(null);       // { token, user_id, username }
+  const { show: showToast, ToastContainer } = useToast();
 
   // Restore session
   useEffect(() => {
@@ -919,11 +964,14 @@ export default function DeveloperView() {
     return agents.filter(a => a.name.toLowerCase().includes(q) || a.category.toLowerCase().includes(q));
   }, [agents, filter]);
 
-  const handleAuth = (data) => setAuth({ token: data.token, user_id: data.user_id, username: data.username });
-  const handleLogout = () => { localStorage.removeItem("av_token"); localStorage.removeItem("av_user"); setAuth(null); };
+  const handleAuth = (data) => { setAuth({ token: data.token, user_id: data.user_id, username: data.username }); showToast(`Welcome, @${data.username}!`); };
+  const handleLogout = () => { localStorage.removeItem("av_token"); localStorage.removeItem("av_user"); setAuth(null); showToast("Signed out", "warning"); };
 
   const myAgents = useMemo(() =>
-    auth ? agents.filter(a => a.developer_name === auth.username) : [],
+    auth ? agents.filter(a =>
+      a.developer_name === auth.username ||
+      a.owner_id === auth.user_id
+    ) : [],
     [agents, auth]
   );
 
@@ -1034,7 +1082,9 @@ export default function DeveloperView() {
             <div>
               {selected && myAgents.find(a => a.id === selected.id) && (
                 <AgentDetail agent={selected} metrics={metrics[selected.id]} pipelines={pipelines}
-                  token={auth?.token} onDeleted={() => { loadAgents(); setSelected(null); }} />
+                  token={auth?.token}
+                  onDeleted={() => { loadAgents(); setSelected(null); showToast("Agent removed"); }}
+                  onUpdated={() => { loadAgents(); showToast("Agent updated"); }} />
               )}
             </div>
           </div>
@@ -1086,7 +1136,9 @@ export default function DeveloperView() {
 
           <div style={{ background: "#111827", borderRadius: 16, padding: "20px 22px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)", minHeight: 400 }}>
             {selected ? (
-              <AgentDetail agent={selected} metrics={metrics[selected.id]} pipelines={pipelines} token={auth?.token} onHealthCheck={loadAgents} onDeleted={() => { loadAgents(); setSelected(null); }} />
+              <AgentDetail agent={selected} metrics={metrics[selected.id]} pipelines={pipelines} token={auth?.token} onHealthCheck={loadAgents}
+                onDeleted={() => { loadAgents(); setSelected(null); showToast("Agent removed"); }}
+                onUpdated={() => { loadAgents(); showToast("Agent updated"); }} />
             ) : (
               <Leaderboard agents={agents} metrics={metrics} />
             )}
@@ -1095,6 +1147,7 @@ export default function DeveloperView() {
       )}
 
       <div style={{ height: 40 }} />
+      <ToastContainer />
     </div>
   );
 }

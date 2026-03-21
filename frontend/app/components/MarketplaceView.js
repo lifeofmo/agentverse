@@ -493,17 +493,25 @@ export default function MarketplaceView() {
   const [tryAgent,  setTryAgent]  = useState(null);
   const [backendOk, setBackendOk] = useState(true);
   const [search,    setSearch]    = useState("");
+  const [loading,   setLoading]   = useState(true);
 
+  // Debounced backend fetch — passes search + category as query params
   useEffect(() => {
     let cancelled = false;
-    const load = () =>
-      fetch(`${API}/agents`).then(r => r.json())
-        .then(a => { if (!cancelled) { setAgents(a); setBackendOk(true); } })
-        .catch(() => { if (!cancelled) setBackendOk(false); });
-    load();
-    const iv = setInterval(load, 8000);
-    return () => { cancelled = true; clearInterval(iv); };
-  }, []);
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (filter !== "all") params.set("category", filter);
+    const url = `${API}/agents${params.toString() ? `?${params}` : ""}`;
+
+    const timer = setTimeout(() => {
+      setLoading(true);
+      fetch(url).then(r => r.json())
+        .then(a => { if (!cancelled) { setAgents(Array.isArray(a) ? a : []); setBackendOk(true); setLoading(false); } })
+        .catch(() => { if (!cancelled) { setBackendOk(false); setLoading(false); } });
+    }, search ? 350 : 0);
+
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [search, filter]);
 
   const regular    = useMemo(() => agents.filter(a => a.category !== "composite"), [agents]);
   const composites = useMemo(() => agents.filter(a => a.category === "composite"),  [agents]);
@@ -609,8 +617,16 @@ export default function MarketplaceView() {
         <FilterTabs active={filter} onChange={v => { setFilter(v); setSearch(""); }} />
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14, marginBottom: 28 }}>
-          {visible.map(a => <AgentCard key={a.id} agent={a} onTry={setTryAgent} />)}
-          {visible.length === 0 && (
+          {loading && agents.length === 0
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 16, padding: "16px", height: 160, opacity: 0.5 + (i % 2) * 0.15 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: "#1f2937", marginBottom: 12 }} />
+                  <div style={{ height: 12, borderRadius: 4, background: "#1f2937", width: "70%", marginBottom: 8 }} />
+                  <div style={{ height: 10, borderRadius: 4, background: "#1a1a2e", width: "90%" }} />
+                </div>
+              ))
+            : visible.map(a => <AgentCard key={a.id} agent={a} onTry={setTryAgent} />)}
+          {!loading && visible.length === 0 && (
             <div style={{ gridColumn: "1 / -1", background: "#111827", border: "1px solid #1f2937", borderRadius: 16, padding: "48px", textAlign: "center", color: "#6b7280", fontSize: 13 }}>
               {search ? `No agents match "${search}".` : "No agents in this category yet."}
             </div>
