@@ -2,6 +2,96 @@
 import { useEffect, useState, useRef } from "react";
 import { API } from "@/app/lib/config";
 
+// ── World purpose descriptions ────────────────────────────────────────────────
+
+const WORLD_INFO = {
+  defi: {
+    icon: "⚡",
+    color: "#c084fc",
+    title: "Live Signals",
+    what: "Run your pipelines and get real-time trading signals. Each pipeline chains agents together — price feed → sentiment → momentum — and returns a BUY / SELL / HOLD recommendation.",
+    how: "Hit ▶ Run next to any pipeline. Watch the signal appear instantly.",
+    tip: "Chain 3+ agents for the most accurate signals.",
+  },
+  trading: {
+    icon: "◈",
+    color: "#ff2d78",
+    title: "Agent Economy",
+    what: "Watch the trading agent economy in real time. Agents earn USDC every time they're called. Top-earning agents rise to the centre ring — the more calls, the more prominent.",
+    how: "Call an agent from the Store or build a pipeline that uses it. Every call earns the creator 90% of the fee.",
+    tip: "Deploy a trading agent to start earning per API call.",
+  },
+  experimental: {
+    icon: "◬",
+    color: "#FF6B35",
+    title: "The Lab",
+    what: "A sandbox for experimental agents and half-built pipelines. Deploy rough builds here — the lab has no reputation stakes. Test endpoints, iterate fast, break things.",
+    how: "Deploy any agent here. Failed health checks are expected and ignored.",
+    tip: "Use the Lab to test before deploying to a featured world.",
+  },
+  data: {
+    icon: "≋",
+    color: "#00FF41",
+    title: "Data Pipelines",
+    what: "Real-time data feeds visualised as a matrix. Each column of flowing code is an active data agent — price feeds, news feeds, market depth — streaming live.",
+    how: "Watch data agents light up as they receive calls. The faster they blink, the more active they are.",
+    tip: "Data agents are the cheapest to call ($0.001–0.003) — great as first steps in a pipeline.",
+  },
+  analysis: {
+    icon: "◎",
+    color: "#7ec87e",
+    title: "My Agents",
+    what: "Your personal developer neighbourhood. Each building you own is an agent you've deployed. Earnings flow in every time someone calls your agent.",
+    how: "Sign in to see your agents here. Click a building to inspect it. Hit Undeploy to remove an agent.",
+    tip: "Agents with high reputation appear in the centre of the city.",
+  },
+  all: {
+    icon: "✦",
+    color: "#d4a820",
+    title: "Learn a Spell",
+    what: "Hogwarts — where every agent is a student. Casting a spell runs a full pipeline. Each house maps to a category: Ravenclaw (data), Slytherin (trading), Hufflepuff (analysis), Gryffindor (composite).",
+    how: "Pick a spell and cast it. Watch the wizard agents animate as each step executes. House points update in real time.",
+    tip: "Start with Market Pulse — it chains 3 agents and gives a BUY/SELL/HOLD signal.",
+  },
+};
+
+function WorldInfoBanner({ worldId }) {
+  const [open, setOpen] = useState(false);
+  const info = WORLD_INFO[worldId];
+  if (!info) return null;
+  return (
+    <div style={{ marginBottom: 14, flexShrink: 0 }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          width: "100%", background: `${info.color}10`, border: `1px solid ${info.color}25`,
+          borderRadius: 8, padding: "7px 10px", cursor: "pointer", textAlign: "left",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          fontFamily: "system-ui, sans-serif",
+        }}
+      >
+        <span style={{ color: info.color, fontSize: 11, fontWeight: 700 }}>
+          {info.icon} What is this world?
+        </span>
+        <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div style={{ background: "rgba(0,0,0,0.3)", border: `1px solid ${info.color}20`, borderTop: "none", borderRadius: "0 0 8px 8px", padding: "12px 12px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 12, lineHeight: 1.6, fontFamily: "system-ui, sans-serif" }}>{info.what}</div>
+          <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+            <span style={{ color: info.color, fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>HOW</span>
+            <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, lineHeight: 1.5, fontFamily: "system-ui, sans-serif" }}>{info.how}</span>
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+            <span style={{ color: "#f59e0b", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>TIP</span>
+            <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, lineHeight: 1.5, fontFamily: "system-ui, sans-serif" }}>{info.tip}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── World switcher config ──────────────────────────────────────────────────────
 
 const WORLD_BUTTONS = [
@@ -91,7 +181,9 @@ function TomorrowlandPanel() {
   const [results,    setResults]    = useState({});
   const [recent,     setRecent]     = useState([]);
   const [flash,      setFlash]      = useState(null);
+  const [market,     setMarket]     = useState("BTC");
   const timerRef = useRef(null);
+  const MARKETS = ["BTC", "ETH", "SOL", "AVAX"];
 
   const loadPipelines = () =>
     fetch(`${API}/pipelines`).then(r => r.json()).then(setPipelines).catch(() => {});
@@ -123,7 +215,7 @@ function TomorrowlandPanel() {
   useEffect(() => {
     loadPipelines();
     pollJobs();
-    timerRef.current = setInterval(() => { loadPipelines(); pollJobs(); }, 15000);
+    timerRef.current = setInterval(() => { loadPipelines(); pollJobs(); }, 10000);
     return () => clearInterval(timerRef.current);
   }, []);
 
@@ -133,7 +225,7 @@ function TomorrowlandPanel() {
       const res = await fetch(`${API}/run-pipeline/${pipeline.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ market: "BTC" }),
+        body: JSON.stringify({ market }),
       });
       const data = await res.json();
       setResults(r => ({ ...r, [pipeline.id]: data }));
@@ -164,28 +256,57 @@ function TomorrowlandPanel() {
         @keyframes dotPulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
       `}</style>
 
-      {/* Title */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexShrink: 0 }}>
+      {/* Title + market selector */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexShrink: 0 }}>
         <div style={{
           width: 8, height: 8, borderRadius: "50%", background: "#10b981",
           animation: "dotPulse 1.5s ease infinite",
           flexShrink: 0,
         }} />
-        <span style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14, fontFamily: "system-ui, sans-serif", letterSpacing: "-0.2px" }}>
+        <span style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14, fontFamily: "system-ui, sans-serif", letterSpacing: "-0.2px", flex: 1 }}>
           LIVE SIGNALS
         </span>
+      </div>
+
+      {/* Market selector */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 14, flexShrink: 0 }}>
+        {MARKETS.map(m => (
+          <button
+            key={m}
+            onClick={() => setMarket(m)}
+            style={{
+              flex: 1,
+              background: market === m ? "rgba(16,185,129,0.18)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${market === m ? "rgba(16,185,129,0.4)" : "rgba(255,255,255,0.08)"}`,
+              borderRadius: 6,
+              color: market === m ? "#10b981" : "rgba(255,255,255,0.4)",
+              fontSize: 10,
+              fontWeight: market === m ? 700 : 500,
+              padding: "4px 0",
+              cursor: "pointer",
+              fontFamily: "monospace",
+              transition: "all 0.15s",
+            }}
+          >{m}</button>
+        ))}
       </div>
 
       {/* Pipeline list */}
       <div style={{ overflowY: "auto", flex: 1, marginBottom: 10 }}>
         {pipelines.length === 0 && (
-          <div style={{ ...mutedLabel, padding: "12px 0" }}>No pipelines found.</div>
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <div style={{ ...mutedLabel, marginBottom: 8 }}>No pipelines yet — build one in</div>
+            <a href="/build" style={{ color: "#10b981", fontSize: 11, fontWeight: 700, textDecoration: "none", fontFamily: "system-ui, sans-serif" }}>
+              Pipeline Builder →
+            </a>
+          </div>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {pipelines.map(p => {
             const res = results[p.id];
             const sig = res?.signal || res?.recommendation || res?.action;
             const isFlashing = flash === p.id;
+            const stepCount = p.agent_ids?.length ?? 0;
             return (
               <div key={p.id} style={{
                 background: isFlashing ? "rgba(16,185,129,0.07)" : "rgba(255,255,255,0.025)",
@@ -196,8 +317,13 @@ function TomorrowlandPanel() {
                 animation: isFlashing ? "flashPulse 0.3s ease 4" : "none",
               }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: res ? 8 : 0 }}>
-                  <div style={{ color: "#e5e7eb", fontSize: 12, fontWeight: 600, fontFamily: "system-ui, sans-serif", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {p.name}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: "#e5e7eb", fontSize: 12, fontWeight: 600, fontFamily: "system-ui, sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.name}
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontFamily: "monospace", marginTop: 1 }}>
+                      {stepCount} agent{stepCount !== 1 ? "s" : ""}
+                    </div>
                   </div>
                   <button
                     onClick={() => runPipeline(p)}
@@ -234,6 +360,11 @@ function TomorrowlandPanel() {
                     }}>
                       {sig}
                     </div>
+                    {res.confidence && (
+                      <span style={{ color: "#a78bfa", fontSize: 10, fontFamily: "monospace" }}>
+                        {(res.confidence * 100).toFixed(0)}%
+                      </span>
+                    )}
                     {res.price && (
                       <span style={{ ...mutedLabel, fontSize: 10, fontFamily: "monospace" }}>${res.price}</span>
                     )}
@@ -287,9 +418,10 @@ function TomorrowlandPanel() {
 // ── Vegas panel (trading) ─────────────────────────────────────────────────────
 
 function VegasPanel() {
-  const [agents,   setAgents]   = useState([]);
-  const [stats,    setStats]    = useState(null);
-  const [earnings, setEarnings] = useState([]);
+  const [agents,    setAgents]    = useState([]);
+  const [metrics,   setMetrics]   = useState({});
+  const [stats,     setStats]     = useState(null);
+  const [earnings,  setEarnings]  = useState([]);
   const tickRef = useRef(null);
 
   useEffect(() => {
@@ -297,7 +429,25 @@ function VegasPanel() {
       const sorted = [...d].sort((a, b) =>
         (b.requests || 0) - (a.requests || 0)
       );
-      setAgents(sorted.slice(0, 8));
+      const top = sorted.slice(0, 8);
+      setAgents(top);
+      // Fetch metrics for these agents
+      const ids = top.map(a => a.id).filter(Boolean);
+      if (ids.length > 0) {
+        fetch(`${API}/metrics?ids=${ids.join(",")}`)
+          .then(r => r.json())
+          .then(m => {
+            // m may be an array or object keyed by agent_id
+            if (Array.isArray(m)) {
+              const map = {};
+              m.forEach(x => { if (x.agent_id) map[x.agent_id] = x; });
+              setMetrics(map);
+            } else {
+              setMetrics(m || {});
+            }
+          })
+          .catch(() => {});
+      }
     }).catch(() => {});
 
     fetch(`${API}/platform/stats`).then(r => r.json()).then(setStats).catch(() => {});
@@ -310,7 +460,7 @@ function VegasPanel() {
       setEarnings(prev => [{ id: Date.now(), label: `+$${amount}`, name }, ...prev].slice(0, 5));
     };
     tick();
-    tickRef.current = setInterval(tick, 4000);
+    tickRef.current = setInterval(tick, 6000);
     return () => clearInterval(tickRef.current);
   }, []);
 
@@ -347,33 +497,38 @@ function VegasPanel() {
           {agents.length === 0 && (
             <div style={mutedLabel}>Loading agents...</div>
           )}
-          {agents.map((a, i) => (
-            <div key={a.id} style={{
-              display: "flex", alignItems: "center", gap: 8,
-              background: "rgba(255,255,255,0.025)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 8,
-              padding: "7px 10px",
-            }}>
-              <span style={{
-                color: i < 3 ? "#f59e0b" : "rgba(255,255,255,0.25)",
-                fontWeight: 700, fontSize: 10,
-                fontFamily: "monospace",
-                width: 16, textAlign: "center", flexShrink: 0,
-              }}>#{i + 1}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: "#e5e7eb", fontSize: 11, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "system-ui, sans-serif" }}>
-                  {a.name}
+          {agents.map((a, i) => {
+            const m = metrics[a.id] || {};
+            const earned = m.earnings || a.earnings || 0;
+            const calls = m.requests || a.requests || 0;
+            return (
+              <div key={a.id} style={{
+                display: "flex", alignItems: "center", gap: 8,
+                background: "rgba(255,255,255,0.025)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 8,
+                padding: "7px 10px",
+              }}>
+                <span style={{
+                  color: i < 3 ? "#f59e0b" : "rgba(255,255,255,0.25)",
+                  fontWeight: 700, fontSize: 10,
+                  fontFamily: "monospace",
+                  width: 16, textAlign: "center", flexShrink: 0,
+                }}>#{i + 1}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: "#e5e7eb", fontSize: 11, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "system-ui, sans-serif" }}>
+                    {i === 0 && <span style={{ marginRight: 4 }}>👑</span>}{a.name}
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontFamily: "monospace" }}>
+                    {calls} calls
+                  </div>
                 </div>
-                <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontFamily: "monospace" }}>
-                  {a.requests ?? 0} calls
+                <div style={{ ...dataValue, fontSize: 11, color: "#34d399", flexShrink: 0 }}>
+                  ${(earned).toFixed(4)}
                 </div>
               </div>
-              <div style={{ ...dataValue, fontSize: 11, color: "#34d399", flexShrink: 0 }}>
-                ${a.price_per_request?.toFixed(3) ?? "0.001"}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Revenue flow */}
@@ -401,13 +556,18 @@ function VegasPanel() {
 // ── Burning Man panel (experimental) ─────────────────────────────────────────
 
 function BurningManPanel() {
-  const [agents,   setAgents]   = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [form,     setForm]     = useState({ name: "", endpoint: "", price: "0.001" });
-  const [deploying, setDeploying] = useState(false);
-  const [deployed,  setDeployed]  = useState(null);
-  const [err,       setErr]       = useState("");
-  const [showForm,  setShowForm]  = useState(false);
+  const [agents,      setAgents]      = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [form,        setForm]        = useState({ name: "", endpoint: "", price: "0.001" });
+  const [deploying,   setDeploying]   = useState(false);
+  const [deployed,    setDeployed]    = useState(null);
+  const [err,         setErr]         = useState("");
+  const [showForm,    setShowForm]    = useState(false);
+  const [pingUrl,     setPingUrl]     = useState("");
+  const [pinging,     setPinging]     = useState(false);
+  const [pingResult,  setPingResult]  = useState(null);
+  const [pingError,   setPingError]   = useState(null);
+  const [pingMs,      setPingMs]      = useState(null);
 
   const load = () => {
     fetch(`${API}/agents`).then(r => r.json()).then(all => {
@@ -446,6 +606,30 @@ function BurningManPanel() {
       setErr(e.message);
     }
     setDeploying(false);
+  };
+
+  const pingEndpoint = async () => {
+    if (!pingUrl.trim()) return;
+    setPinging(true);
+    setPingResult(null);
+    setPingError(null);
+    setPingMs(null);
+    const start = Date.now();
+    try {
+      const res = await fetch(pingUrl.trim(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ market: "BTC", test: true }),
+      });
+      const elapsed = Date.now() - start;
+      setPingMs(elapsed);
+      const data = await res.json().catch(() => ({ status: res.status }));
+      setPingResult(data);
+    } catch (e) {
+      setPingMs(Date.now() - start);
+      setPingError(e.message || "Request failed");
+    }
+    setPinging(false);
   };
 
   const inputStyle = {
@@ -513,6 +697,63 @@ function BurningManPanel() {
             <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, fontFamily: "system-ui, sans-serif" }}>
               ✓ Deployed: {deployed.name}
             </div>
+          </div>
+        )}
+
+        {/* Test Endpoint */}
+        <div style={divider} />
+        <div style={sectionHeader}>🧪 Test Endpoint</div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          <input
+            value={pingUrl}
+            onChange={e => setPingUrl(e.target.value)}
+            placeholder="https://your-agent.app/run"
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          <button
+            onClick={pingEndpoint}
+            disabled={pinging || !pingUrl.trim()}
+            style={{
+              background: pinging ? "#1f2937" : "rgba(255,107,53,0.18)",
+              border: "1px solid rgba(255,107,53,0.4)",
+              borderRadius: 7,
+              color: pinging ? "#6b7280" : "#FF6B35",
+              fontSize: 11,
+              fontWeight: 700,
+              padding: "7px 12px",
+              cursor: (pinging || !pingUrl.trim()) ? "not-allowed" : "pointer",
+              fontFamily: "system-ui, sans-serif",
+              flexShrink: 0,
+            }}
+          >
+            {pinging ? "..." : "Ping"}
+          </button>
+        </div>
+        {pingMs !== null && (
+          <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9, fontFamily: "monospace", marginBottom: 6 }}>
+            {pingMs}ms response time · no credits charged
+          </div>
+        )}
+        {pingResult && (
+          <pre style={{
+            background: "rgba(0,0,0,0.4)",
+            border: "1px solid rgba(255,107,53,0.2)",
+            borderRadius: 7,
+            padding: "8px 10px",
+            color: "#10b981",
+            fontSize: 9,
+            fontFamily: "monospace",
+            overflowX: "auto",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-all",
+            marginBottom: 8,
+          }}>
+            {JSON.stringify(pingResult, null, 2)}
+          </pre>
+        )}
+        {pingError && (
+          <div style={{ color: "#ef4444", fontSize: 10, fontFamily: "monospace", marginBottom: 8 }}>
+            Error: {pingError}
           </div>
         )}
 
@@ -609,9 +850,17 @@ function MatrixPanel() {
 
   const totalSteps = pipelines.reduce((sum, p) => sum + (p.agent_ids?.length || 0), 0);
 
-  const randomDataBit = () => Math.random() > 0.5
-    ? (Math.random() * 9999).toFixed(0).padStart(4, "0")
-    : ["0xFF", "0x1A", "ACK", "SYN", "PKT"][Math.floor(Math.random() * 5)];
+  const NOW_MS = Date.now();
+  const isRecentlyRun = (lastRunAt) => {
+    if (!lastRunAt) return false;
+    return (NOW_MS - new Date(lastRunAt).getTime()) < 24 * 60 * 60 * 1000;
+  };
+
+  const agentNames = agents.length > 0
+    ? agents.map(a => a.name)
+    : ["PriceFeedAgent", "MomentumAgent", "SentimentBot", "RiskEngine", "TrendScanner", "ArbitrageBot", "NewsAgent", "VolatilityScanner"];
+
+  const dataPacket = (i) => agentNames[(tick + i) % agentNames.length];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -632,32 +881,39 @@ function MatrixPanel() {
         marginBottom: 14,
         flexShrink: 0,
       }}>
-        <div style={{
-          color: "#00FF41",
-          fontFamily: "monospace",
-          fontSize: 20,
-          fontWeight: 700,
-        }}>{totalSteps}</div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+          <div style={{ color: "#00FF41", fontFamily: "monospace", fontSize: 20, fontWeight: 700, lineHeight: 1 }}>
+            {agents.length}
+          </div>
+          <div style={{ color: "rgba(0,255,65,0.5)", fontSize: 8, fontFamily: "monospace", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            agents
+          </div>
+        </div>
+        <div style={{ width: 1, height: 30, background: "rgba(0,255,65,0.15)", flexShrink: 0 }} />
         <div>
           <div style={{ color: "#e5e7eb", fontSize: 11, fontWeight: 600, fontFamily: "system-ui, sans-serif" }}>
             Active Connections
           </div>
           <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9, fontFamily: "monospace" }}>
-            {pipelines.length} pipeline{pipelines.length !== 1 ? "s" : ""} · {agents.length} agents
+            {pipelines.length} pipeline{pipelines.length !== 1 ? "s" : ""} · {totalSteps} steps
           </div>
         </div>
-        {/* Pulsing data bits */}
-        <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+        {/* Pulsing agent name packets */}
+        <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
           {[0, 1, 2].map(i => (
             <div key={i} style={{
               color: "#00FF41",
-              fontSize: 8,
+              fontSize: 7,
               fontFamily: "monospace",
-              opacity: 0.5,
+              opacity: 0.45 - i * 0.1,
               animation: `matrixFade ${1 + i * 0.4}s ease infinite`,
               animationDelay: `${i * 0.2}s`,
+              maxWidth: 80,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}>
-              {randomDataBit()}
+              {dataPacket(i)}
             </div>
           ))}
         </div>
@@ -672,15 +928,29 @@ function MatrixPanel() {
           )}
           {pipelines.map(p => {
             const steps = p.agent_ids || [];
+            const live = isRecentlyRun(p.last_run_at);
             return (
               <div key={p.id} style={{
                 background: "rgba(0,255,65,0.025)",
-                border: "1px solid rgba(0,255,65,0.1)",
+                border: `1px solid ${live ? "rgba(0,255,65,0.2)" : "rgba(0,255,65,0.1)"}`,
                 borderRadius: 9,
                 padding: "9px 11px",
               }}>
-                <div style={{ color: "#e5e7eb", fontSize: 11, fontWeight: 600, marginBottom: 5, fontFamily: "system-ui, sans-serif" }}>
-                  {p.name}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                  {live && (
+                    <div style={{
+                      width: 6, height: 6, borderRadius: "50%", background: "#00FF41",
+                      animation: "matrixFade 1.2s ease infinite", flexShrink: 0,
+                    }} />
+                  )}
+                  <div style={{ color: "#e5e7eb", fontSize: 11, fontWeight: 600, fontFamily: "system-ui, sans-serif", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {p.name}
+                  </div>
+                  {p.last_run_at && (
+                    <div style={{ color: "rgba(0,255,65,0.4)", fontSize: 8, fontFamily: "monospace", flexShrink: 0 }}>
+                      {new Date(p.last_run_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 3 }}>
                   {steps.map((agentId, i) => {
@@ -717,17 +987,21 @@ function MatrixPanel() {
         {tick > 0 && (
           <>
             <div style={divider} />
-            <div style={sectionHeader}>Data Flow</div>
+            <div style={sectionHeader}>Data Packets</div>
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
               {Array.from({ length: 8 }, (_, i) => (
                 <div key={`${tick}-${i}`} style={{
-                  color: "rgba(0,255,65,0.5)",
-                  fontSize: 9,
+                  color: "rgba(0,255,65,0.55)",
+                  fontSize: 8,
                   fontFamily: "monospace",
+                  background: "rgba(0,255,65,0.04)",
+                  border: "1px solid rgba(0,255,65,0.12)",
+                  borderRadius: 3,
+                  padding: "2px 5px",
                   animation: `matrixFade ${0.8 + i * 0.15}s ease infinite`,
                   animationDelay: `${i * 0.1}s`,
                 }}>
-                  {randomDataBit()}
+                  {dataPacket(i + tick * 3)}
                 </div>
               ))}
             </div>
@@ -742,15 +1016,17 @@ function MatrixPanel() {
 
 function SimsPanel() {
   const [user,      setUser]      = useState(null);
+  const [token,     setToken]     = useState(null);
   const [agents,    setAgents]    = useState([]);
   const [pipelines, setPipelines] = useState([]);
   const [loading,   setLoading]   = useState(true);
+  const [removing,  setRemoving]  = useState({});
 
   useEffect(() => {
     try {
       const u = localStorage.getItem("av_user");
       const t = localStorage.getItem("av_token");
-      if (u && t) setUser(JSON.parse(u));
+      if (u && t) { setUser(JSON.parse(u)); setToken(t); }
     } catch {}
 
     fetch(`${API}/agents`).then(r => r.json()).then(setAgents).catch(() => {});
@@ -762,10 +1038,26 @@ function SimsPanel() {
 
   const myAgents = user
     ? agents.filter(a =>
-        a.owner_wallet?.toLowerCase() === user.wallet?.toLowerCase() ||
-        a.owner_id === user.id
+        a.developer_name === user.username ||
+        a.owner_wallet?.toLowerCase() === user.wallet?.toLowerCase()
       )
     : [];
+
+  const undeploy = async (agentId) => {
+    if (!token) return;
+    if (!confirm("Remove this agent from AgentVerse? This cannot be undone.")) return;
+    setRemoving(r => ({ ...r, [agentId]: true }));
+    try {
+      const res = await fetch(`${API}/agents/${agentId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok || res.status === 204) {
+        setAgents(a => a.filter(x => x.id !== agentId));
+      }
+    } catch {}
+    setRemoving(r => { const n = { ...r }; delete n[agentId]; return n; });
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -822,6 +1114,27 @@ function SimsPanel() {
                 </div>
               </div>
             </div>
+            {/* Stats summary */}
+            {myAgents.length > 0 && (
+              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                <div style={{
+                  flex: 1, background: "rgba(126,200,126,0.06)", border: "1px solid rgba(126,200,126,0.15)",
+                  borderRadius: 7, padding: "6px 10px", textAlign: "center",
+                }}>
+                  <div style={{ ...dataValue, fontSize: 14, color: "#7ec87e" }}>{myAgents.length}</div>
+                  <div style={{ ...mutedLabel, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8 }}>Agents</div>
+                </div>
+                <div style={{
+                  flex: 1, background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.15)",
+                  borderRadius: 7, padding: "6px 10px", textAlign: "center",
+                }}>
+                  <div style={{ ...dataValue, fontSize: 14, color: "#34d399" }}>
+                    ${myAgents.reduce((s, a) => s + (a.earnings || 0), 0).toFixed(4)}
+                  </div>
+                  <div style={{ ...mutedLabel, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8 }}>Earned</div>
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -830,35 +1143,76 @@ function SimsPanel() {
         {loading ? (
           <div style={mutedLabel}>Loading...</div>
         ) : myAgents.length === 0 ? (
-          <div style={{ ...mutedLabel, marginBottom: 12, fontSize: 11 }}>
-            {user ? "No agents deployed yet." : "Sign in to see your agents."}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ ...mutedLabel, fontSize: 11, marginBottom: user ? 8 : 0 }}>
+              {user ? "No agents deployed yet." : "Sign in to see your agents."}
+            </div>
+            {user && (
+              <a href="/?tab=developer" style={{
+                display: "inline-block",
+                background: "rgba(126,200,126,0.1)",
+                border: "1px solid rgba(126,200,126,0.25)",
+                borderRadius: 7,
+                color: "#7ec87e",
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "6px 12px",
+                textDecoration: "none",
+                fontFamily: "system-ui, sans-serif",
+              }}>
+                Deploy your first agent →
+              </a>
+            )}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
             {myAgents.map(a => (
               <div key={a.id} style={{
-                display: "flex", alignItems: "center", gap: 8,
                 background: "rgba(255,255,255,0.025)",
                 border: "1px solid rgba(255,255,255,0.07)",
                 borderRadius: 8,
                 padding: "8px 10px",
               }}>
-                <div style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: a.status === "active" ? "#10b981" : "#6b7280",
-                  flexShrink: 0,
-                }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: "#e5e7eb", fontSize: 11, fontWeight: 600, fontFamily: "system-ui, sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {a.name}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{
+                    width: 6, height: 6, borderRadius: "50%",
+                    background: a.status === "active" ? "#10b981" : "#6b7280",
+                    flexShrink: 0,
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: "#e5e7eb", fontSize: 11, fontWeight: 600, fontFamily: "system-ui, sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {a.name}
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontFamily: "monospace" }}>
+                      {a.category} · ${a.price_per_request?.toFixed(3)}/call
+                    </div>
                   </div>
-                  <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontFamily: "monospace" }}>
-                    {a.category}
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ color: "#34d399", fontSize: 10, fontFamily: "monospace", fontWeight: 700 }}>
+                      {a.status === "active" ? "● live" : "○ idle"}
+                    </div>
+                    <div style={{ color: "rgba(52,211,153,0.6)", fontSize: 9, fontFamily: "monospace" }}>
+                      ${(a.earnings || 0).toFixed(4)} earned
+                    </div>
                   </div>
                 </div>
-                <div style={{ color: "#34d399", fontSize: 10, fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
-                  ${a.price_per_request?.toFixed(3)}
-                </div>
+                {token && (
+                  <button
+                    onClick={() => undeploy(a.id)}
+                    disabled={removing[a.id]}
+                    style={{
+                      marginTop: 7, width: "100%",
+                      background: removing[a.id] ? "rgba(255,255,255,0.03)" : "rgba(239,68,68,0.07)",
+                      border: "1px solid rgba(239,68,68,0.2)",
+                      borderRadius: 6, padding: "5px 0",
+                      color: removing[a.id] ? "rgba(255,255,255,0.2)" : "#f87171",
+                      fontSize: 10, fontWeight: 700, cursor: removing[a.id] ? "default" : "pointer",
+                      fontFamily: "system-ui, sans-serif",
+                    }}
+                  >
+                    {removing[a.id] ? "Removing…" : "Undeploy"}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -885,7 +1239,7 @@ function SimsPanel() {
                   {p.name}
                 </span>
                 <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 9, fontFamily: "monospace", flexShrink: 0 }}>
-                  {p.steps?.length ?? 0} steps
+                  {p.agent_ids?.length ?? 0} steps
                 </span>
               </div>
             ))}
@@ -950,17 +1304,39 @@ const SPELLS = [
     color: "#818cf8",
     keywords: ["trend", "pattern"],
   },
+  {
+    name: "Alpha Signal",
+    desc: "Find high-conviction opportunities",
+    agents: ["NewsFeedAgent", "SentimentAgent", "CorrelationAgent", "MomentumAgent"],
+    color: "#f59e0b",
+    keywords: ["alpha", "signal", "news"],
+  },
+  {
+    name: "Portfolio Check",
+    desc: "Optimise your portfolio allocation",
+    agents: ["PriceFeedAgent", "RiskAgent", "PortfolioOptimizer"],
+    color: "#06b6d4",
+    keywords: ["portfolio", "optimiz"],
+  },
 ];
 
 function HogwartsPanel({ onWorldSwitch }) {
   const [castingSpell, setCastingSpell] = useState(null);
+  const [castingStep,  setCastingStep]  = useState(-1);
   const [spellResult,  setSpellResult]  = useState(null);
   const [castError,    setCastError]    = useState(null);
 
   const castSpell = async (spell) => {
     setCastingSpell(spell.name);
+    setCastingStep(0);
     setSpellResult(null);
     setCastError(null);
+
+    // Animate each agent lighting up with 400ms delay
+    for (let i = 0; i < spell.agents.length; i++) {
+      await new Promise(res => setTimeout(res, 400));
+      setCastingStep(i);
+    }
 
     try {
       // Find matching pipeline
@@ -1000,6 +1376,7 @@ function HogwartsPanel({ onWorldSwitch }) {
     }
 
     setCastingSpell(null);
+    setCastingStep(-1);
   };
 
   const sigColor = (sig) => {
@@ -1067,26 +1444,39 @@ function HogwartsPanel({ onWorldSwitch }) {
                   </button>
                 </div>
 
+                {/* Step progress during casting */}
+                {isCasting && castingStep >= 0 && (
+                  <div style={{ color: spell.color, fontSize: 10, fontFamily: "system-ui, sans-serif", marginBottom: 5, opacity: 0.85 }}>
+                    Step {castingStep + 1}/{spell.agents.length}: {spell.agents[castingStep]}...
+                  </div>
+                )}
+
                 {/* Agent chain */}
                 <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 3 }}>
-                  {spell.agents.map((a, i) => (
-                    <span key={a} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                      <span style={{
-                        background: `${spell.color}0e`,
-                        border: `1px solid ${spell.color}20`,
-                        borderRadius: 4,
-                        color: `${spell.color}b0`,
-                        fontSize: 8,
-                        fontFamily: "monospace",
-                        padding: "1px 5px",
-                      }}>
-                        {a}
+                  {spell.agents.map((a, i) => {
+                    const isActive = isCasting && i === castingStep;
+                    const isDone   = isCasting && i < castingStep;
+                    return (
+                      <span key={a} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                        <span style={{
+                          background: isActive ? `${spell.color}28` : isDone ? `${spell.color}14` : `${spell.color}0e`,
+                          border: `1px solid ${isActive ? spell.color + "70" : spell.color + "20"}`,
+                          borderRadius: 4,
+                          color: isActive ? spell.color : isDone ? `${spell.color}90` : `${spell.color}b0`,
+                          fontSize: 8,
+                          fontFamily: "monospace",
+                          padding: "1px 5px",
+                          transition: "all 0.3s",
+                          fontWeight: isActive ? 700 : 400,
+                        }}>
+                          {a}
+                        </span>
+                        {i < spell.agents.length - 1 && (
+                          <span style={{ color: `${spell.color}40`, fontSize: 9, fontFamily: "monospace" }}>→</span>
+                        )}
                       </span>
-                      {i < spell.agents.length - 1 && (
-                        <span style={{ color: `${spell.color}40`, fontSize: 9, fontFamily: "monospace" }}>→</span>
-                      )}
-                    </span>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -1179,6 +1569,21 @@ function HogwartsPanel({ onWorldSwitch }) {
               </div>
             </div>
 
+            {/* Build pipeline CTA */}
+            <a href="/build" style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: `${spellResult.spell.color}0e`,
+              border: `1px solid ${spellResult.spell.color}30`,
+              borderRadius: 8,
+              padding: "8px 12px",
+              textDecoration: "none",
+              marginBottom: 10,
+            }}>
+              <span style={{ color: spellResult.spell.color, fontSize: 11, fontWeight: 700, fontFamily: "system-ui, sans-serif" }}>
+                Build this pipeline →
+              </span>
+            </a>
+
             {/* Take to world CTAs */}
             <div style={{ ...sectionHeader, marginBottom: 8 }}>Take this spell to</div>
             <div style={{ display: "flex", gap: 6 }}>
@@ -1220,6 +1625,38 @@ function HogwartsPanel({ onWorldSwitch }) {
 }
 
 // ── Main WorldOverlay ─────────────────────────────────────────────────────────
+
+function DeployHereButton({ worldId, color }) {
+  const [show, setShow] = useState(false);
+  const categoryMap = { trading: "trading", defi: "composite", experimental: "default", data: "data", analysis: "analysis", all: "default" };
+  const category = categoryMap[worldId] ?? "default";
+  if (show) {
+    return (
+      <div style={{ background: "rgba(0,0,0,0.4)", border: `1px solid ${color}30`, borderRadius: 10, padding: "12px 12px", marginBottom: 10 }}>
+        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 8, fontFamily: "system-ui, sans-serif" }}>
+          Deploy an agent to this world by going to the Developer Dashboard and registering with category <strong style={{ color }}>{category}</strong>.
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <a href="/?tab=developer" style={{ flex: 1, display: "block", textAlign: "center", background: `${color}18`, border: `1px solid ${color}35`, borderRadius: 7, padding: "8px 0", color, fontSize: 11, fontWeight: 700, textDecoration: "none", fontFamily: "system-ui, sans-serif" }}>
+            Developer Hub →
+          </a>
+          <button onClick={() => setShow(false)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, color: "rgba(255,255,255,0.3)", fontSize: 11, padding: "0 10px", cursor: "pointer", fontFamily: "system-ui, sans-serif" }}>✕</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <button onClick={() => setShow(true)} style={{
+      width: "100%", background: `${color}10`, border: `1px dashed ${color}35`,
+      borderRadius: 9, padding: "8px 0", color, fontSize: 11, fontWeight: 700,
+      cursor: "pointer", marginBottom: 10, fontFamily: "system-ui, sans-serif",
+      transition: "background 0.15s",
+    }}
+    onMouseEnter={e => { e.currentTarget.style.background = `${color}20`; }}
+    onMouseLeave={e => { e.currentTarget.style.background = `${color}10`; }}
+    >+ Deploy agent here</button>
+  );
+}
 
 export default function WorldOverlay({ worldId, onWorldSwitch }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -1333,6 +1770,12 @@ export default function WorldOverlay({ worldId, onWorldSwitch }) {
           padding: "16px 16px 16px 16px",
           overflow: "hidden",
         }}>
+          {/* World info banner */}
+          <WorldInfoBanner worldId={worldId} />
+
+          {/* Deploy here button */}
+          <DeployHereButton worldId={worldId} color={wc.color} />
+
           {/* Panel content */}
           <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
             {renderPanel()}

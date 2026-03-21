@@ -322,6 +322,15 @@ def _migrate(conn):
         except Exception:
             pass
 
+    new_wallet_cols = [
+        ("payment_method", "TEXT DEFAULT 'credits'"),
+    ]
+    for col, typedef in new_wallet_cols:
+        try:
+            conn.execute(f"ALTER TABLE wallets ADD COLUMN {col} {typedef}")
+        except Exception:
+            pass  # already exists
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -1880,6 +1889,45 @@ def deposit_wallet(wallet_id: str, body: WalletDeposit, user: dict = Depends(_re
     new_bal = conn.execute("SELECT balance FROM wallets WHERE id = ?", (wallet_id,)).fetchone()["balance"]
     conn.close()
     return {"wallet_id": wallet_id, "deposited": body.amount, "balance": round(new_bal, 4)}
+
+class WalletWorldChainDeposit(BaseModel):
+    tx_hash: str
+    amount:  float
+    chain:   str = "world-chain"
+
+@app.post("/wallets/{wallet_id}/deposit/worldchain")
+def deposit_wallet_worldchain(
+    wallet_id: str,
+    body: WalletWorldChainDeposit,
+    user: dict = Depends(_require_auth),
+):
+    # TODO: verify tx_hash on-chain (World Chain RPC) before crediting — currently optimistic
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    # Verify the authenticated user owns this wallet
+    conn = get_db()
+    profile = conn.execute(
+        "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
+    ).fetchone()
+    user_wallet = profile["wallet_id"] if profile else None
+    if user_wallet != wallet_id:
+        conn.close()
+        raise HTTPException(403, "You can only deposit to your own wallet")
+    row = _get_wallet(conn, wallet_id)
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Wallet not found")
+    conn.execute(
+        "UPDATE wallets SET balance = balance + ?, payment_method = ? WHERE id = ?",
+        (body.amount, "worldchain", wallet_id),
+    )
+    conn.commit()
+    new_bal = conn.execute(
+        "SELECT balance FROM wallets WHERE id = ?", (wallet_id,)
+    ).fetchone()["balance"]
+    conn.close()
+    logger.info("worldchain_deposit", extra={"wallet_id": wallet_id, "amount": body.amount, "tx_hash": body.tx_hash, "chain": body.chain})
+    return {"success": True, "balance": round(new_bal, 4), "tx_hash": body.tx_hash}
 
 class WalletWithdraw(BaseModel):
     amount:      float
