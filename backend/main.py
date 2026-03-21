@@ -198,6 +198,70 @@ def get_db():
     conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
+def _verify_token(token: str) -> str | None:
+    try:
+        decoded = base64.urlsafe_b64decode(token.encode()).decode()
+        parts = decoded.rsplit(":", 2)
+        user_id, ts, sig = parts[0], parts[1], parts[2]
+        expected_sig = hmac.new(
+            JWT_SECRET.encode(), f"{user_id}:{ts}".encode(), hashlib.sha256
+        ).hexdigest()
+        if hmac.compare_digest(sig, expected_sig):
+            if int(time.time()) - int(ts) < TOKEN_TTL_SECONDS:
+                return user_id
+    except Exception:
+        pass
+    return None
+
+def _generate_api_key() -> tuple[str, str]:
+    """Returns (plaintext, hash). Store only the hash."""
+    key = API_KEY_PREFIX + secrets.token_urlsafe(32)
+    return key, hashlib.sha256(key.encode()).hexdigest()
+
+async def _get_current_user(request: Request) -> dict | None:
+    auth = request.headers.get("Authorization", "")
+    conn = get_db()
+    user = None
+    if auth.startswith("Bearer "):
+        uid = _verify_token(auth[7:])
+        if uid:
+            row = conn.execute("SELECT * FROM users WHERE id = ? AND is_active = 1", (uid,)).fetchone()
+            user = dict(row) if row else None
+    elif auth.startswith("ApiKey "):
+        key_hash = hashlib.sha256(auth[7:].encode()).hexdigest()
+        row = conn.execute(
+            "SELECT u.* FROM api_keys ak JOIN users u ON ak.user_id = u.id "
+            "WHERE ak.key_hash = ? AND ak.is_active = 1 AND u.is_active = 1",
+            (key_hash,),
+        ).fetchone()
+        if row:
+            conn.execute("UPDATE api_keys SET last_used = ? WHERE key_hash = ?", (_now(), key_hash))
+            conn.commit()
+            user = dict(row)
+    # Enrich user with wallet_id from developer_profiles so ownership checks work
+    if user:
+        profile = conn.execute(
+            "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
+        ).fetchone()
+        user["wallet_id"] = profile["wallet_id"] if profile else None
+    conn.close()
+    return user
+
+async def _require_auth(request: Request):
+    """Async dependency — use as Depends() in endpoints that MUST have auth."""
+    user = await _get_current_user(request)
+    if not user:
+        raise HTTPException(401, "Authentication required. Provide Bearer token or ApiKey header.")
+    return user
+
+def _check_rate_limit(identifier: str) -> None:
+    now = time.time()
+    window = _rate_store[identifier]
+    _rate_store[identifier] = [t for t in window if now - t < RATE_LIMIT_WINDOW]
+    if len(_rate_store[identifier]) >= RATE_LIMIT_MAX:
+        raise HTTPException(429, f"Rate limit exceeded: max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s")
+    _rate_store[identifier].append(now)
+
 def _validate_public_url(url: str, field: str = "endpoint") -> None:
     """Raise HTTPException if the URL resolves to a private/internal address (SSRF prevention)."""
     import urllib.parse
@@ -2175,70 +2239,6 @@ def _create_token(user_id: str) -> str:
     payload = f"{user_id}:{int(time.time())}"
     sig = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return base64.urlsafe_b64encode(f"{payload}:{sig}".encode()).decode()
-
-async def _require_auth(request: Request):
-    """Async dependency — use as Depends() in endpoints that MUST have auth."""
-    user = await _get_current_user(request)
-    if not user:
-        raise HTTPException(401, "Authentication required. Provide Bearer token or ApiKey header.")
-    return user
-
-def _verify_token(token: str) -> str | None:
-    try:
-        decoded = base64.urlsafe_b64decode(token.encode()).decode()
-        parts = decoded.rsplit(":", 2)
-        user_id, ts, sig = parts[0], parts[1], parts[2]
-        expected_sig = hmac.new(
-            JWT_SECRET.encode(), f"{user_id}:{ts}".encode(), hashlib.sha256
-        ).hexdigest()
-        if hmac.compare_digest(sig, expected_sig):
-            if int(time.time()) - int(ts) < TOKEN_TTL_SECONDS:
-                return user_id
-    except Exception:
-        pass
-    return None
-
-def _generate_api_key() -> tuple[str, str]:
-    """Returns (plaintext, hash). Store only the hash."""
-    key = API_KEY_PREFIX + secrets.token_urlsafe(32)
-    return key, hashlib.sha256(key.encode()).hexdigest()
-
-async def _get_current_user(request: Request) -> dict | None:
-    auth = request.headers.get("Authorization", "")
-    conn = get_db()
-    user = None
-    if auth.startswith("Bearer "):
-        uid = _verify_token(auth[7:])
-        if uid:
-            row = conn.execute("SELECT * FROM users WHERE id = ? AND is_active = 1", (uid,)).fetchone()
-            user = dict(row) if row else None
-    elif auth.startswith("ApiKey "):
-        key_hash = hashlib.sha256(auth[7:].encode()).hexdigest()
-        row = conn.execute(
-            "SELECT u.* FROM api_keys ak JOIN users u ON ak.user_id = u.id "
-            "WHERE ak.key_hash = ? AND ak.is_active = 1 AND u.is_active = 1",
-            (key_hash,),
-        ).fetchone()
-        if row:
-            conn.execute("UPDATE api_keys SET last_used = ? WHERE key_hash = ?", (_now(), key_hash))
-            conn.commit()
-            user = dict(row)
-    # Enrich user with wallet_id from developer_profiles so ownership checks work
-    if user:
-        profile = conn.execute(
-            "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
-        ).fetchone()
-        user["wallet_id"] = profile["wallet_id"] if profile else None
-    conn.close()
-    return user
-
-def _check_rate_limit(identifier: str) -> None:
-    now = time.time()
-    window = _rate_store[identifier]
-    _rate_store[identifier] = [t for t in window if now - t < RATE_LIMIT_WINDOW]
-    if len(_rate_store[identifier]) >= RATE_LIMIT_MAX:
-        raise HTTPException(429, f"Rate limit exceeded: max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s")
-    _rate_store[identifier].append(now)
 
 # ── Pydantic models ────────────────────────────────────────────────────────────
 
