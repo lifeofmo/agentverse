@@ -696,10 +696,8 @@ class WalletDeposit(BaseModel):
 # Metrics helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def get_metrics(agent_id: str) -> dict:
-    conn = get_db()
-    row = conn.execute("SELECT * FROM metrics WHERE agent_id = ?", (agent_id,)).fetchone()
-    conn.close()
+def _row_to_metrics(agent_id: str, row) -> dict:
+    """Convert a metrics DB row (or None) to a metrics dict."""
     if not row:
         return {"agent_id": agent_id, "requests": 0, "avg_latency_ms": 0,
                 "errors": 0, "earnings": 0.0, "success_rate": 1.0, "last_called": None}
@@ -708,14 +706,31 @@ def get_metrics(agent_id: str) -> dict:
     avg_lat = round(row["total_latency_ms"] / reqs, 1) if reqs > 0 else 0
     sr      = max(0.0, (reqs - errors) / reqs) if reqs > 0 else 1.0
     return {
-        "agent_id":     agent_id,
-        "requests":     reqs,
+        "agent_id":       agent_id,
+        "requests":       reqs,
         "avg_latency_ms": avg_lat,
-        "errors":       errors,
-        "earnings":     round(row["earnings"], 4),
-        "success_rate": round(sr, 3),
-        "last_called":  row["last_called"] if "last_called" in row.keys() else None,
+        "errors":         errors,
+        "earnings":       round(row["earnings"], 4),
+        "success_rate":   round(sr, 3),
+        "last_called":    row["last_called"] if "last_called" in row.keys() else None,
     }
+
+def get_metrics(agent_id: str) -> dict:
+    conn = get_db()
+    row = conn.execute("SELECT * FROM metrics WHERE agent_id = ?", (agent_id,)).fetchone()
+    conn.close()
+    return _row_to_metrics(agent_id, row)
+
+def get_metrics_bulk(conn, agent_ids: list) -> dict:
+    """Fetch metrics for multiple agents in a single query. Returns {agent_id: metrics_dict}."""
+    if not agent_ids:
+        return {}
+    placeholders = ",".join("?" * len(agent_ids))
+    rows = conn.execute(
+        f"SELECT * FROM metrics WHERE agent_id IN ({placeholders})", agent_ids
+    ).fetchall()
+    by_id = {r["agent_id"]: r for r in rows}
+    return {aid: _row_to_metrics(aid, by_id.get(aid)) for aid in agent_ids}
 
 def record_metrics(agent_id: str, latency_ms: float, price: float,
                    earnings: float = 0.0, error: bool = False):
@@ -962,12 +977,14 @@ def list_agents(search: Optional[str] = None, category: Optional[str] = None, li
     query += f" LIMIT ? OFFSET ?"
     params += [min(limit, 500), max(offset, 0)]
     rows = conn.execute(query, params).fetchall()
+    agent_ids = [r["id"] for r in rows]
+    metrics_map = get_metrics_bulk(conn, agent_ids)
     conn.close()
     result = []
     for row in rows:
-        m       = get_metrics(row["id"])
-        rep     = _compute_reputation(m["requests"], m["errors"], m["avg_latency_ms"])
-        rec     = dict(row)
+        m   = metrics_map[row["id"]]
+        rep = _compute_reputation(m["requests"], m["errors"], m["avg_latency_ms"])
+        rec = dict(row)
         rec["requests"]       = m["requests"]
         rec["avg_latency_ms"] = m["avg_latency_ms"]
         rec["earnings"]       = m["earnings"]
@@ -981,12 +998,14 @@ def list_developers():
     rows = conn.execute(
         "SELECT * FROM agents WHERE developer_name IS NOT NULL AND developer_name != ''"
     ).fetchall()
+    agent_ids = [r["id"] for r in rows]
+    metrics_map = get_metrics_bulk(conn, agent_ids)
     conn.close()
     devs = {}
     for row in rows:
         name  = row["developer_name"]
         color = row["developer_color"] or "#4a9fd4"
-        m     = get_metrics(row["id"])
+        m     = metrics_map[row["id"]]
         if name not in devs:
             devs[name] = {"name": name, "color": color, "agents": [], "total_calls": 0, "total_earnings": 0.0}
         devs[name]["agents"].append({

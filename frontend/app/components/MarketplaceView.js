@@ -495,23 +495,21 @@ export default function MarketplaceView() {
   const [search,    setSearch]    = useState("");
   const [loading,   setLoading]   = useState(true);
 
-  // Debounced backend fetch — passes search + category as query params
+  // Fetch agents from backend — category filter sent server-side, text search done client-side
+  // (search is client-side only because DB names differ from display names shown to users)
   useEffect(() => {
     let cancelled = false;
     const params = new URLSearchParams();
-    if (search) params.set("search", search);
     if (filter !== "all") params.set("category", filter);
     const url = `${API}/agents${params.toString() ? `?${params}` : ""}`;
 
-    const timer = setTimeout(() => {
-      setLoading(true);
-      fetch(url).then(r => r.json())
-        .then(a => { if (!cancelled) { setAgents(Array.isArray(a) ? a : []); setBackendOk(true); setLoading(false); } })
-        .catch(() => { if (!cancelled) { setBackendOk(false); setLoading(false); } });
-    }, search ? 350 : 0);
+    setLoading(true);
+    fetch(url).then(r => r.json())
+      .then(a => { if (!cancelled) { setAgents(Array.isArray(a) ? a : []); setBackendOk(true); setLoading(false); } })
+      .catch(() => { if (!cancelled) { setBackendOk(false); setLoading(false); } });
 
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [search, filter]);
+    return () => { cancelled = true; };
+  }, [filter]);
 
   const regular    = useMemo(() => agents.filter(a => a.category !== "composite"), [agents]);
   const composites = useMemo(() => agents.filter(a => a.category === "composite"),  [agents]);
