@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import ReactFlow, {
   Background, Controls,
   addEdge, useNodesState, useEdgesState,
@@ -532,12 +533,38 @@ function Builder() {
   const [showWorldPicker, setShowWorldPicker]   = useState(false);
   const [deployedWorld, setDeployedWorld]       = useState(null);
   const idCounter = useRef(0);
+  const searchParams = useSearchParams();
+  const preloadDone = useRef(false);
 
   useEffect(() => {
     fetch(`${REGISTRY_URL}/agents`)
       .then(r => r.json())
       .then(setAgents);
   }, []);
+
+  // Pre-add agent from ?agent= query param (e.g. clicked "add to pipeline" in Marketplace)
+  useEffect(() => {
+    if (preloadDone.current || agents.length === 0) return;
+    const agentId = searchParams.get("agent");
+    if (!agentId) return;
+    const agent = agents.find(a => String(a.id) === agentId);
+    if (!agent) return;
+    preloadDone.current = true;
+    idCounter.current += 1;
+    setNodes([{
+      id: `${agent.id}-${idCounter.current}`,
+      type: "agent",
+      position: { x: 200, y: 180 },
+      data: {
+        label: agent.name,
+        rawName: agent.name,
+        category: agent.category,
+        price: agent.price_per_request,
+        agentId: agent.id,
+        ownerWallet: agent.owner_wallet ?? "",
+      },
+    }]);
+  }, [agents, searchParams, setNodes]);
 
   // Filtered agents for sidebar
   const filteredAgents = useMemo(() => {
@@ -1119,8 +1146,10 @@ function Builder() {
 
 export default function PipelineBuilder() {
   return (
-    <ReactFlowProvider>
-      <Builder />
-    </ReactFlowProvider>
+    <Suspense>
+      <ReactFlowProvider>
+        <Builder />
+      </ReactFlowProvider>
+    </Suspense>
   );
 }

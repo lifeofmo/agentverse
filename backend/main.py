@@ -2122,7 +2122,13 @@ async def auth_login(req: LoginRequest):
     if not _verify_password(req.password, row["password_hash"]):
         raise HTTPException(401, "Incorrect password")
     token = _create_token(row["id"])
-    return {"token": token, "user_id": row["id"], "username": row["username"]}
+    conn2 = get_db()
+    profile = conn2.execute(
+        "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (row["id"],)
+    ).fetchone()
+    conn2.close()
+    wallet_id = profile["wallet_id"] if profile else None
+    return {"token": token, "user_id": row["id"], "username": row["username"], "wallet_id": wallet_id}
 
 @app.post("/auth/forgot-password", tags=["auth"])
 async def auth_forgot_password(req: ForgotPasswordRequest):

@@ -439,7 +439,7 @@ function AgentCard({ agent, onTry }) {
       </div>
 
       {/* Pipeline link */}
-      <a href="/build" style={{
+      <a href={`/build?agent=${agent.id}`} style={{
         display: "block", textAlign: "center", marginTop: 2,
         color: "#6b7280", fontSize: 10, fontWeight: 600,
         textDecoration: "none", padding: "5px 0",
