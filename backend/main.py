@@ -392,6 +392,15 @@ def init_db():
         )
     """)
 
+    # ── Indexes ──────────────────────────────────────────────────────────────
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_agents_category       ON agents(category)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_agents_owner_wallet   ON agents(owner_wallet)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_agents_developer_name ON agents(developer_name)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_jobs_pipeline_id ON pipeline_jobs(pipeline_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_jobs_created_at  ON pipeline_jobs(created_at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id    ON transactions(user_wallet)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_schedules_next_run_at     ON schedules(next_run_at)")
+
     # ── Migrations ───────────────────────────────────────────────────────────
     _migrate(conn)
     conn.commit()
@@ -936,19 +945,29 @@ async def register_agent_alias(agent: AgentRegister):
     return await register_agent(agent)
 
 @app.get("/agents")
-def list_agents():
+def list_agents(search: Optional[str] = None, category: Optional[str] = None, limit: int = 100, offset: int = 0):
     conn = get_db()
-    rows = conn.execute("SELECT * FROM agents").fetchall()
+    query  = "SELECT * FROM agents WHERE 1=1"
+    params: list = []
+    if category:
+        query += " AND category = ?"
+        params.append(category)
+    if search:
+        query += " AND (name LIKE ? OR description LIKE ?)"
+        params += [f"%{search}%", f"%{search}%"]
+    query += f" LIMIT ? OFFSET ?"
+    params += [min(limit, 500), max(offset, 0)]
+    rows = conn.execute(query, params).fetchall()
     conn.close()
     result = []
     for row in rows:
         m       = get_metrics(row["id"])
         rep     = _compute_reputation(m["requests"], m["errors"], m["avg_latency_ms"])
         rec     = dict(row)
-        rec["requests"]     = m["requests"]
+        rec["requests"]       = m["requests"]
         rec["avg_latency_ms"] = m["avg_latency_ms"]
-        rec["earnings"]     = m["earnings"]
-        rec["reputation"]   = rep
+        rec["earnings"]       = m["earnings"]
+        rec["reputation"]     = rep
         result.append(rec)
     return result
 
@@ -1023,6 +1042,42 @@ def get_agent_logs(agent_id: str, limit: int = 50):
     conn.close()
     return [dict(r) for r in rows]
 
+class AgentUpdate(BaseModel):
+    name:               Optional[str]   = None
+    description:        Optional[str]   = None
+    price_per_request:  Optional[float] = None
+    health_endpoint:    Optional[str]   = None
+
+@app.patch("/agents/{agent_id}", tags=["agents"])
+async def update_agent(agent_id: str, body: AgentUpdate, request: Request):
+    user = await _get_current_user(request)
+    if not user:
+        raise HTTPException(401, "Authentication required.")
+    conn = get_db()
+    agent = conn.execute("SELECT * FROM agents WHERE id = ?", (agent_id,)).fetchone()
+    if not agent:
+        conn.close()
+        raise HTTPException(404, "Agent not found.")
+    a = dict(agent)
+    owns = (
+        a.get("developer_name") == user.get("username") or
+        a.get("owner_wallet") == user.get("wallet_id")
+    )
+    if not owns and not user.get("is_admin"):
+        conn.close()
+        raise HTTPException(403, "You can only update your own agents.")
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        conn.close()
+        return dict(a)
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    conn.execute(f"UPDATE agents SET {set_clause} WHERE id = ?", (*updates.values(), agent_id))
+    conn.commit()
+    updated = dict(conn.execute("SELECT * FROM agents WHERE id = ?", (agent_id,)).fetchone())
+    conn.close()
+    logger.info("agent_updated", extra={"agent_id": agent_id})
+    return updated
+
 @app.delete("/agents/{agent_id}", status_code=204)
 async def delete_agent(agent_id: str, request: Request):
     user = await _get_current_user(request)
@@ -1033,9 +1088,13 @@ async def delete_agent(agent_id: str, request: Request):
     if not agent:
         conn.close()
         raise HTTPException(404, "Agent not found.")
-    # Allow deletion if the user is the developer who registered the agent,
-    # or if the user is an admin.
-    if dict(agent).get("developer_name") != user.get("username") and not user.get("is_admin"):
+    # Allow deletion if the user registered the agent (by username or wallet) or is admin.
+    a = dict(agent)
+    owns = (
+        a.get("developer_name") == user.get("username") or
+        a.get("owner_wallet") == user.get("wallet_id")
+    )
+    if not owns and not user.get("is_admin"):
         conn.close()
         raise HTTPException(403, "You can only undeploy your own agents.")
     conn.execute("DELETE FROM agents WHERE id = ?", (agent_id,))
@@ -1055,6 +1114,26 @@ def all_metrics():
 @app.get("/metrics/{agent_id}")
 def agent_metrics(agent_id: str):
     return get_metrics(agent_id)
+
+@app.get("/agents/{agent_id}/earnings", tags=["agents"])
+def agent_earnings_detail(agent_id: str):
+    """Earnings summary for a single agent (used by Developer Hub)."""
+    conn = get_db()
+    row = conn.execute("SELECT * FROM agents WHERE id = ?", (agent_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(404, "Agent not found")
+    m = get_metrics(agent_id)
+    error_rate = round(m["errors"] / max(m["requests"], 1), 4)
+    conn.close()
+    return {
+        "agent_id":         agent_id,
+        "total_earnings":   round(m["earnings"], 4),
+        "call_count":       m["requests"],
+        "error_rate":       error_rate,
+        "avg_latency_ms":   m["avg_latency_ms"],
+        "success_rate":     m.get("success_rate", 1.0 - error_rate),
+    }
 
 # ── Earnings ──────────────────────────────────────────────────────────────────
 
@@ -1324,7 +1403,9 @@ async def _execute_pipeline_inner(
 
         price      = agent["price_per_request"]
         agent_earn = round(price * (1 - PLATFORM_FEE), 6)
-        total_cost += price
+        # Only charge for successful steps — don't bill users for mock fallbacks
+        if not error:
+            total_cost += price
 
         record_metrics(agent_id, latency_ms, price, earnings=0.0 if error else agent_earn, error=error)
 
@@ -1433,15 +1514,17 @@ async def get_job_status(job_id: str):
 
 
 @app.get("/jobs")
+@app.get("/jobs/recent")
 async def list_recent_jobs(limit: int = 20):
-    """Return the most recent pipeline jobs."""
+    """Return the most recent pipeline jobs with full result data."""
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM pipeline_jobs ORDER BY created_at DESC LIMIT ?", (limit,)
+        "SELECT * FROM pipeline_jobs ORDER BY created_at DESC LIMIT ?", (min(limit, 100),)
     ).fetchall()
     conn.close()
-    return [
-        {
+    out = []
+    for r in rows:
+        entry = {
             "job_id":        r["id"],
             "pipeline_id":   r["pipeline_id"],
             "pipeline_name": r["pipeline_name"],
@@ -1449,8 +1532,15 @@ async def list_recent_jobs(limit: int = 20):
             "created_at":    r["created_at"],
             "completed_at":  r["completed_at"],
         }
-        for r in rows
-    ]
+        if r["status"] == "completed" and r["result"]:
+            try:
+                parsed = json.loads(r["result"])
+                entry["result"] = parsed
+                entry["signal"] = parsed.get("final", {}).get("signal") or parsed.get("signal")
+            except Exception:
+                pass
+        out.append(entry)
+    return out
 
 
 @app.post("/composite/{pipeline_id}")
@@ -1543,6 +1633,35 @@ def deposit_wallet(wallet_id: str, body: WalletDeposit):
     new_bal = conn.execute("SELECT balance FROM wallets WHERE id = ?", (wallet_id,)).fetchone()["balance"]
     conn.close()
     return {"wallet_id": wallet_id, "deposited": body.amount, "balance": round(new_bal, 4)}
+
+class WalletWithdraw(BaseModel):
+    amount:      float
+    destination: str = "external"  # wallet address or "external"
+
+@app.post("/wallets/{wallet_id}/withdraw")
+def withdraw_wallet(wallet_id: str, body: WalletWithdraw):
+    if body.amount <= 0:
+        raise HTTPException(400, "Amount must be positive")
+    conn = get_db()
+    row = _get_wallet(conn, wallet_id)
+    if not row:
+        conn.close()
+        raise HTTPException(404, "Wallet not found")
+    if row["balance"] < body.amount:
+        conn.close()
+        raise HTTPException(400, f"Insufficient balance. Available: ${row['balance']:.4f}")
+    conn.execute("UPDATE wallets SET balance = balance - ?, total_spent = total_spent + ? WHERE id = ?",
+                 (body.amount, body.amount, wallet_id))
+    tx_id = str(uuid.uuid4())
+    conn.execute(
+        "INSERT INTO transactions VALUES (?, ?, NULL, NULL, ?, 0, 0, ?)",
+        (tx_id, wallet_id, -body.amount, _now())
+    )
+    conn.commit()
+    new_bal = conn.execute("SELECT balance FROM wallets WHERE id = ?", (wallet_id,)).fetchone()["balance"]
+    conn.close()
+    logger.info("wallet_withdrawal", extra={"wallet_id": wallet_id, "amount": body.amount})
+    return {"wallet_id": wallet_id, "withdrawn": body.amount, "destination": body.destination, "balance": round(new_bal, 4)}
 
 @app.get("/wallets")
 def list_wallets():
@@ -1996,6 +2115,7 @@ async def auth_login(req: LoginRequest):
 
 @app.post("/auth/forgot-password", tags=["auth"])
 async def auth_forgot_password(req: ForgotPasswordRequest):
+    _check_rate_limit(req.email.lower())
     conn = get_db()
     row = conn.execute("SELECT id FROM users WHERE email = ? AND is_active = 1", (req.email.lower(),)).fetchone()
     if not row:
@@ -2138,9 +2258,10 @@ async def developer_dashboard(request: Request):
         raise HTTPException(401, "Not authenticated")
     conn = get_db()
     profile = conn.execute("SELECT * FROM developer_profiles WHERE user_id = ?", (user["id"],)).fetchone()
+    wallet_id = dict(profile)["wallet_id"] if profile else None
     agents = conn.execute(
-        "SELECT * FROM agents WHERE owner_wallet = ?",
-        (dict(profile)["wallet_id"] if profile else "",),
+        "SELECT * FROM agents WHERE owner_wallet = ? OR developer_name = ?",
+        (wallet_id or "", user["username"]),
     ).fetchall()
     conn.close()
     agent_list = []
@@ -2151,8 +2272,10 @@ async def developer_dashboard(request: Request):
             "metrics": m,
             "health": a["status"],
         })
-    wallet_id = dict(profile)["wallet_id"] if profile else None
+    dev_wallet_id = dict(profile)["wallet_id"] if profile else None
     wallet = None
+    if dev_wallet_id:
+        wallet_id = dev_wallet_id
     if wallet_id:
         conn = get_db()
         w = conn.execute("SELECT * FROM wallets WHERE id = ?", (wallet_id,)).fetchone()
@@ -2281,7 +2404,20 @@ async def _schedule_loop():
             for row in due:
                 sched = dict(row)
                 try:
-                    result = await execute_pipeline(sched["pipeline_id"], RunRequest(market="BTC"))
+                    # Look up the pipeline to get its name and agent list
+                    _conn = get_db()
+                    _pipe = _conn.execute("SELECT * FROM pipelines WHERE id = ?", (sched["pipeline_id"],)).fetchone()
+                    _conn.close()
+                    if not _pipe:
+                        logger.warning("Schedule references missing pipeline", extra={"step": sched["id"], "pipeline_id": sched["pipeline_id"]})
+                        continue
+                    _pipe = dict(_pipe)
+                    result = await execute_pipeline(
+                        _pipe["id"], _pipe["name"],
+                        json.loads(_pipe["agent_ids"]),
+                        {"market": "BTC"},
+                        user_wallet_id=DEMO_WALLET,
+                    )
                     run_result = result if isinstance(result, dict) else {}
                 except Exception as e:
                     run_result = {"error": str(e)}
@@ -2300,8 +2436,8 @@ async def _schedule_loop():
                     try:
                         async with httpx.AsyncClient(timeout=10) as client:
                             await client.post(sched["webhook_url"], json={"schedule_id": sched["id"], "result": run_result, "triggered_at": ts})
-                    except Exception:
-                        pass
+                    except Exception as webhook_err:
+                        logger.warning("Schedule webhook failed", extra={"step": sched["id"], "error": str(webhook_err)})
                 logger.info("Schedule auto-triggered", extra={"step": sched["id"], "pipeline_id": sched["pipeline_id"]})
         except Exception as e:
             logger.warning(f"Schedule loop error: {e}")
