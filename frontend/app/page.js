@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import Playground from "./components/Playground";
 import ChallengesView from "./components/ChallengesView";
@@ -19,6 +19,8 @@ const HogwartsWorld     = dynamic(() => import("./components/HogwartsWorld"),   
 const AgentCity         = dynamic(() => import("./components/AgentCity"),         { ssr: false });
 
 import { useAuth } from "@/app/lib/useAuth";
+import { useToast } from "@/app/components/Toast";
+import { WS } from "@/app/lib/config";
 
 // ── Splash ─────────────────────────────────────────────────────────────────────
 
@@ -247,13 +249,14 @@ const NAV = [
 
 // ── Credits HUD ────────────────────────────────────────────────────────────────
 
-function CreditsHUD() {
+function CreditsHUD({ onTopUp }) {
   const { walletBalance: balance } = useAuth({ fetchWallet: true });
 
   if (balance === null) return null;
 
   const credits = Math.round(balance * 100);
-  const color   = credits < 500 ? "#f87171" : credits < 2000 ? "#fbbf24" : "#34d399";
+  const low     = credits < 500;
+  const color   = low ? "#f87171" : credits < 2000 ? "#fbbf24" : "#34d399";
 
   return (
     <div style={{
@@ -261,10 +264,15 @@ function CreditsHUD() {
       background: `${color}12`, border: `1px solid ${color}35`,
       borderRadius: 8, padding: "5px 12px",
       fontFamily: "system-ui, sans-serif",
-    }}>
-      <div style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
+      cursor: low ? "pointer" : "default",
+    }} onClick={low ? onTopUp : undefined} title={low ? "Credits low — click to top up" : undefined}>
+      <div style={{
+        width: 6, height: 6, borderRadius: "50%", background: color,
+        animation: low ? "pulse 1.5s ease-in-out infinite" : "none",
+      }} />
       <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Credits</span>
       <span style={{ color, fontSize: 12, fontWeight: 800 }}>{credits.toLocaleString()}</span>
+      {low && <span style={{ color, fontSize: 10, fontWeight: 700 }}>· Top up →</span>}
     </div>
   );
 }
@@ -276,10 +284,44 @@ export default function App() {
   const [activeLobby, setActiveLobby] = useState(null);
   const [showSplash,  setShowSplash]  = useState(false);
   const [showGuide,   setShowGuide]   = useState(false);
+  const { show: showToast, ToastContainer } = useToast();
+  const wsRef = useRef(null);
 
   useEffect(() => {
     if (localStorage.getItem("av_entered") !== "v4") setShowSplash(true);
   }, []);
+
+  // ── Global WebSocket notifications ─────────────────────────────────────────
+  useEffect(() => {
+    let retryTimer;
+    function connect() {
+      const ws = new WebSocket(WS);
+      wsRef.current = ws;
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === "pipeline_done") {
+            showToast(`Pipeline complete — ${msg.steps ?? 0} steps`, "success");
+          } else if (msg.type === "pipeline_timeout") {
+            showToast("Pipeline timed out", "warning");
+          } else if (msg.type === "challenge_entry") {
+            showToast(`New challenge entry — score ${msg.score}`, "success");
+          } else if (msg.type === "agent_registered") {
+            showToast(`Agent "${msg.name}" registered`, "success");
+          } else if (msg.type === "battle_end") {
+            const winner = msg.winner === "a" ? msg.agent_a : msg.agent_b;
+            showToast(`Battle over — ${winner} wins!`, "success");
+          }
+        } catch {}
+      };
+      ws.onclose = () => { retryTimer = setTimeout(connect, 5000); };
+    }
+    connect();
+    return () => {
+      clearTimeout(retryTimer);
+      wsRef.current?.close();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleEnter = () => {
     localStorage.setItem("av_entered", "v4");
@@ -296,6 +338,7 @@ export default function App() {
 
   return (
     <>
+      <ToastContainer />
       {showSplash && <SplashScreen onEnter={handleEnter} />}
       {showGuide && (
         <GuideModal
@@ -315,6 +358,7 @@ export default function App() {
           ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 3px; }
           .nav-tab { transition: all 0.15s; }
           .nav-tab:hover { background: rgba(255,255,255,0.05) !important; }
+          @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
         `}</style>
 
         {/* ── Top nav ───────────────────────────────────────────────────────── */}
@@ -417,7 +461,7 @@ export default function App() {
           >?</button>
 
           {/* Credits */}
-          <CreditsHUD />
+          <CreditsHUD onTopUp={() => handleTabChange("developer")} />
 
           {/* Build CTA */}
           <a href="/build" style={{

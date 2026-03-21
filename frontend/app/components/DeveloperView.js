@@ -1102,6 +1102,102 @@ function CreditsPanel({ auth }) {
   );
 }
 
+/* ── Analytics panel ─────────────────────────────────────────────────────── */
+
+function AnalyticsPanel({ agents, metrics }) {
+  if (agents.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: "48px 0", color: "#9aabb8", fontSize: 13 }}>
+        No agents yet — deploy your first agent to see analytics.
+      </div>
+    );
+  }
+
+  const sorted = [...agents].sort((a, b) => {
+    const ea = metrics[a.id]?.earnings || 0;
+    const eb = metrics[b.id]?.earnings || 0;
+    return eb - ea;
+  });
+
+  const maxEarnings = Math.max(...sorted.map(a => metrics[a.id]?.earnings || 0), 0.001);
+  const maxCalls    = Math.max(...sorted.map(a => metrics[a.id]?.requests || 0), 1);
+  const totalEarned = sorted.reduce((s, a) => s + (metrics[a.id]?.earnings || 0), 0);
+  const totalCalls  = sorted.reduce((s, a) => s + (metrics[a.id]?.requests || 0), 0);
+  const avgSuccess  = sorted.reduce((s, a) => s + (metrics[a.id]?.success_rate ?? 1), 0) / sorted.length;
+
+  const CAT_COLOR = { trading: "#4DD9B8", analysis: "#C8A0F8", data: "#38C8F4", risk: "#FF8096", composite: "#FFD840" };
+  const catColor = (c) => CAT_COLOR[c] || "#818cf8";
+
+  return (
+    <div>
+      {/* Summary pills */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
+        {[
+          { label: "Total Earned",   value: `$${totalEarned.toFixed(4)}`,          color: "#E6C36B" },
+          { label: "Total Calls",    value: totalCalls.toLocaleString(),            color: "#6BCF8B" },
+          { label: "Avg Success",    value: `${(avgSuccess * 100).toFixed(1)}%`,   color: "#818cf8" },
+          { label: "Agents Live",    value: agents.length,                          color: "#34d399" },
+        ].map(p => (
+          <div key={p.label} style={{ background: `${p.color}0f`, border: `1px solid ${p.color}30`, borderRadius: 10, padding: "10px 16px", minWidth: 110 }}>
+            <div style={{ color: "#9aabb8", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>{p.label}</div>
+            <div style={{ color: p.color, fontWeight: 800, fontSize: 18 }}>{p.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Earnings bar chart */}
+      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 12, padding: "16px 18px", marginBottom: 16 }}>
+        <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: 13, marginBottom: 14 }}>Earnings by Agent</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {sorted.map(a => {
+            const m = metrics[a.id] || {};
+            const pct = ((m.earnings || 0) / maxEarnings) * 100;
+            const color = catColor(a.category);
+            return (
+              <div key={a.id}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: "#d1d5db", fontSize: 11, fontWeight: 600 }}>{a.name}</span>
+                  <span style={{ color, fontSize: 11, fontWeight: 700 }}>${(m.earnings || 0).toFixed(4)}</span>
+                </div>
+                <div style={{ height: 6, background: "#1f2937", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 3, transition: "width 0.6s ease" }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Calls bar chart */}
+      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 12, padding: "16px 18px", marginBottom: 16 }}>
+        <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: 13, marginBottom: 14 }}>Calls by Agent</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {sorted.map(a => {
+            const m = metrics[a.id] || {};
+            const pct = ((m.requests || 0) / maxCalls) * 100;
+            const color = catColor(a.category);
+            return (
+              <div key={a.id}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: "#d1d5db", fontSize: 11, fontWeight: 600 }}>{a.name}</span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <span style={{ color: "#9aabb8", fontSize: 10 }}>{(m.avg_latency_ms || 0).toFixed(0)}ms</span>
+                    <span style={{ color: (m.success_rate ?? 1) > 0.9 ? "#34d399" : "#f87171", fontSize: 10, fontWeight: 700 }}>{((m.success_rate ?? 1) * 100).toFixed(0)}%</span>
+                    <span style={{ color, fontSize: 11, fontWeight: 700 }}>{m.requests || 0}</span>
+                  </div>
+                </div>
+                <div style={{ height: 6, background: "#1f2937", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 3, transition: "width 0.6s ease" }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main ─────────────────────────────────────────────────────────────────── */
 
 export default function DeveloperView() {
@@ -1154,11 +1250,12 @@ export default function DeveloperView() {
   );
 
   const TABS = [
-    { id: "agents",   label: "All Agents" },
-    ...(auth ? [{ id: "mine", label: `My Agents (${myAgents.length})` }] : []),
-    { id: "jobs",     label: "Jobs" },
-    { id: "guide",    label: "Deploy Guide" },
-    { id: "register", label: auth ? "+ New Agent" : "Sign In / Register" },
+    { id: "agents",    label: "All Agents" },
+    ...(auth ? [{ id: "mine",      label: `My Agents (${myAgents.length})` }] : []),
+    ...(auth ? [{ id: "analytics", label: "Analytics" }] : []),
+    { id: "jobs",      label: "Jobs" },
+    { id: "guide",     label: "Deploy Guide" },
+    { id: "register",  label: auth ? "+ New Agent" : "Sign In / Register" },
     ...(auth ? [{ id: "keys", label: "API Keys" }] : []),
   ];
 
@@ -1273,6 +1370,7 @@ export default function DeveloperView() {
       )}
 
       {/* Jobs tab */}
+      {tab === "analytics" && auth && <AnalyticsPanel agents={myAgents} metrics={metrics} />}
       {tab === "jobs" && <JobsPanel />}
 
       {/* Deploy Guide tab */}
