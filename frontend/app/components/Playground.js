@@ -1305,28 +1305,46 @@ function PlaygroundCanvas() {
   const savePipeline = async () => {
     if (!pipelineName || !canRun) return;
     if (!backendOk) { showToast("Server is offline — try again in a moment."); return; }
-    const ids = topoSort(nodes, edges)
+    const sorted = topoSort(nodes, edges);
+    if (sorted.length < nodes.length) { showToast("Pipeline has a cycle — remove the circular connection.", "error"); return; }
+    const ids = sorted
       .map((id) => nodes.find((n) => n.id === id)?.data.agentId)
       .filter(Boolean);
     if (ids.length < 2) { showToast("Connect at least 2 agents first"); return; }
-    const res = await fetch(`${API}/pipelines`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: pipelineName, agent_ids: ids }),
-    });
-    const saved = await res.json();
-    setSavedId(saved.id);
-    setAllPipelines((p) => [...p.filter((x) => x.id !== saved.id), saved]);
-    showToast(`Pipeline "${saved.name}" saved`);
+    try {
+      const res = await fetch(`${API}/pipelines`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: pipelineName, agent_ids: ids }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.detail || "Failed to save pipeline — try again.", "error");
+        return;
+      }
+      const saved = await res.json();
+      if (!saved?.id) { showToast("Unexpected server response — try again.", "error"); return; }
+      setSavedId(saved.id);
+      setAllPipelines((p) => [...p.filter((x) => x.id !== saved.id), saved]);
+      showToast(`Pipeline "${saved.name}" saved`);
+    } catch {
+      showToast("Network error — check your connection.", "error");
+    }
   };
 
   const runPipeline = async () => {
     if (!savedId) return;
     setRunning(true);
     try {
-      await fetch(`${API}/run-pipeline/${savedId}`, {
+      const res = await fetch(`${API}/run-pipeline/${savedId}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ market: "BTC" }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.detail || "Pipeline run failed.", "error");
+      }
+    } catch {
+      showToast("Network error — pipeline not started.", "error");
     } finally {
       setRunning(false);
     }
@@ -1338,10 +1356,16 @@ function PlaygroundCanvas() {
     if (!backendOk) { showToast("Server is offline — try again in a moment."); return; }
     setRunning(true);
     try {
-      await fetch(`${API}/run-pipeline/${demo.id}`, {
+      const res = await fetch(`${API}/run-pipeline/${demo.id}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ market: "BTC" }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.detail || "Demo run failed.", "error");
+      }
+    } catch {
+      showToast("Network error — could not start demo.", "error");
     } finally {
       setRunning(false);
     }
@@ -1349,10 +1373,19 @@ function PlaygroundCanvas() {
 
   const registerAsAgent = async () => {
     if (!savedId) return;
-    const res = await fetch(`${API}/pipelines/${savedId}/register-as-agent`, { method: "POST" });
-    const agent = await res.json();
-    setCompositeId(agent.id);
-    showToast(`"${agent.name}" registered as composite agent`);
+    try {
+      const res = await fetch(`${API}/pipelines/${savedId}/register-as-agent`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.detail || "Failed to register as agent.", "error");
+        return;
+      }
+      const agent = await res.json();
+      setCompositeId(agent.id);
+      showToast(`"${agent.name}" registered as composite agent`);
+    } catch {
+      showToast("Network error — could not register agent.", "error");
+    }
   };
 
   const clearCanvas = () => {

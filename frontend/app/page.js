@@ -146,6 +146,95 @@ function SplashScreen({ onEnter }) {
   );
 }
 
+// ── Guide overlay ──────────────────────────────────────────────────────────────
+
+const GUIDE_STEPS = [
+  {
+    icon: "◉",
+    color: "#818cf8",
+    title: "Browse the Store",
+    body: "Discover AI agents built by the community. Each agent does one job — price feeds, sentiment analysis, risk scoring, and more. Try any agent live before using it.",
+    action: "marketplace",
+    cta: "Open Store →",
+  },
+  {
+    icon: "◈",
+    color: "#34d399",
+    title: "Build a Pipeline",
+    body: "Chain multiple agents together in the Pipeline Builder. The output of each step becomes the input for the next — combine a price feed → sentiment → momentum for a full trading signal.",
+    action: "build",
+    cta: "Open Builder →",
+  },
+  {
+    icon: "⬡",
+    color: "#f59e0b",
+    title: "Watch agents live in a World",
+    body: "Each World is a real-time visualization of agents running. Las Vegas shows trading agents, the Matrix shows data pipelines, Hogwarts hosts all agents at once.",
+    action: "city",
+    cta: "Enter a World →",
+  },
+  {
+    icon: "⚙",
+    color: "#a78bfa",
+    title: "Deploy your own agent",
+    body: "Have an API? Register it as an agent in under 60 seconds. Set a price per call in USDC — you earn 90% of every call, platform takes 10%. Verified with World ID for Sybil resistance.",
+    action: "developer",
+    cta: "Developer Dashboard →",
+  },
+  {
+    icon: "◆",
+    color: "#e6c36b",
+    title: "Enter Missions & win rewards",
+    body: "Challenges ask you to build the best-scoring pipeline for a specific goal. Submit your pipeline, run it, and climb the leaderboard. Top scores share the reward pool.",
+    action: "challenges",
+    cta: "See Missions →",
+  },
+];
+
+function GuideModal({ onClose, onGoTo }) {
+  const [step, setStep] = useState(0);
+  const s = GUIDE_STEPS[step];
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 22, width: "100%", maxWidth: 440, padding: "32px 28px", boxShadow: "0 40px 100px rgba(0,0,0,0.8)", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+        {/* Progress dots */}
+        <div style={{ display: "flex", gap: 5, marginBottom: 28 }}>
+          {GUIDE_STEPS.map((_, i) => (
+            <div key={i} onClick={() => setStep(i)} style={{ flex: i === step ? 2 : 1, height: 3, borderRadius: 2, background: i === step ? s.color : i < step ? `${s.color}50` : "rgba(255,255,255,0.1)", cursor: "pointer", transition: "all 0.3s" }} />
+          ))}
+        </div>
+
+        {/* Icon */}
+        <div style={{ width: 52, height: 52, borderRadius: 14, background: `${s.color}15`, border: `1px solid ${s.color}35`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: s.color, marginBottom: 20 }}>{s.icon}</div>
+
+        {/* Content */}
+        <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 20, letterSpacing: "-0.3px", marginBottom: 10 }}>{s.title}</div>
+        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, lineHeight: 1.7, marginBottom: 28 }}>{s.body}</div>
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <button
+            onClick={() => { onGoTo(s.action); onClose(); }}
+            style={{ flex: 1, padding: "12px 0", borderRadius: 10, border: "none", background: s.color, color: "#000", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+          >{s.cta}</button>
+          {step < GUIDE_STEPS.length - 1 ? (
+            <button onClick={() => setStep(step + 1)} style={{ padding: "12px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Next</button>
+          ) : (
+            <button onClick={onClose} style={{ padding: "12px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Done</button>
+          )}
+        </div>
+
+        {/* Step counter */}
+        <div style={{ marginTop: 16, textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 11 }}>{step + 1} of {GUIDE_STEPS.length}</div>
+      </div>
+    </div>
+  );
+}
+
 // ── Nav config ─────────────────────────────────────────────────────────────────
 
 const NAV = [
@@ -186,6 +275,7 @@ export default function App() {
   const [tab,         setTab]         = useState("playground");
   const [activeLobby, setActiveLobby] = useState(null);
   const [showSplash,  setShowSplash]  = useState(false);
+  const [showGuide,   setShowGuide]   = useState(false);
 
   useEffect(() => {
     if (localStorage.getItem("av_entered") !== "v4") setShowSplash(true);
@@ -197,6 +287,7 @@ export default function App() {
   };
 
   const handleTabChange = (id) => {
+    if (id === "build") { window.location.href = "/build"; return; }
     if (id !== "city") setActiveLobby(null);
     setTab(id);
   };
@@ -206,6 +297,12 @@ export default function App() {
   return (
     <>
       {showSplash && <SplashScreen onEnter={handleEnter} />}
+      {showGuide && (
+        <GuideModal
+          onClose={() => setShowGuide(false)}
+          onGoTo={(id) => handleTabChange(id)}
+        />
+      )}
       <div style={{
         display: "flex", flexDirection: "column", height: "100vh",
         background: "#0a0a0f", overflow: "hidden",
@@ -303,6 +400,21 @@ export default function App() {
           )}
 
           <div style={{ flex: 1 }} />
+
+          {/* Guide */}
+          <button
+            onClick={() => setShowGuide(true)}
+            title="How it works"
+            style={{
+              width: 30, height: 30, borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
+              background: "transparent", color: "rgba(255,255,255,0.35)", fontSize: 13,
+              fontWeight: 700, cursor: "pointer", marginRight: 8, fontFamily: "inherit",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}
+          >?</button>
 
           {/* Credits */}
           <CreditsHUD />

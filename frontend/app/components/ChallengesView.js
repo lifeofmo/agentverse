@@ -295,10 +295,17 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
 // ── Post challenge form ────────────────────────────────────────────────────────
 
 function PostForm({ onPost, onCancel }) {
-  const [form, setForm] = useState({
-    title: "", description: "", reward: 100, scoring_field: "confidence",
-  });
+  const [form,    setForm]    = useState({ title: "", description: "", reward: 100, scoring_field: "confidence" });
+  const [busy,    setBusy]    = useState(false);
+  const [formErr, setFormErr] = useState("");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handlePost = async () => {
+    if (!form.title.trim()) { setFormErr("Mission title is required."); return; }
+    setBusy(true); setFormErr("");
+    await onPost(form, setFormErr);
+    setBusy(false);
+  };
 
   return (
     <div style={{
@@ -311,7 +318,7 @@ function PostForm({ onPost, onCancel }) {
       <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 15, marginBottom: 16 }}>
         Post New Mission
       </div>
-      <input placeholder="Mission title" value={form.title}
+      <input placeholder="Mission title *" value={form.title}
         onChange={(e) => set("title", e.target.value)} style={inp} />
       <input placeholder="Description (optional)" value={form.description}
         onChange={(e) => set("description", e.target.value)} style={inp} />
@@ -325,12 +332,15 @@ function PostForm({ onPost, onCancel }) {
           {FIELD_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       </div>
+      {formErr && (
+        <div style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: 8, padding: "8px 12px", color: "#fca5a5", fontSize: 12, marginBottom: 10 }}>{formErr}</div>
+      )}
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => { if (form.title) onPost(form); }} style={{
-          flex: 1, background: "#6366f1", color: "#fff",
+        <button onClick={handlePost} disabled={busy} style={{
+          flex: 1, background: busy ? "#374151" : "#6366f1", color: "#fff",
           border: "none", borderRadius: 9,
-          padding: "9px", fontSize: 13, cursor: "pointer", fontWeight: 700,
-        }}>Post Mission</button>
+          padding: "9px", fontSize: 13, cursor: busy ? "default" : "pointer", fontWeight: 700,
+        }}>{busy ? "Posting…" : "Post Mission"}</button>
         <button onClick={onCancel} style={{
           flex: 1, background: "transparent", color: "#9ca3af",
           border: "1px solid #374151", borderRadius: 9,
@@ -371,28 +381,48 @@ export default function ChallengesView() {
 
   const loadBoard = async (id) => {
     try {
-      const rows = await fetch(`${API}/challenges/${id}/leaderboard`).then((r) => r.json());
+      const res = await fetch(`${API}/challenges/${id}/leaderboard`);
+      const rows = res.ok ? await res.json() : [];
       setLeaderboards((p) => ({ ...p, [id]: Array.isArray(rows) ? rows : [] }));
-    } catch {}
+    } catch {
+      setLeaderboards((p) => ({ ...p, [id]: [] }));
+    }
   };
 
-  const postChallenge = async (form) => {
+  const postChallenge = async (form, setFormErr) => {
     if (!token) return;
     try {
-      const saved = await fetch(`${API}/challenges`, {
+      const res = await fetch(`${API}/challenges`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(form),
-      }).then((r) => r.json());
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setFormErr?.(d.detail || "Failed to post mission — try again.");
+        return;
+      }
+      const saved = await res.json();
       setChallenges((c) => [...c, saved]);
       setShowForm(false);
-    } catch {}
+    } catch {
+      setFormErr?.("Could not reach the server — check your connection.");
+    }
   };
 
   const submit = async (challengeId, pipelineId) => {
+    if (!token) { alert("Sign in to submit a pipeline to a challenge."); return null; }
     try {
-      const res = await fetch(`${API}/challenges/${challengeId}/submit/${pipelineId}`, { method: "POST" });
+      const res = await fetch(`${API}/challenges/${challengeId}/submit/${pipelineId}`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+      });
       const data = res.ok ? await res.json() : null;
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Submission failed — try again.");
+        return null;
+      }
       loadBoard(challengeId);
       setOpenBoard(challengeId);
       return data;

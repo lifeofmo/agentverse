@@ -1408,7 +1408,6 @@ function AgentBuilding({ agent, position, active, lastOutput, requests, selected
   const repScale   = 0.76 + (rep / 5) * 0.48;   // 0.76 at 0★ → 1.24 at 5★
   const isLegend   = rep >= 4.8;                  // crown
   const isDegraded = rep < 2.0;                   // dim
-  const repGlow    = isDegraded ? 0.04 : 0.08 + (rep / 5) * 0.22;
   const crownY     = 3.4 + stackH + level * 0.28;
 
   // ── Call-counter flash ref ───────────────────────────────────────────────
@@ -4029,7 +4028,7 @@ export default function AgentCity({ lobbyId = "all", lobbyCategories = null, lob
     return () => clearInterval(devInterval);
   }, []);
 
-  // Autonomous background calls
+  // Autonomous background calls — throttled to reduce WS event storms
   useEffect(() => {
     if (!agents.length) return;
     const MARKETS = ["BTC", "ETH", "SOL", "AVAX", "BNB"];
@@ -4040,9 +4039,10 @@ export default function AgentCity({ lobbyId = "all", lobbyCategories = null, lob
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ market: MARKETS[Math.floor(Math.random() * MARKETS.length)] }),
       }).catch(() => {});
-      timer = setTimeout(fire, 5000 + Math.random() * 6000);
+      // Slower cadence: 10–18s between autonomous calls (was 5–11s)
+      timer = setTimeout(fire, 10000 + Math.random() * 8000);
     };
-    timer = setTimeout(fire, 2500);
+    timer = setTimeout(fire, 4000);
     return () => clearTimeout(timer);
   }, [agents.length]);
 
@@ -4063,6 +4063,16 @@ export default function AgentCity({ lobbyId = "all", lobbyCategories = null, lob
     return () => clearTimeout(timer);
   }, []);
 
+  // Batch metrics updates — flush at most once per 800ms to avoid re-render storms
+  const pendingMetrics = useRef({});
+  const metricsFlushTimer = useRef(null);
+  const flushMetrics = () => {
+    if (Object.keys(pendingMetrics.current).length === 0) return;
+    const batch = pendingMetrics.current;
+    pendingMetrics.current = {};
+    setMetrics(m => ({ ...m, ...batch }));
+  };
+
   // WebSocket (auto-reconnects on close)
   const [wsRetry, setWsRetry] = useState(0);
   useEffect(() => {
@@ -4076,7 +4086,12 @@ export default function AgentCity({ lobbyId = "all", lobbyCategories = null, lob
       if (ev.type === "agent_call_done") {
         setActiveAgents(s => { const n = new Set(s); n.delete(ev.agent_id); return n; });
         setLastOutputs(p => ({ ...p, [ev.agent_id]: ev.result }));
-        setMetrics(m => ({ ...m, [ev.agent_id]: ev.metrics }));
+        // Buffer metric updates and flush in batch to avoid per-event re-renders
+        if (ev.metrics) {
+          pendingMetrics.current[ev.agent_id] = ev.metrics;
+          clearTimeout(metricsFlushTimer.current);
+          metricsFlushTimer.current = setTimeout(flushMetrics, 800);
+        }
         spawnReward(ev.agent_id); spawnBubble(ev.agent_id, ev.result);
         triggerCrowdReaction(ev.agent_id);
         const parts = ev.result ? Object.entries(ev.result).filter(([k]) => k !== "market").slice(0,3).map(([k,v]) => `${k}: ${v}`).join("  ·  ") : "";

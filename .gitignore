@@ -37,3 +37,4 @@ yarn-error.log*
 .vscode/
 .idea/
 *.swp
+.playwright-mcp/

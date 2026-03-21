@@ -225,16 +225,21 @@ function ApiKeyManager({ token }) {
     setBusy(true);
     try {
       const res = await fetch(`${API}/auth/create-api-key`, { method: "POST", headers, body: JSON.stringify({ name: newName }) });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.detail || "Failed to create key"); return; }
       const d = await res.json();
       setNewKey(d.key);
       setNewName("");
       load();
-    } finally { setBusy(false); }
+    } catch { alert("Network error — could not create key"); }
+    finally { setBusy(false); }
   };
 
   const revoke = async (id) => {
-    await fetch(`${API}/auth/api-keys/${id}`, { method: "DELETE", headers });
-    setKeys(k => k.filter(x => x.id !== id));
+    try {
+      const res = await fetch(`${API}/auth/api-keys/${id}`, { method: "DELETE", headers });
+      if (!res.ok) { alert("Could not revoke key — try again"); return; }
+      setKeys(k => k.filter(x => x.id !== id));
+    } catch { alert("Network error — could not revoke key"); }
   };
 
   return (
@@ -368,9 +373,16 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
     setDeleting(true);
     try {
       const headers = token ? { "Authorization": `Bearer ${token}` } : {};
-      await fetch(`${API}/agents/${agent.id}`, { method: "DELETE", headers });
+      const res = await fetch(`${API}/agents/${agent.id}`, { method: "DELETE", headers });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setEditErr(err.detail || "Delete failed — you may not own this agent.");
+        setConfirmDel(false);
+        return;
+      }
       onDeleted?.();
-    } catch { /* ignore */ } finally { setDeleting(false); setConfirmDel(false); }
+    } catch { setEditErr("Network error — could not delete agent."); }
+    finally { setDeleting(false); setConfirmDel(false); }
   };
 
   const handleSaveEdit = async () => {
@@ -391,10 +403,11 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
     try {
       const headers = token ? { "Authorization": `Bearer ${token}` } : {};
       const res = await fetch(`${API}/agents/${agent.id}/health`, { headers });
-      const d = await res.json();
-      setHealth(d);
+      const d = await res.json().catch(() => ({ status: "error", message: "Invalid response" }));
+      setHealth(res.ok ? d : { status: "error", message: d.detail || "Health check failed" });
       onHealthCheck?.();
-    } finally { setChecking(false); }
+    } catch { setHealth({ status: "error", message: "Network error — agent unreachable" }); }
+    finally { setChecking(false); }
   };
 
   return (
@@ -1110,8 +1123,8 @@ export default function DeveloperView() {
 
   const loadAgents = () =>
     Promise.all([
-      fetch(`${API}/agents`).then(r => r.json()),
-      fetch(`${API}/metrics`).then(r => r.json()),
+      fetch(`${API}/agents`).then(r => r.json()).catch(() => []),
+      fetch(`${API}/metrics`).then(r => r.json()).catch(() => []),
     ]).then(([a, m]) => {
       setAgents(Array.isArray(a) ? a : []);
       setMetrics(Object.fromEntries((Array.isArray(m) ? m : []).map(x => [x.agent_id, x])));

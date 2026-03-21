@@ -1391,8 +1391,16 @@ def agent_earnings(agent_id: str):
 
 # ── Call agent ────────────────────────────────────────────────────────────────
 
+_ALLOWED_MARKETS = {"BTC", "ETH", "SOL", "AVAX", "ARB", "OP", "MATIC", "LINK", "UNI", "AAVE"}
+
 @app.post("/call-agent/{agent_id}")
 async def call_agent(agent_id: str, payload: dict, request: Request):
+    # Sanitise market param to prevent injection into downstream agent calls
+    if "market" in payload:
+        payload["market"] = str(payload["market"]).upper()[:10]
+        if payload["market"] not in _ALLOWED_MARKETS:
+            payload["market"] = "BTC"
+
     conn = get_db()
     row = conn.execute("SELECT * FROM agents WHERE id = ?", (agent_id,)).fetchone()
     conn.close()
@@ -2133,7 +2141,7 @@ def challenge_leaderboard(challenge_id: str):
     return [{**dict(r), "result": json.loads(r["result"]) if r["result"] else {}} for r in rows]
 
 @app.post("/challenges/{challenge_id}/submit/{pipeline_id}")
-async def submit_to_challenge(challenge_id: str, pipeline_id: str):
+async def submit_to_challenge(challenge_id: str, pipeline_id: str, user: dict = Depends(_require_auth)):
     conn = get_db()
     challenge = conn.execute("SELECT * FROM challenges WHERE id = ?", (challenge_id,)).fetchone()
     pipeline  = conn.execute("SELECT * FROM pipelines  WHERE id = ?", (pipeline_id,)).fetchone()

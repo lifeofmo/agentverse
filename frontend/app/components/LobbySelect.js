@@ -150,6 +150,13 @@ function DeployModal({ lobby, onClose, onDeployed }) {
   const submit = async () => {
     if (!form.name.trim())     { setErr("Agent name is required."); return; }
     if (!form.endpoint.trim()) { setErr("Endpoint URL is required."); return; }
+    try { new URL(form.endpoint); } catch { setErr("Endpoint must be a valid URL (e.g. https://myapi.com/run)"); return; }
+    if (!form.endpoint.startsWith("https://") && !form.endpoint.startsWith("http://")) {
+      setErr("Endpoint must start with https:// or http://"); return;
+    }
+    if (form.health_endpoint.trim()) {
+      try { new URL(form.health_endpoint); } catch { setErr("Health endpoint must be a valid URL"); return; }
+    }
     setBusy(true); setErr("");
     try {
       const res = await fetch(`${API}/agents`, {
