@@ -45,8 +45,8 @@ function PlazaTree({ size = 32 }) {
 // ── Shared input style ─────────────────────────────────────────────────────────
 
 const inp = {
-  width: "100%", background: "#f8f6f2", border: "1px solid #e6d6bd",
-  borderRadius: 8, color: "#2d3a4a", padding: "8px 12px",
+  width: "100%", background: "#1f2937", border: "1px solid #374151",
+  borderRadius: 8, color: "#f3f4f6", padding: "8px 12px",
   fontSize: 13, boxSizing: "border-box", marginBottom: 10,
   outline: "none", fontFamily: "inherit",
 };
@@ -77,11 +77,11 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
 
   return (
     <div style={{
-      background: "#fff",
-      border: "1px solid #e6d6bd",
-      borderTop: `3px solid ${isOpen ? "#E6C36B" : "#c0b8ae"}`,
+      background: "#111827",
+      border: "1px solid #1f2937",
+      borderTop: `3px solid ${isOpen ? "#E6C36B" : "#374151"}`,
       borderRadius: 16, padding: "22px 20px",
-      boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+      boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
     }}>
 
       {/* Top row */}
@@ -89,9 +89,9 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
         {/* Status dot + title */}
         <div style={{
           width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-          background: isOpen ? "rgba(196,153,60,0.12)" : "#f0ece6",
+          background: isOpen ? "rgba(196,153,60,0.12)" : "#1a1a2e",
           display: "flex", alignItems: "center", justifyContent: "center",
-          border: `1px solid ${isOpen ? "rgba(196,153,60,0.3)" : "#e6d6bd"}`,
+          border: `1px solid ${isOpen ? "rgba(196,153,60,0.3)" : "#374151"}`,
         }}>
           <div style={{
             width: 14, height: 14, borderRadius: "50%",
@@ -99,7 +99,7 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
           }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 15, lineHeight: 1.25, marginBottom: 6 }}>
+          <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 15, lineHeight: 1.25, marginBottom: 6 }}>
             {c.title}
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -111,9 +111,9 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
               {FIELD_LABELS[c.scoring_field] ?? c.scoring_field}
             </span>
             <span style={{
-              background: isOpen ? "rgba(74,184,122,0.1)" : "#f0ece6",
+              background: isOpen ? "rgba(74,184,122,0.1)" : "#1a1a2e",
               color:      isOpen ? "#4ab87a" : "#9aabb8",
-              border: `1px solid ${isOpen ? "rgba(74,184,122,0.25)" : "#e6d6bd"}`,
+              border: `1px solid ${isOpen ? "rgba(74,184,122,0.25)" : "#374151"}`,
               borderRadius: 5, padding: "2px 9px", fontSize: 10, fontWeight: 600,
             }}>
               {isOpen ? "open" : "closed"}
@@ -124,7 +124,7 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
         {/* Reward badge */}
         <div style={{
           flexShrink: 0,
-          background: "#fffbf0",
+          background: "#451a03",
           border: "1px solid rgba(196,153,60,0.3)",
           borderRadius: 12, padding: "8px 13px", textAlign: "center",
           minWidth: 60,
@@ -145,13 +145,13 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
       {/* Top pipeline preview */}
       {top ? (
         <div style={{
-          background: "#f8f6f2", border: "1px solid #e6d6bd",
+          background: "#0d1117", border: "1px solid #1f2937",
           borderRadius: 10, padding: "10px 13px", marginBottom: 14,
         }}>
           <div style={{ color: "#9aabb8", fontSize: 9, textTransform: "uppercase",
             letterSpacing: 0.8, marginBottom: 7, fontWeight: 600 }}>Top Pipeline</div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 13 }}>
+            <span style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 13 }}>
               {top.pipeline_name}
             </span>
             <span style={{
@@ -164,7 +164,7 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
         </div>
       ) : (
         <div style={{
-          background: "#f8f6f2", border: "1px solid #e6d6bd",
+          background: "#0d1117", border: "1px solid #1f2937",
           borderRadius: 10, padding: "10px 13px", marginBottom: 14,
           color: "#9aabb8", fontSize: 12, fontStyle: "italic",
         }}>
@@ -180,18 +180,18 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
           style={{
             flex: 1, borderRadius: 10, padding: "9px",
             fontSize: 12, fontWeight: 700, cursor: isOpen ? "pointer" : "not-allowed",
-            background: isOpen ? "rgba(139,111,212,0.1)" : "#f0ece6",
-            color:      isOpen ? "#B59CE6" : "#c0b8ae",
-            border: `1px solid ${isOpen ? "rgba(139,111,212,0.3)" : "#e6d6bd"}`,
+            background: isOpen ? "rgba(139,111,212,0.1)" : "#1a1a2e",
+            color:      isOpen ? "#B59CE6" : "#6b7280",
+            border: `1px solid ${isOpen ? "rgba(139,111,212,0.3)" : "#374151"}`,
           }}>
           {submitting ? "Cancel" : "Submit Pipeline"}
         </button>
         <button onClick={() => onBoard(c.id)} style={{
           flex: 1, borderRadius: 10, padding: "9px",
           fontSize: 12, fontWeight: 700, cursor: "pointer",
-          background: boardOpen ? "rgba(74,159,212,0.1)" : "#f8f6f2",
+          background: boardOpen ? "rgba(74,159,212,0.1)" : "#1a1a2e",
           color: boardOpen ? "#6BB6E6" : "#9aabb8",
-          border: `1px solid ${boardOpen ? "rgba(74,159,212,0.3)" : "#e6d6bd"}`,
+          border: `1px solid ${boardOpen ? "rgba(74,159,212,0.3)" : "#374151"}`,
         }}>
           {boardOpen ? "Hide Board" : "Leaderboard"}
         </button>
@@ -200,7 +200,7 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
       {/* Pipeline picker */}
       {submitting && (
         <div style={{
-          background: "#f8f6f2", border: "1px solid #e6d6bd",
+          background: "#0d1117", border: "1px solid #1f2937",
           borderRadius: 10, padding: "12px", marginBottom: 10,
         }}>
           <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase",
@@ -215,12 +215,12 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
             <div key={p.id} onClick={() => { onSubmit(c.id, p.id); setSubmitting(false); }}
               style={{
                 padding: "8px 11px", borderRadius: 8, marginBottom: 5, cursor: "pointer",
-                background: "#fff", border: "1px solid #e6d6bd",
-                color: "#6b7d92", fontSize: 12,
+                background: "#1a1a2e", border: "1px solid #374151",
+                color: "#9ca3af", fontSize: 12,
                 transition: "border-color 0.15s, color 0.15s",
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#B59CE6"; e.currentTarget.style.color = "#B59CE6"; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = "#e6d6bd"; e.currentTarget.style.color = "#6b7d92"; }}>
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "#374151"; e.currentTarget.style.color = "#9ca3af"; }}>
               {p.name}
             </div>
           ))}
@@ -229,7 +229,7 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
 
       {/* Full leaderboard */}
       {boardOpen && (
-        <div style={{ borderTop: "1px solid #e6d6bd", paddingTop: 14, marginTop: 4 }}>
+        <div style={{ borderTop: "1px solid #1f2937", paddingTop: 14, marginTop: 4 }}>
           <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase",
             letterSpacing: 0.8, marginBottom: 10, fontWeight: 600 }}>
             Full Standings
@@ -242,20 +242,20 @@ function MissionCard({ c, pipelines, onSubmit, onBoard, boardOpen, board }) {
             <div key={entry.id} style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: "7px 10px", marginBottom: 5, borderRadius: 8,
-              background: i === 0 ? "rgba(196,153,60,0.06)" : "#f8f6f2",
-              border: `1px solid ${i === 0 ? "rgba(196,153,60,0.2)" : "#e6d6bd"}`,
+              background: i === 0 ? "rgba(196,153,60,0.08)" : "#1a1a2e",
+              border: `1px solid ${i === 0 ? "rgba(196,153,60,0.25)" : "#1f2937"}`,
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <RankBadge rank={i + 1} />
-                <span style={{ color: "#2d3a4a", fontWeight: i === 0 ? 700 : 500, fontSize: 13 }}>
+                <span style={{ color: "#e5e7eb", fontWeight: i === 0 ? 700 : 500, fontSize: 13 }}>
                   {entry.pipeline_name}
                 </span>
               </div>
               <span style={{
                 color: i === 0 ? "#E6C36B" : "#9aabb8",
                 fontWeight: 700, fontSize: 12,
-                background: "#fff", borderRadius: 5, padding: "2px 8px",
-                border: "1px solid #e6d6bd",
+                background: "#0d1117", borderRadius: 5, padding: "2px 8px",
+                border: "1px solid #1f2937",
               }}>
                 {entry.score}
               </span>
@@ -277,13 +277,13 @@ function PostForm({ onPost, onCancel }) {
 
   return (
     <div style={{
-      background: "#fff",
-      border: "1px solid #e6d6bd",
-      borderTop: "3px solid #B59CE6",
+      background: "#111827",
+      border: "1px solid #1f2937",
+      borderTop: "3px solid #8b5cf6",
       borderRadius: 16, padding: "22px 20px", maxWidth: 560, marginBottom: 28,
-      boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+      boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
     }}>
-      <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 15, marginBottom: 16 }}>
+      <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 15, marginBottom: 16 }}>
         Post New Mission
       </div>
       <input placeholder="Mission title" value={form.title}
@@ -302,13 +302,13 @@ function PostForm({ onPost, onCancel }) {
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={() => { if (form.title) onPost(form); }} style={{
-          flex: 1, background: "rgba(139,111,212,0.12)", color: "#B59CE6",
-          border: "1px solid rgba(139,111,212,0.3)", borderRadius: 10,
+          flex: 1, background: "#6366f1", color: "#fff",
+          border: "none", borderRadius: 9,
           padding: "9px", fontSize: 13, cursor: "pointer", fontWeight: 700,
         }}>Post Mission</button>
         <button onClick={onCancel} style={{
-          flex: 1, background: "#f8f6f2", color: "#9aabb8",
-          border: "1px solid #e6d6bd", borderRadius: 10,
+          flex: 1, background: "transparent", color: "#9ca3af",
+          border: "1px solid #374151", borderRadius: 9,
           padding: "9px", fontSize: 13, cursor: "pointer", fontWeight: 600,
         }}>Cancel</button>
       </div>
@@ -364,7 +364,7 @@ export default function ChallengesView() {
   return (
     <div style={{
       height: "100%", overflowY: "auto",
-      background: "#f4e7d0", padding: "32px 40px",
+      background: "#0a0a0f", padding: "32px 40px",
       fontFamily: "inherit",
     }}>
 
@@ -373,7 +373,7 @@ export default function ChallengesView() {
         <div style={{ display: "flex", alignItems: "flex-end", gap: 14 }}>
           <PlazaTree size={36} />
           <div>
-            <div style={{ color: "#2d3a4a", fontSize: 22, fontWeight: 800, letterSpacing: "-0.3px" }}>
+            <div style={{ color: "#f9fafb", fontSize: 22, fontWeight: 800, letterSpacing: "-0.3px" }}>
               Missions
             </div>
             <div style={{ color: "#9aabb8", fontSize: 13, marginTop: 5, lineHeight: 1.5 }}>
@@ -383,9 +383,9 @@ export default function ChallengesView() {
           <PlazaTree size={26} />
         </div>
         <button onClick={() => setShowForm((v) => !v)} style={{
-          background: showForm ? "rgba(139,111,212,0.1)" : "rgba(196,153,60,0.1)",
-          color:      showForm ? "#B59CE6" : "#E6C36B",
-          border: `1px solid ${showForm ? "rgba(139,111,212,0.3)" : "rgba(196,153,60,0.3)"}`,
+          background: showForm ? "rgba(99,102,241,0.1)" : "rgba(196,153,60,0.1)",
+          color:      showForm ? "#818cf8" : "#E6C36B",
+          border: `1px solid ${showForm ? "rgba(99,102,241,0.3)" : "rgba(196,153,60,0.3)"}`,
           borderRadius: 20, padding: "9px 20px", fontSize: 13,
           cursor: "pointer", fontWeight: 700,
         }}>
@@ -395,7 +395,7 @@ export default function ChallengesView() {
 
       {/* How it works */}
       <div style={{
-        background: "#fff", border: "1px solid #e6d6bd", borderRadius: 12,
+        background: "#111827", border: "1px solid #1f2937", borderRadius: 12,
         padding: "14px 18px", marginBottom: 24,
         display: "flex", gap: 24, flexWrap: "wrap",
       }}>
@@ -405,7 +405,7 @@ export default function ChallengesView() {
           ["3. Submit & compete", "Come back here, click Submit Pipeline, and select your saved pipeline. The highest score wins."],
         ].map(([title, body]) => (
           <div key={title} style={{ flex: "1 1 180px" }}>
-            <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12, marginBottom: 4 }}>{title}</div>
+            <div style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 12, marginBottom: 4 }}>{title}</div>
             <div style={{ color: "#9aabb8", fontSize: 11, lineHeight: 1.6 }}>{body}</div>
           </div>
         ))}
@@ -431,9 +431,8 @@ export default function ChallengesView() {
 
         {challenges.length === 0 && !showForm && (
           <div style={{
-            background: "#fff", border: "1px solid #e6d6bd", borderRadius: 14,
-            padding: "48px 32px", color: "#9aabb8", fontSize: 14, fontStyle: "italic",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+            background: "#0d1117", border: "1px dashed #1f2937", borderRadius: 14,
+            padding: "48px 32px", color: "#9ca3af", fontSize: 14, fontStyle: "italic",
           }}>
             No missions posted yet — be the first to create a challenge.
           </div>

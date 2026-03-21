@@ -5,12 +5,12 @@ import { API } from "@/app/lib/config";
 
 // ── Category config ───────────────────────────────────────────────────────────
 const CAT = {
-  trading:   { symbol: "↗", color: "#10b981", pill: "#ecfdf5", label: "Trading" },
-  analysis:  { symbol: "◎", color: "#8b5cf6", pill: "#f5f3ff", label: "Analysis" },
-  data:      { symbol: "≋", color: "#3b82f6", pill: "#eff6ff", label: "Market Data" },
-  risk:      { symbol: "◬", color: "#ef4444", pill: "#fef2f2", label: "Risk" },
-  composite: { symbol: "⊕", color: "#f59e0b", pill: "#fffbeb", label: "Workflow" },
-  default:   { symbol: "·", color: "#6b7280", pill: "#f9fafb", label: "Agent" },
+  trading:   { symbol: "↗", color: "#10b981", pill: "#064e3b", label: "Trading" },
+  analysis:  { symbol: "◎", color: "#8b5cf6", pill: "#2e1065", label: "Analysis" },
+  data:      { symbol: "≋", color: "#3b82f6", pill: "#1e3a5f", label: "Market Data" },
+  risk:      { symbol: "◬", color: "#ef4444", pill: "#450a0a", label: "Risk" },
+  composite: { symbol: "⊕", color: "#f59e0b", pill: "#451a03", label: "Workflow" },
+  default:   { symbol: "·", color: "#6b7280", pill: "#1f2937", label: "Agent" },
 };
 const cat = (c) => CAT[c] ?? CAT.default;
 const toCredits = (usd) => Math.max(1, Math.round(usd * 100));
@@ -107,11 +107,11 @@ function getInsight(result) {
   return { text: "Agent returned live market data.", tone: "gray" };
 }
 const TONE = {
-  green:  { bg: "#f0fdf4", border: "#bbf7d0", color: "#15803d" },
-  red:    { bg: "#fef2f2", border: "#fecaca", color: "#b91c1c" },
-  yellow: { bg: "#fefce8", border: "#fde68a", color: "#a16207" },
-  blue:   { bg: "#eff6ff", border: "#bfdbfe", color: "#1d4ed8" },
-  gray:   { bg: "#f9fafb", border: "#e5e7eb", color: "#6b7280" },
+  green:  { bg: "#064e3b20", border: "#064e3b60", color: "#34d399" },
+  red:    { bg: "#7f1d1d20", border: "#7f1d1d60", color: "#f87171" },
+  yellow: { bg: "#451a0320", border: "#92400e60", color: "#fbbf24" },
+  blue:   { bg: "#1e3a5f20", border: "#1e40af60", color: "#60a5fa" },
+  gray:   { bg: "#1f2937",   border: "#374151",   color: "#9ca3af" },
 };
 
 // ── Pair suggestions ──────────────────────────────────────────────────────────
@@ -136,39 +136,40 @@ function FeaturedWorkflows() {
   return (
     <section style={{ marginBottom: 40 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif" }}>Featured Workflows</div>
-        <div style={{ fontSize: 12, color: "#9ca3af", fontFamily: "system-ui, -apple-system, sans-serif" }}>combine agents for a complete picture</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#f9fafb", fontFamily: "system-ui, -apple-system, sans-serif" }}>Featured Workflows</div>
+        <div style={{ fontSize: 12, color: "#6b7280", fontFamily: "system-ui, -apple-system, sans-serif" }}>combine agents for a complete picture</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 12 }}>
         {WORKFLOWS.map(w => (
           <a key={w.name} href="/build" style={{ textDecoration: "none" }}>
             <div
               style={{
-                background: "#fff",
+                background: "#111827",
                 borderLeft: `4px solid ${w.color}`,
-                borderTop: "1px solid #e5e7eb",
-                borderRight: "1px solid #e5e7eb",
-                borderBottom: "1px solid #e5e7eb",
+                borderTop: "1px solid #1f2937",
+                borderRight: "1px solid #1f2937",
+                borderBottom: "1px solid #1f2937",
                 borderRadius: "0 16px 16px 0",
                 padding: "20px",
                 cursor: "pointer",
                 transition: "all 0.18s",
                 position: "relative",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
               }}
               onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 8px 24px ${w.color}22`; e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.07)"; e.currentTarget.style.transform = "none"; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.3)"; e.currentTarget.style.transform = "none"; }}
             >
               <div style={{ position: "absolute", top: 16, right: 16, fontSize: 10, fontWeight: 700, color: w.color, fontFamily: "system-ui, -apple-system, sans-serif" }}>
                 Build this →
               </div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 4, fontFamily: "system-ui, -apple-system, sans-serif", paddingRight: 60 }}>{w.name}</div>
-              <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5, marginBottom: 14, fontFamily: "system-ui, -apple-system, sans-serif" }}>{w.tagline}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#f9fafb", marginBottom: 4, fontFamily: "system-ui, -apple-system, sans-serif", paddingRight: 60 }}>{w.name}</div>
+              <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.5, marginBottom: 14, fontFamily: "system-ui, -apple-system, sans-serif" }}>{w.tagline}</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
                 {w.steps.map((s, i) => (
                   <span key={s} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <span style={{
-                      background: `${w.color}15`, color: w.color,
+                      background: `${w.color}18`, color: w.color,
+                      border: `1px solid ${w.color}25`,
                       fontSize: 10, fontWeight: 600, padding: "2px 8px",
                       borderRadius: 4, fontFamily: "system-ui, -apple-system, sans-serif",
                     }}>{s}</span>
@@ -226,23 +227,23 @@ function TryAgentModal({ agent, allAgents, onClose }) {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
-        background: "#fff", borderRadius: 20, width: "100%", maxWidth: 480,
+        background: "#111827", border: "1px solid #1f2937", borderRadius: 20, width: "100%", maxWidth: 480,
         maxHeight: "92vh", overflowY: "auto",
-        boxShadow: "0 32px 80px rgba(0,0,0,0.28)",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.7)",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}>
 
         {/* Header */}
-        <div style={{ padding: "24px 24px 20px", borderBottom: "1px solid #f3f4f6", position: "sticky", top: 0, background: "#fff", borderRadius: "20px 20px 0 0", zIndex: 1 }}>
+        <div style={{ padding: "24px 24px 20px", borderBottom: "1px solid #1f2937", position: "sticky", top: 0, background: "#111827", borderRadius: "20px 20px 0 0", zIndex: 1 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
               <CatIcon category={agent.category} size={44} />
               <div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#111827", lineHeight: 1.2 }}>{purpose.displayName}</div>
-                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 3 }}>{purpose.tagline}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#f9fafb", lineHeight: 1.2 }}>{purpose.displayName}</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>{purpose.tagline}</div>
               </div>
             </div>
-            <button onClick={onClose} style={{ background: "#f3f4f6", border: "none", width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 18, color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
+            <button onClick={onClose} style={{ background: "#1f2937", border: "none", width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 18, color: "#9ca3af", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
           </div>
         </div>
 
@@ -251,13 +252,13 @@ function TryAgentModal({ agent, allAgents, onClose }) {
 
           {/* Market picker */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 8 }}>Which market?</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#e5e7eb", marginBottom: 8 }}>Which market?</div>
             <div style={{ display: "flex", gap: 6 }}>
               {MARKETS.map(m => (
                 <button key={m} onClick={() => { setMarket(m); setResult(null); }} style={{
                   flex: 1, padding: "10px 0", borderRadius: 9,
-                  border: market === m ? `2px solid ${c.color}` : "2px solid #e5e7eb",
-                  background: market === m ? c.color : "#fff",
+                  border: market === m ? `2px solid ${c.color}` : "2px solid #1f2937",
+                  background: market === m ? c.color : "#1a1a2e",
                   color: market === m ? "#fff" : "#6b7280",
                   fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.12s",
                   fontFamily: "system-ui, -apple-system, sans-serif",
@@ -268,8 +269,8 @@ function TryAgentModal({ agent, allAgents, onClose }) {
 
           {/* Context line */}
           {!result && !running && (
-            <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 12, color: "#6b7280", lineHeight: 1.6 }}>
-              You'll get a <strong style={{ color: "#374151" }}>{purpose.displayName.toLowerCase()}</strong> result for <strong style={{ color: "#374151" }}>{market}</strong> from a live market API. No setup needed.
+            <div style={{ background: "#1a1a2e", border: "1px solid #1f2937", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 12, color: "#6b7280", lineHeight: 1.6 }}>
+              You'll get a <strong style={{ color: "#e5e7eb" }}>{purpose.displayName.toLowerCase()}</strong> result for <strong style={{ color: "#e5e7eb" }}>{market}</strong> from a live market API. No setup needed.
             </div>
           )}
 
@@ -291,7 +292,7 @@ function TryAgentModal({ agent, allAgents, onClose }) {
           </div>
 
           {error && (
-            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#b91c1c", marginBottom: 16 }}>{error}</div>
+            <div style={{ background: "#7f1d1d20", border: "1px solid #7f1d1d60", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#f87171", marginBottom: 16 }}>{error}</div>
           )}
 
           {result && (
@@ -309,16 +310,16 @@ function TryAgentModal({ agent, allAgents, onClose }) {
 
               {/* Raw data */}
               {entries.length > 0 && (
-                <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 12, overflow: "hidden" }}>
-                  <div style={{ padding: "10px 14px", borderBottom: "1px solid #f3f4f6", fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1 }}>
+                <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ padding: "10px 14px", borderBottom: "1px solid #1f2937", fontSize: 10, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1 }}>
                     Raw Data — {market}
                   </div>
                   {entries.map(([k, v], i) => {
                     const def = KEY_MAP[k];
                     return (
-                      <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: i < entries.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                        <span style={{ fontSize: 12, color: "#9ca3af" }}>{def.label}</span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{def.fmt(v)}</span>
+                      <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: i < entries.length - 1 ? "1px solid #1a1a2e" : "none" }}>
+                        <span style={{ fontSize: 12, color: "#6b7280" }}>{def.label}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#f9fafb" }}>{def.fmt(v)}</span>
                       </div>
                     );
                   })}
@@ -327,21 +328,21 @@ function TryAgentModal({ agent, allAgents, onClose }) {
 
               {/* Combine with */}
               {pairSuggestions.length > 0 && (
-                <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 12, padding: "14px 16px" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Combine it with</div>
-                  <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>Add these to build a complete signal:</div>
+                <div style={{ background: "#0c1a2e", border: "1px solid #1e40af40", borderRadius: 12, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Combine it with</div>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 10 }}>Add these to build a complete signal:</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                     {pairSuggestions.map(a => {
                       const pc = cat(a.category);
                       const pp = agentPurpose(a);
                       return (
-                        <span key={a.id} style={{ background: pc.pill, color: pc.color, border: `1px solid ${pc.color}30`, borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 600, fontFamily: "system-ui, -apple-system, sans-serif" }}>
+                        <span key={a.id} style={{ background: `${pc.color}18`, color: pc.color, border: `1px solid ${pc.color}30`, borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 600, fontFamily: "system-ui, -apple-system, sans-serif" }}>
                           {pp.displayName}
                         </span>
                       );
                     })}
                   </div>
-                  <a href="/build" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "#0ea5e9", color: "#fff", borderRadius: 10, padding: "11px", fontSize: 12, fontWeight: 700, textDecoration: "none", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+                  <a href="/build" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "#6366f1", color: "#fff", borderRadius: 10, padding: "11px", fontSize: 12, fontWeight: 700, textDecoration: "none", fontFamily: "system-ui, -apple-system, sans-serif" }}>
                     Build this pipeline →
                   </a>
                 </div>
@@ -367,14 +368,15 @@ function AgentCard({ agent, onTry }) {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background: "#fff",
+        background: "#111827",
+        border: `1px solid ${hov ? "#374151" : "#1f2937"}`,
         borderRadius: 16,
         padding: "16px",
         display: "flex", flexDirection: "column",
         transition: "all 0.18s",
-        boxShadow: hov ? `0 8px 28px rgba(0,0,0,0.11)` : "0 2px 12px rgba(0,0,0,0.07)",
+        boxShadow: hov ? `0 8px 28px rgba(0,0,0,0.4)` : "0 2px 12px rgba(0,0,0,0.2)",
         fontFamily: "system-ui, -apple-system, sans-serif",
-        transform: hov ? "translateY(-1px)" : "none",
+        transform: hov ? "translateY(-2px)" : "none",
       }}
     >
       {/* Icon row + TRY button */}
@@ -385,7 +387,7 @@ function AgentCard({ agent, onTry }) {
             <div title="Active agent" style={{
               position: "absolute", bottom: -2, right: -2,
               width: 14, height: 14, borderRadius: "50%",
-              background: "#10b981", border: "2px solid #fff",
+              background: "#10b981", border: "2px solid #111827",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <span style={{ color: "#fff", fontSize: 7, fontWeight: 900 }}>✓</span>
@@ -399,7 +401,7 @@ function AgentCard({ agent, onTry }) {
           style={{
             padding: "6px 12px", borderRadius: 20,
             border: `1.5px solid ${c.color}`,
-            background: tryHov ? c.color : "#fff",
+            background: tryHov ? c.color : "transparent",
             color: tryHov ? "#fff" : c.color,
             fontSize: 10, fontWeight: 700, cursor: "pointer",
             transition: "all 0.12s",
@@ -412,13 +414,13 @@ function AgentCard({ agent, onTry }) {
       </div>
 
       {/* Name */}
-      <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", lineHeight: 1.3, marginBottom: 4 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: "#f9fafb", lineHeight: 1.3, marginBottom: 4 }}>
         {purpose.displayName}
       </div>
 
       {/* Category pill */}
       <div style={{ marginBottom: 6 }}>
-        <span style={{ background: c.pill, color: c.color, fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.7 }}>
+        <span style={{ background: `${c.color}18`, color: c.color, fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.7 }}>
           {c.label}
         </span>
       </div>
@@ -429,21 +431,23 @@ function AgentCard({ agent, onTry }) {
       </div>
 
       {/* Divider */}
-      <div style={{ height: 1, background: "#f3f4f6", marginBottom: 10 }} />
+      <div style={{ height: 1, background: "#1f2937", marginBottom: 10 }} />
 
       {/* Credits */}
-      <div style={{ fontSize: 10, color: "#d1d5db", marginBottom: 8 }}>
-        {toCredits(agent.price_per_request)} cr/call
+      <div style={{ fontSize: 10, color: "#4b5563", marginBottom: 8 }}>
+        {toCredits(agent.price_per_request)} cr / call
       </div>
 
       {/* Pipeline link */}
       <a href="/build" style={{
-        display: "block", textAlign: "center",
-        color: c.color, fontSize: 10, fontWeight: 600,
-        textDecoration: "none",
+        display: "block", textAlign: "center", marginTop: 2,
+        color: "#6b7280", fontSize: 10, fontWeight: 600,
+        textDecoration: "none", padding: "5px 0",
+        borderTop: "1px solid #1f2937",
         fontFamily: "system-ui, -apple-system, sans-serif",
+        transition: "color 0.12s",
       }}>
-        + Pipeline
+        + add to pipeline
       </a>
     </div>
   );
@@ -469,8 +473,8 @@ function FilterTabs({ active, onChange }) {
           <button key={id} onClick={() => onChange(id)} style={{
             padding: "7px 16px", borderRadius: 20, fontSize: 12, fontWeight: 600,
             cursor: "pointer", transition: "all 0.12s",
-            border: on ? `1.5px solid ${color}` : "1.5px solid #e5e7eb",
-            background: on ? color : "#fff",
+            border: on ? `1.5px solid ${color}` : "1.5px solid #1f2937",
+            background: on ? color : "#111827",
             color: on ? "#fff" : "#6b7280",
             fontFamily: "system-ui, -apple-system, sans-serif",
           }}>
@@ -517,19 +521,19 @@ export default function MarketplaceView() {
   const showComposites = filter === "all" && composites.length > 0;
 
   return (
-    <div style={{ height: "100%", overflowY: "auto", background: "#f5f5f7", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+    <div style={{ height: "100%", overflowY: "auto", background: "#0a0a0f", fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
       {/* Hero */}
-      <div style={{ background: "#fff", padding: "32px 40px", borderBottom: "1px solid #e5e7eb" }}>
+      <div style={{ background: "#0a0a0f", padding: "32px 40px", borderBottom: "1px solid #1a1a2e" }}>
         {!backendOk && (
-          <div style={{ marginBottom: 16, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 16px", color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>
+          <div style={{ marginBottom: 16, background: "#7f1d1d20", border: "1px solid #7f1d1d60", borderRadius: 10, padding: "10px 16px", color: "#f87171", fontSize: 12, fontWeight: 600 }}>
             Backend offline — agents unavailable right now.
           </div>
         )}
 
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, marginBottom: 20, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#111827", letterSpacing: "-0.5px", marginBottom: 4 }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#f9fafb", letterSpacing: "-0.5px", marginBottom: 4 }}>
               Agent Store
             </div>
             <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.5 }}>
@@ -543,11 +547,12 @@ export default function MarketplaceView() {
               { value: "Pay per use", label: null },
             ].map((s, i) => (
               <div key={i} style={{
-                background: "#f5f5f7", borderRadius: 20, padding: "6px 14px",
-                fontSize: 12, fontWeight: 600, color: "#374151",
+                background: "#111827", border: "1px solid #1f2937", borderRadius: 20, padding: "6px 14px",
+                fontSize: 12, fontWeight: 600, color: "#9ca3af",
                 display: "flex", alignItems: "center", gap: 6,
+                fontFamily: "system-ui, -apple-system, sans-serif",
               }}>
-                {s.label ? <><span style={{ fontWeight: 800, color: "#111827" }}>{s.value}</span> <span style={{ color: "#6b7280" }}>{s.label}</span></> : s.value}
+                {s.label ? <><span style={{ fontWeight: 800, color: "#f9fafb" }}>{s.value}</span> <span style={{ color: "#6b7280" }}>{s.label}</span></> : s.value}
               </div>
             ))}
           </div>
@@ -567,17 +572,17 @@ export default function MarketplaceView() {
               width: "100%",
               padding: "11px 16px 11px 38px",
               borderRadius: 999,
-              border: "1.5px solid #e5e7eb",
-              background: "#f9fafb",
+              border: "1.5px solid #1f2937",
+              background: "#111827",
               fontSize: 14,
-              color: "#111827",
+              color: "#f3f4f6",
               outline: "none",
               fontFamily: "system-ui, -apple-system, sans-serif",
               boxSizing: "border-box",
               transition: "border-color 0.15s",
             }}
-            onFocus={e => e.target.style.borderColor = "#3b82f6"}
-            onBlur={e => e.target.style.borderColor = "#e5e7eb"}
+            onFocus={e => e.target.style.borderColor = "#374151"}
+            onBlur={e => e.target.style.borderColor = "#1f2937"}
           />
           {search && (
             <button
@@ -591,13 +596,13 @@ export default function MarketplaceView() {
       </div>
 
       {/* Content */}
-      <div style={{ padding: "32px 40px", maxWidth: 1200, margin: "0 auto" }}>
+      <div style={{ padding: "32px 40px", maxWidth: 1200, margin: "0 auto", background: "#0a0a0f" }}>
 
         <FeaturedWorkflows />
 
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>All Agents</div>
-          <div style={{ fontSize: 12, color: "#9ca3af" }}>pick one and try it in one click</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#f9fafb" }}>All Agents</div>
+          <div style={{ fontSize: 12, color: "#6b7280" }}>pick one and try it in one click</div>
           {search && <div style={{ fontSize: 12, color: "#6b7280", marginLeft: 4 }}>— {visible.length} result{visible.length !== 1 ? "s" : ""} for "{search}"</div>}
         </div>
 
@@ -606,7 +611,7 @@ export default function MarketplaceView() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14, marginBottom: 28 }}>
           {visible.map(a => <AgentCard key={a.id} agent={a} onTry={setTryAgent} />)}
           {visible.length === 0 && (
-            <div style={{ gridColumn: "1 / -1", background: "#fff", borderRadius: 16, padding: "48px", textAlign: "center", color: "#9ca3af", fontSize: 13, boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
+            <div style={{ gridColumn: "1 / -1", background: "#111827", border: "1px solid #1f2937", borderRadius: 16, padding: "48px", textAlign: "center", color: "#6b7280", fontSize: 13 }}>
               {search ? `No agents match "${search}".` : "No agents in this category yet."}
             </div>
           )}
@@ -614,8 +619,8 @@ export default function MarketplaceView() {
 
         {showComposites && (
           <>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, paddingTop: 12, borderTop: "1px solid #e5e7eb" }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>Full Workflows</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, paddingTop: 12, borderTop: "1px solid #1f2937" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#f9fafb" }}>Full Workflows</div>
               <div style={{ fontSize: 12, color: "#9ca3af" }}>Multi-agent pipelines deployed as a single callable agent</div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14, marginBottom: 28 }}>

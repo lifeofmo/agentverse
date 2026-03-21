@@ -15,13 +15,13 @@ const CAT = {
 const cat = (c) => CAT[c] ?? CAT.default;
 
 const FIELD = {
-  width: "100%", border: "1px solid #e6d6bd", borderRadius: 8,
+  width: "100%", border: "1px solid #374151", borderRadius: 8,
   padding: "7px 10px", fontSize: 12, outline: "none",
-  fontFamily: "inherit", background: "#f8f6f2", color: "#2d3a4a",
+  fontFamily: "inherit", background: "#1f2937", color: "#f3f4f6",
   boxSizing: "border-box",
 };
-const BTN = (color = "#4a9fd4", disabled = false) => ({
-  background: disabled ? "#e6d6bd" : color, color: "#fff", border: "none",
+const BTN = (color = "#6366f1", disabled = false) => ({
+  background: disabled ? "#374151" : color, color: "#fff", border: "none",
   borderRadius: 9, padding: "9px 18px", fontSize: 12, fontWeight: 700,
   cursor: disabled ? "default" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1,
 });
@@ -41,7 +41,7 @@ function CatDot({ category, size = 30 }) {
   );
 }
 
-function Pill({ label, value, color = "#4a9fd4" }) {
+function Pill({ label, value, color = "#6366f1" }) {
   return (
     <div style={{ background: `${color}0f`, border: `1px solid ${color}30`, borderRadius: 10, padding: "10px 16px", minWidth: 100 }}>
       <div style={{ color: "#9aabb8", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>{label}</div>
@@ -51,7 +51,7 @@ function Pill({ label, value, color = "#4a9fd4" }) {
 }
 
 function StatusBadge({ status }) {
-  const map = { active: ["#d1fae5", "#065f46"], degraded: ["#fef3c7", "#92400e"], offline: ["#fee2e2", "#991b1b"], pending: ["#e0f2fe", "#0369a1"] };
+  const map = { active: ["#064e3b30", "#34d399"], degraded: ["#451a0330", "#fbbf24"], offline: ["#7f1d1d30", "#f87171"], pending: ["#1e3a5f30", "#60a5fa"] };
   const [bg, fg] = map[status] ?? map.pending;
   return <span style={{ padding: "2px 10px", borderRadius: 20, background: bg, color: fg, fontSize: 10, fontWeight: 700 }}>{status ?? "unknown"}</span>;
 }
@@ -112,8 +112,8 @@ function AuthPanel({ onAuth }) {
   const subs   = { login: "Access your agents, keys, and revenue.", register: "Start publishing agents to AgentVerse.", forgot: "Enter your email and we'll generate a reset token.", reset: "Enter your reset token and choose a new password." };
 
   return (
-    <div style={{ maxWidth: 360, margin: "0 auto", background: "#fff", borderRadius: 16, padding: "28px 28px", border: "1px solid #e6d6bd", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
-      <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>{titles[mode]}</div>
+    <div style={{ maxWidth: 360, margin: "0 auto", background: "#111827", borderRadius: 16, padding: "28px 28px", border: "1px solid #1f2937", boxShadow: "0 4px 20px rgba(0,0,0,0.4)" }}>
+      <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>{titles[mode]}</div>
       <div style={{ color: "#9aabb8", fontSize: 12, marginBottom: 20 }}>{subs[mode]}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {(mode === "login" || mode === "register" || mode === "forgot") && (
@@ -129,27 +129,27 @@ function AuthPanel({ onAuth }) {
           <div><Label>Reset Token</Label><input value={form.resetToken} onChange={e => set("resetToken", e.target.value)} placeholder="Paste token here" style={FIELD} /></div>
           <div><Label>New Password</Label><input type="password" value={form.newPassword} onChange={e => set("newPassword", e.target.value)} placeholder="••••••••" style={FIELD} onKeyDown={e => e.key === "Enter" && submit()} /></div>
         </>)}
-        {err && <div style={{ color: "#991b1b", fontSize: 11, background: "#fee2e2", borderRadius: 7, padding: "6px 10px" }}>{err}</div>}
-        {ok  && <div style={{ color: "#065f46", fontSize: 11, background: "#d1fae5", borderRadius: 7, padding: "8px 10px", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{ok}</div>}
-        <button onClick={submit} disabled={busy} style={{ ...BTN("#4a9fd4", busy), marginTop: 4 }}>
+        {err && <div style={{ color: "#fca5a5", fontSize: 11, background: "#450a0a", border: "1px solid #ef4444", borderRadius: 7, padding: "6px 10px" }}>{err}</div>}
+        {ok  && <div style={{ color: "#6ee7b7", fontSize: 11, background: "#064e3b20", border: "1px solid #064e3b80", borderRadius: 7, padding: "8px 10px", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{ok}</div>}
+        <button onClick={submit} disabled={busy} style={{ ...BTN("#6366f1", busy), marginTop: 4 }}>
           {busy ? "…" : { login: "Sign In", register: "Create Account", forgot: "Send Reset Token", reset: "Set New Password" }[mode]}
         </button>
         <div style={{ textAlign: "center", color: "#9aabb8", fontSize: 11, display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
           {mode === "login" && (<>
-            <span>No account? <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("register"); setErr(""); setOk(""); }}>Register</span></span>
+            <span>No account? <span style={{ color: "#818cf8", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("register"); setErr(""); setOk(""); }}>Register</span></span>
             <span>·</span>
-            <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("forgot"); setErr(""); setOk(""); }}>Forgot password?</span>
+            <span style={{ color: "#818cf8", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("forgot"); setErr(""); setOk(""); }}>Forgot password?</span>
           </>)}
           {mode === "register" && (
-            <span>Have an account? <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("login"); setErr(""); setOk(""); }}>Sign in</span></span>
+            <span>Have an account? <span style={{ color: "#818cf8", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("login"); setErr(""); setOk(""); }}>Sign in</span></span>
           )}
           {mode === "forgot" && (<>
-            <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("reset"); setErr(""); setOk(""); }}>Enter reset token →</span>
+            <span style={{ color: "#818cf8", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("reset"); setErr(""); setOk(""); }}>Enter reset token →</span>
             <span>·</span>
-            <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("login"); setErr(""); setOk(""); }}>Back to sign in</span>
+            <span style={{ color: "#818cf8", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("login"); setErr(""); setOk(""); }}>Back to sign in</span>
           </>)}
           {mode === "reset" && (
-            <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("login"); setErr(""); setOk(""); }}>Back to sign in</span>
+            <span style={{ color: "#818cf8", cursor: "pointer", fontWeight: 700 }} onClick={() => { setMode("login"); setErr(""); setOk(""); }}>Back to sign in</span>
           )}
         </div>
       </div>
@@ -189,33 +189,33 @@ function ApiKeyManager({ token }) {
 
   return (
     <div>
-      <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 14, marginBottom: 14 }}>API Keys</div>
+      <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14, marginBottom: 14 }}>API Keys</div>
       {newKey && (
-        <div style={{ background: "#d1fae5", border: "1px solid #6BCF8B", borderRadius: 9, padding: "10px 14px", marginBottom: 14 }}>
-          <div style={{ color: "#065f46", fontWeight: 700, fontSize: 11, marginBottom: 4 }}>🔑 New key — save it now, it won't be shown again.</div>
-          <code style={{ fontSize: 11, wordBreak: "break-all", color: "#065f46" }}>{newKey}</code>
-          <button onClick={() => { navigator.clipboard.writeText(newKey); }} style={{ marginLeft: 10, fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #6BCF8B", background: "transparent", cursor: "pointer", color: "#065f46", fontWeight: 700 }}>Copy</button>
+        <div style={{ background: "#064e3b20", border: "1px solid #064e3b80", borderRadius: 9, padding: "10px 14px", marginBottom: 14 }}>
+          <div style={{ color: "#34d399", fontWeight: 700, fontSize: 11, marginBottom: 4 }}>🔑 New key — save it now, it won't be shown again.</div>
+          <code style={{ fontSize: 11, wordBreak: "break-all", color: "#6ee7b7" }}>{newKey}</code>
+          <button onClick={() => { navigator.clipboard.writeText(newKey); }} style={{ marginLeft: 10, fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #064e3b80", background: "transparent", cursor: "pointer", color: "#34d399", fontWeight: 700 }}>Copy</button>
         </div>
       )}
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Key name (e.g. Production)" style={{ ...FIELD, flex: 1 }} onKeyDown={e => e.key === "Enter" && create()} />
-        <button onClick={create} disabled={busy} style={BTN("#4a9fd4", busy)}>+ Create</button>
+        <button onClick={create} disabled={busy} style={BTN("#6366f1", busy)}>+ Create</button>
       </div>
       {keys.length === 0 ? (
         <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic" }}>No API keys yet.</div>
       ) : keys.map(k => (
-        <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#f8f6f2", borderRadius: 8, marginBottom: 6 }}>
+        <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#1a1a2e", borderRadius: 8, marginBottom: 6 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#6BCF8B", flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
-            <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12 }}>{k.name}</div>
+            <div style={{ color: "#f3f4f6", fontWeight: 700, fontSize: 12 }}>{k.name}</div>
             <div style={{ color: "#9aabb8", fontSize: 10 }}>Created {k.created_at?.slice(0, 10)} · Last used {k.last_used?.slice(0, 10) ?? "never"}</div>
           </div>
-          <button onClick={() => revoke(k.id)} style={{ background: "none", border: "1px solid #e6d6bd", color: "#E67B7B", borderRadius: 6, padding: "3px 10px", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>Revoke</button>
+          <button onClick={() => revoke(k.id)} style={{ background: "none", border: "1px solid #374151", color: "#E67B7B", borderRadius: 6, padding: "3px 10px", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>Revoke</button>
         </div>
       ))}
-      <div style={{ marginTop: 12, padding: "10px 14px", background: "#f0f8ff", borderRadius: 8, border: "1px solid #6BB6E640" }}>
-        <div style={{ color: "#2d5a7a", fontSize: 11, fontWeight: 700, marginBottom: 3 }}>Using your API key</div>
-        <code style={{ color: "#4a9fd4", fontSize: 10 }}>Authorization: ApiKey av_your_key_here</code>
+      <div style={{ marginTop: 12, padding: "10px 14px", background: "#0c1a2e", borderRadius: 8, border: "1px solid #6BB6E640" }}>
+        <div style={{ color: "#38bdf8", fontSize: 11, fontWeight: 700, marginBottom: 3 }}>Using your API key</div>
+        <code style={{ color: "#818cf8", fontSize: 10 }}>Authorization: ApiKey av_your_key_here</code>
       </div>
     </div>
   );
@@ -270,9 +270,9 @@ function RegisterForm({ token, onDone }) {
           <div style={{ color: "#9aabb8", fontSize: 10, marginTop: 3 }}>Callers pay you directly in USDC on Base. Leave blank to use the internal credit system.</div>
         </div>
       </div>
-      {err && <div style={{ color: "#991b1b", fontSize: 11, background: "#fee2e2", borderRadius: 7, padding: "6px 10px" }}>{err}</div>}
-      {ok  && <div style={{ color: "#065f46", fontSize: 11, background: "#d1fae5", borderRadius: 7, padding: "6px 10px" }}>{ok}</div>}
-      <button onClick={submit} disabled={busy} style={{ ...BTN("#4a9fd4", busy), alignSelf: "flex-end" }}>{busy ? "Registering…" : "Register Agent"}</button>
+      {err && <div style={{ color: "#fca5a5", fontSize: 11, background: "#450a0a", border: "1px solid #ef4444", borderRadius: 7, padding: "6px 10px" }}>{err}</div>}
+      {ok  && <div style={{ color: "#6ee7b7", fontSize: 11, background: "#064e3b20", border: "1px solid #064e3b80", borderRadius: 7, padding: "6px 10px" }}>{ok}</div>}
+      <button onClick={submit} disabled={busy} style={{ ...BTN("#6366f1", busy), alignSelf: "flex-end" }}>{busy ? "Registering…" : "Register Agent"}</button>
     </div>
   );
 }
@@ -285,15 +285,15 @@ function AgentRow({ agent, metrics, selected, onClick }) {
   const on = selected?.id === agent.id;
   return (
     <div onClick={() => onClick(agent)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", background: on ? `${c.border}18` : "transparent", borderLeft: on ? `3px solid ${c.border}` : "3px solid transparent", borderRadius: 8, transition: "background 0.12s" }}
-      onMouseEnter={e => { if (!on) e.currentTarget.style.background = "#f8f6f2"; }}
+      onMouseEnter={e => { if (!on) e.currentTarget.style.background = "#1f2937"; }}
       onMouseLeave={e => { if (!on) e.currentTarget.style.background = "transparent"; }}>
       <CatDot category={agent.category} size={30} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{agent.name}</div>
+        <div style={{ color: "#f3f4f6", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{agent.name}</div>
         <div style={{ color: "#9aabb8", fontSize: 10, marginTop: 1 }}>${agent.price_per_request} / call</div>
       </div>
       <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12 }}>{m.requests || 0}</div>
+        <div style={{ color: "#f3f4f6", fontWeight: 700, fontSize: 12 }}>{m.requests || 0}</div>
         <div style={{ color: c.border, fontSize: 10, fontWeight: 700 }}>${(m.earnings || 0).toFixed(4)}</div>
       </div>
     </div>
@@ -334,7 +334,7 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
         <CatDot category={agent.category} size={44} />
         <div style={{ flex: 1 }}>
-          <div style={{ color: "#2d3a4a", fontWeight: 800, fontSize: 18 }}>{agent.name}</div>
+          <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 18 }}>{agent.name}</div>
           <span style={{ display: "inline-block", marginTop: 3, background: `${c.border}18`, color: c.border, borderRadius: 4, padding: "1px 8px", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>{agent.category}</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
@@ -344,10 +344,10 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
           </button>
           {token && (
             <button onClick={handleDelete} disabled={deleting} style={{
-              ...BTN(confirmDel ? "#dc2626" : "#e5e7eb", deleting),
+              ...BTN(confirmDel ? "#dc2626" : "transparent", deleting),
               padding: "5px 12px", fontSize: 10,
               color: confirmDel ? "#fff" : "#9aabb8",
-              border: `1px solid ${confirmDel ? "#dc2626" : "#e5e7eb"}`,
+              border: `1px solid ${confirmDel ? "#dc2626" : "#374151"}`,
             }}>
               {deleting ? "Removing…" : confirmDel ? "Confirm remove" : "Undeploy"}
             </button>
@@ -356,11 +356,11 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
       </div>
 
       {health && (
-        <div style={{ background: health.status === "active" ? "#d1fae5" : "#fee2e2", borderRadius: 8, padding: "8px 12px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: health.status === "active" ? "#065f46" : "#991b1b" }}>
+        <div style={{ background: health.status === "active" ? "#064e3b20" : "#7f1d1d20", border: `1px solid ${health.status === "active" ? "#064e3b60" : "#7f1d1d60"}`, borderRadius: 8, padding: "8px 12px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: health.status === "active" ? "#34d399" : "#f87171" }}>
             {health.status === "active" ? "✓ Online" : "✗ Unreachable"} — {health.latency_ms}ms
           </span>
-          <span style={{ fontSize: 10, color: "#9aabb8" }}>{health.endpoint}</span>
+          <span style={{ fontSize: 10, color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{health.endpoint}</span>
         </div>
       )}
 
@@ -368,10 +368,10 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
       {(() => {
         const isX402 = agent.owner_wallet?.startsWith("0x") && agent.owner_wallet?.length === 42;
         return (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, padding: "8px 12px", borderRadius: 9, background: isX402 ? "#fdf4ff" : "#eff6ff", border: `1px solid ${isX402 ? "#e9d5ff" : "#bfdbfe"}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, padding: "8px 12px", borderRadius: 9, background: isX402 ? "#2e106520" : "#1e3a5f20", border: `1px solid ${isX402 ? "#7c3aed40" : "#1e40af40"}` }}>
             <span style={{ fontSize: 16 }}>{isX402 ? "⚡" : "💳"}</span>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 12, color: isX402 ? "#7c3aed" : "#2563eb" }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: isX402 ? "#c084fc" : "#60a5fa" }}>
                 {isX402 ? "x402 USDC Payments" : "Credits (simulated)"}
               </div>
               <div style={{ fontSize: 10, color: "#9aabb8", marginTop: 1 }}>
@@ -386,12 +386,12 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
         {[
-          ["Total Calls",  m.requests || 0,                                        "#4a9fd4"],
+          ["Total Calls",  m.requests || 0,                                        "#6366f1"],
           ["Earnings",     `${Math.round((m.earnings || 0) * 100)} credits`,       "#6BCF8B"],
           ["Avg Latency",  m.avg_latency_ms ? `${m.avg_latency_ms}ms` : "—",      "#B59CE6"],
           ["Success Rate", m.success_rate != null ? `${(m.success_rate * 100).toFixed(1)}%` : "—", "#E6C36B"],
         ].map(([k, v, color]) => (
-          <div key={k} style={{ background: "#f8f6f2", borderRadius: 9, padding: "10px 12px" }}>
+          <div key={k} style={{ background: "#1a1a2e", borderRadius: 9, padding: "10px 12px" }}>
             <div style={{ color: "#9aabb8", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 3 }}>{k}</div>
             <div style={{ color, fontWeight: 800, fontSize: 16 }}>{String(v)}</div>
           </div>
@@ -406,18 +406,18 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
       <div style={{ marginBottom: 6 }}>
         <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 }}>Used in Pipelines</div>
         {pipelines.length === 0 ? (
-          <div style={{ color: "#c0ccd8", fontSize: 12, fontStyle: "italic", background: "#f8f6f2", borderRadius: 8, padding: "12px 14px" }}>Not used in any pipeline yet.</div>
+          <div style={{ color: "#c0ccd8", fontSize: 12, fontStyle: "italic", background: "#1a1a2e", borderRadius: 8, padding: "12px 14px" }}>Not used in any pipeline yet.</div>
         ) : pipelines.map(p => (
-          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f8f6f2", borderRadius: 8, marginBottom: 6 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4a9fd4", flexShrink: 0 }} />
-            <div style={{ color: "#2d3a4a", fontWeight: 600, fontSize: 13 }}>{p.name}</div>
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#1a1a2e", borderRadius: 8, marginBottom: 6 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#6366f1", flexShrink: 0 }} />
+            <div style={{ color: "#e5e7eb", fontWeight: 600, fontSize: 13 }}>{p.name}</div>
             <div style={{ color: "#9aabb8", fontSize: 10, marginLeft: "auto" }}>{p.agent_ids?.length ?? "?"} agents</div>
           </div>
         ))}
       </div>
 
       {agent.description && (
-        <div style={{ color: "#9aabb8", fontSize: 12, lineHeight: 1.6, padding: "10px 14px", background: "#f8f6f2", borderRadius: 8, marginTop: 10 }}>{agent.description}</div>
+        <div style={{ color: "#9aabb8", fontSize: 12, lineHeight: 1.6, padding: "10px 14px", background: "#1a1a2e", borderRadius: 8, marginTop: 10 }}>{agent.description}</div>
       )}
 
       <div style={{ marginTop: 20 }}>
@@ -444,7 +444,7 @@ function AgentLogs({ agentId }) {
 
   if (loading) return <div style={{ color: "#c0ccd8", fontSize: 12, padding: "12px 0" }}>Loading logs…</div>;
   if (logs.length === 0) return (
-    <div style={{ color: "#c0ccd8", fontSize: 12, fontStyle: "italic", background: "#f8f6f2", borderRadius: 8, padding: "12px 14px" }}>
+    <div style={{ color: "#c0ccd8", fontSize: 12, fontStyle: "italic", background: "#1a1a2e", borderRadius: 8, padding: "12px 14px" }}>
       No calls yet. Once your agent is called, logs appear here.
     </div>
   );
@@ -459,12 +459,12 @@ function AgentLogs({ agentId }) {
           <div key={log.id} style={{
             display: "flex", alignItems: "center", gap: 8,
             padding: "7px 10px", borderRadius: 7,
-            background: ok ? "#f0fdf4" : "#fff5f5",
-            border: `1px solid ${ok ? "#bbf7d0" : "#fecaca"}`,
+            background: ok ? "#064e3b20" : "#7f1d1d20",
+            border: `1px solid ${ok ? "#064e3b60" : "#7f1d1d60"}`,
             fontSize: 11,
           }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: ok ? "#22c55e" : "#ef4444", flexShrink: 0 }} />
-            <span style={{ color: ok ? "#166534" : "#991b1b", fontWeight: 700, width: 44, flexShrink: 0 }}>{ok ? "OK" : "ERR"}</span>
+            <span style={{ color: ok ? "#34d399" : "#f87171", fontWeight: 700, width: 44, flexShrink: 0 }}>{ok ? "OK" : "ERR"}</span>
             <span style={{ color: "#6b7280", flexShrink: 0 }}>{date} {time}</span>
             <span style={{ color: "#9aabb8", marginLeft: "auto", flexShrink: 0 }}>{log.latency_ms}ms</span>
             <span style={{ color: "#6BCF8B", fontWeight: 700, flexShrink: 0 }}>${log.cost?.toFixed(4)}</span>
@@ -489,16 +489,16 @@ function Leaderboard({ agents, metrics }) {
     <div>
       <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 }}>Top Earning Agents</div>
       {sorted.length === 0 ? (
-        <div style={{ color: "#c0ccd8", fontSize: 12, fontStyle: "italic", background: "#f8f6f2", borderRadius: 8, padding: "16px 14px" }}>No agents registered yet.</div>
+        <div style={{ color: "#c0ccd8", fontSize: 12, fontStyle: "italic", background: "#1a1a2e", borderRadius: 8, padding: "16px 14px" }}>No agents registered yet.</div>
       ) : sorted.map((a, i) => {
         const m = metrics[a.id] || {};
         const c = cat(a.category);
         return (
-          <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: i === 0 ? "#fffdf5" : "#fafaf8", border: `1px solid ${i === 0 ? "#E6C36B40" : "#f0ece8"}`, borderRadius: 9, marginBottom: 6 }}>
+          <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: i === 0 ? "#1a1505" : "#111827", border: `1px solid ${i === 0 ? "#E6C36B40" : "#1f2937"}`, borderRadius: 9, marginBottom: 6 }}>
             <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, background: RANK[i] ?? "#d0ccc8", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9, fontWeight: 800 }}>{i + 1}</div>
             <CatDot category={a.category} size={26} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+              <div style={{ color: "#f3f4f6", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
               <div style={{ color: "#9aabb8", fontSize: 10 }}>{m.requests || 0} calls</div>
             </div>
             <div style={{ color: c.border, fontWeight: 800, fontSize: 13 }}>${(m.earnings || 0).toFixed(4)}</div>
@@ -520,10 +520,10 @@ function PlatformHealth() {
   }, []);
   if (!health) return null;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 16px", background: "#f0fdf4", border: "1px solid #6BCF8B30", borderRadius: 10, marginBottom: 20 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 16px", background: "#064e3b18", border: "1px solid #6BCF8B30", borderRadius: 10, marginBottom: 20 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#6BCF8B", boxShadow: "0 0 6px #6BCF8B" }} />
-        <span style={{ color: "#065f46", fontSize: 11, fontWeight: 700 }}>Platform {health.status}</span>
+        <span style={{ color: "#34d399", fontSize: 11, fontWeight: 700 }}>Platform {health.status}</span>
       </div>
       <span style={{ color: "#9aabb8", fontSize: 10 }}>v{health.version}</span>
       <span style={{ color: "#9aabb8", fontSize: 10 }}>{health.agents?.active}/{health.agents?.total} agents online</span>
@@ -553,8 +553,8 @@ function GuideSection({ step, title, children }) {
   return (
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#4a9fd4", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{step}</div>
-        <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 14 }}>{title}</div>
+        <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{step}</div>
+        <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14 }}>{title}</div>
       </div>
       <div style={{ paddingLeft: 36 }}>{children}</div>
     </div>
@@ -565,16 +565,16 @@ function DeployGuide() {
   const apiBase = API;
 
   return (
-    <div style={{ background: "#fff", borderRadius: 16, padding: "24px 28px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: 20 }}>
-      <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>How to Deploy an Agent</div>
+    <div style={{ background: "#111827", borderRadius: 16, padding: "24px 28px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)", marginBottom: 20 }}>
+      <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>How to Deploy an Agent</div>
       <div style={{ color: "#9aabb8", fontSize: 13, marginBottom: 24 }}>
         AgentVerse is an orchestration layer. Your agent runs anywhere — AWS, Cloudflare, Railway, local server.
         We only store the endpoint and call it.
       </div>
 
       <GuideSection step="1" title="Build your agent — any language, any host">
-        <div style={{ color: "#4b5563", fontSize: 13, marginBottom: 10 }}>
-          Your agent must expose a single <code style={{ background: "#f1f5f9", padding: "1px 5px", borderRadius: 4 }}>POST /run</code> endpoint that accepts JSON and returns JSON.
+        <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 10 }}>
+          Your agent must expose a single <code style={{ background: "#1e293b", padding: "1px 5px", borderRadius: 4, color: "#94a3b8" }}>POST /run</code> endpoint that accepts JSON and returns JSON.
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
@@ -608,33 +608,33 @@ app.post('/run', (req, res) => {
 app.listen(3001);`}</CodeBlock>
           </div>
         </div>
-        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#166534", marginTop: 4 }}>
+        <div style={{ background: "#064e3b20", border: "1px solid #064e3b60", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#34d399", marginTop: 4 }}>
           Works with: Python, Node, Go, Rust, LangChain, x402, Cloudflare Workers, AWS Lambda — anything with an HTTP endpoint.
         </div>
       </GuideSection>
 
       <GuideSection step="2" title="Deploy your agent publicly">
-        <div style={{ color: "#4b5563", fontSize: 13, marginBottom: 10 }}>Your endpoint must be reachable from the internet. Quick options:</div>
+        <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 10 }}>Your endpoint must be reachable from the internet. Quick options:</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 12 }}>
           {[
             { name: "Railway", desc: "Deploy from GitHub in 2 min", url: "railway.app" },
             { name: "Render", desc: "Free tier, auto-deploys", url: "render.com" },
             { name: "Cloudflare Workers", desc: "Edge, 0ms cold start", url: "workers.dev" },
           ].map(p => (
-            <div key={p.name} style={{ background: "#f8f6f2", borderRadius: 8, padding: "10px 12px", border: "1px solid #e6d6bd" }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: "#2d5a7a" }}>{p.name}</div>
+            <div key={p.name} style={{ background: "#1a1a2e", borderRadius: 8, padding: "10px 12px", border: "1px solid #374151" }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#e5e7eb" }}>{p.name}</div>
               <div style={{ fontSize: 11, color: "#9aabb8", marginTop: 2 }}>{p.desc}</div>
-              <div style={{ fontSize: 10, color: "#4a9fd4", marginTop: 4 }}>{p.url}</div>
+              <div style={{ fontSize: 10, color: "#818cf8", marginTop: 4 }}>{p.url}</div>
             </div>
           ))}
         </div>
-        <div style={{ color: "#4b5563", fontSize: 12 }}>
-          Once deployed you will have a URL like <code style={{ background: "#f1f5f9", padding: "1px 5px", borderRadius: 4 }}>https://my-agent.railway.app</code>
+        <div style={{ color: "#9ca3af", fontSize: 12 }}>
+          Once deployed you will have a URL like <code style={{ background: "#1e293b", padding: "1px 5px", borderRadius: 4, color: "#94a3b8" }}>https://my-agent.railway.app</code>
         </div>
       </GuideSection>
 
       <GuideSection step="3" title="Register your agent on AgentVerse">
-        <div style={{ color: "#4b5563", fontSize: 13, marginBottom: 10 }}>
+        <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 10 }}>
           POST to the registry with your endpoint URL. AgentVerse will probe it and set its status.
         </div>
         <CodeBlock>{`curl -X POST ${apiBase}/agents \\
@@ -649,14 +649,14 @@ app.listen(3001);`}</CodeBlock>
     "owner_wallet":      "0xYourBaseWalletAddress"
   }'`}</CodeBlock>
         <div style={{ color: "#4b5563", fontSize: 13, marginBottom: 8 }}>Or use the <strong>+ Register</strong> tab above to fill in a form.</div>
-        <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#1e40af", marginBottom: 10 }}>
-          Categories: <code>trading</code> · <code>analysis</code> · <code>data</code> · <code>risk</code> · <code>composite</code>
+        <div style={{ background: "#1e3a5f20", border: "1px solid #1e40af40", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#60a5fa", marginBottom: 10 }}>
+          Categories: <code style={{ background: "#1e293b", padding: "1px 5px", borderRadius: 3 }}>trading</code> · <code style={{ background: "#1e293b", padding: "1px 5px", borderRadius: 3 }}>analysis</code> · <code style={{ background: "#1e293b", padding: "1px 5px", borderRadius: 3 }}>data</code> · <code style={{ background: "#1e293b", padding: "1px 5px", borderRadius: 3 }}>risk</code> · <code style={{ background: "#1e293b", padding: "1px 5px", borderRadius: 3 }}>composite</code>
         </div>
-        <div style={{ background: "#fdf4ff", border: "1px solid #e9d5ff", borderRadius: 8, padding: "12px 14px", fontSize: 12 }}>
-          <div style={{ color: "#6b21a8", fontWeight: 800, marginBottom: 6 }}>⚡ x402 Payments (optional)</div>
-          <div style={{ color: "#7e22ce", lineHeight: 1.6 }}>
-            Set <code style={{ background: "#f3e8ff", padding: "1px 5px", borderRadius: 3 }}>owner_wallet</code> to a Base network address (0x…) to receive real USDC micropayments via the{" "}
-            <a href="https://x402.org" target="_blank" rel="noreferrer" style={{ color: "#7c3aed", fontWeight: 700 }}>x402 protocol</a>.
+        <div style={{ background: "#2e106520", border: "1px solid #7c3aed40", borderRadius: 8, padding: "12px 14px", fontSize: 12 }}>
+          <div style={{ color: "#c084fc", fontWeight: 800, marginBottom: 6 }}>⚡ x402 Payments (optional)</div>
+          <div style={{ color: "#a78bfa", lineHeight: 1.6 }}>
+            Set <code style={{ background: "#1e293b", padding: "1px 5px", borderRadius: 3, color: "#94a3b8" }}>owner_wallet</code> to a Base network address (0x…) to receive real USDC micropayments via the{" "}
+            <a href="https://x402.org" target="_blank" rel="noreferrer" style={{ color: "#c084fc", fontWeight: 700 }}>x402 protocol</a>.
             When enabled, callers must pay in USDC before your agent runs — no invoicing, no escrow.
             Earnings land directly in your wallet.
           </div>
@@ -664,13 +664,13 @@ app.listen(3001);`}</CodeBlock>
       </GuideSection>
 
       <GuideSection step="4" title="Your agent earns fees automatically">
-        <div style={{ color: "#4b5563", fontSize: 13, marginBottom: 10 }}>
+        <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 10 }}>
           Every time a pipeline calls your agent, the fee is split: <strong>90% to you, 10% to the platform</strong>. No manual billing.
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "14px 16px" }}>
-            <div style={{ fontWeight: 800, fontSize: 13, color: "#065f46", marginBottom: 6 }}>What AgentVerse handles</div>
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#166534", lineHeight: 2 }}>
+          <div style={{ background: "#064e3b18", border: "1px solid #064e3b60", borderRadius: 8, padding: "14px 16px" }}>
+            <div style={{ fontWeight: 800, fontSize: 13, color: "#10b981", marginBottom: 6 }}>What AgentVerse handles</div>
+            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#34d399", lineHeight: 2 }}>
               <li>Routing pipeline calls to your endpoint</li>
               <li>Billing and fee collection</li>
               <li>Metrics and reputation scoring</li>
@@ -678,9 +678,9 @@ app.listen(3001);`}</CodeBlock>
               <li>Marketplace listing</li>
             </ul>
           </div>
-          <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, padding: "14px 16px" }}>
-            <div style={{ fontWeight: 800, fontSize: 13, color: "#9a3412", marginBottom: 6 }}>What you handle</div>
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#c2410c", lineHeight: 2 }}>
+          <div style={{ background: "#1c1000", border: "1px solid #92400e60", borderRadius: 8, padding: "14px 16px" }}>
+            <div style={{ fontWeight: 800, fontSize: 13, color: "#f59e0b", marginBottom: 6 }}>What you handle</div>
+            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#d97706", lineHeight: 2 }}>
               <li>Hosting your agent endpoint</li>
               <li>Agent logic and data sources</li>
               <li>Uptime (affects reputation score)</li>
@@ -702,15 +702,15 @@ app.listen(3001);`}</CodeBlock>
             ["GET",  "/docs",                        "Interactive API docs"],
           ].map(([method, path, desc], i) => (
             <>
-              <div key={`m${i}`} style={{ fontWeight: 700, color: method === "GET" ? "#0369a1" : "#6b21a8", background: method === "GET" ? "#e0f2fe" : "#f3e8ff", padding: "1px 8px", borderRadius: 4, fontSize: 10 }}>{method}</div>
-              <div key={`p${i}`} style={{ fontFamily: "monospace", color: "#2d5a7a" }}>{path}</div>
+              <div key={`m${i}`} style={{ fontWeight: 700, color: method === "GET" ? "#60a5fa" : "#c084fc", background: method === "GET" ? "#1e3a5f30" : "#2e106530", padding: "1px 8px", borderRadius: 4, fontSize: 10 }}>{method}</div>
+              <div key={`p${i}`} style={{ fontFamily: "monospace", color: "#38bdf8" }}>{path}</div>
               <div key={`s${i}`} style={{ color: "#9aabb8" }}>—</div>
               <div key={`d${i}`} style={{ color: "#4b5563" }}>{desc}</div>
             </>
           ))}
         </div>
         <div style={{ marginTop: 14 }}>
-          <a href={`${apiBase}/docs`} target="_blank" rel="noreferrer" style={{ color: "#4a9fd4", fontWeight: 700, fontSize: 12 }}>
+          <a href={`${apiBase}/docs`} target="_blank" rel="noreferrer" style={{ color: "#818cf8", fontWeight: 700, fontSize: 12 }}>
             Open interactive docs →
           </a>
         </div>
@@ -722,10 +722,10 @@ app.listen(3001);`}</CodeBlock>
 /* ── Jobs panel ───────────────────────────────────────────────────────────── */
 
 const JOB_STATUS_COLOR = {
-  queued:    ["#e0f2fe", "#0369a1"],
-  running:   ["#fef3c7", "#92400e"],
-  completed: ["#d1fae5", "#065f46"],
-  failed:    ["#fee2e2", "#991b1b"],
+  queued:    ["#1e3a5f30", "#60a5fa"],
+  running:   ["#451a0330", "#fbbf24"],
+  completed: ["#064e3b30", "#34d399"],
+  failed:    ["#450a0a30", "#f87171"],
 };
 
 function JobStatusBadge({ status }) {
@@ -757,10 +757,10 @@ function JobsPanel() {
   };
 
   return (
-    <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: 20 }}>
+    <div style={{ background: "#111827", borderRadius: 16, padding: "20px 22px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)", marginBottom: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 14 }}>Pipeline Jobs</div>
-        <button onClick={load} style={{ background: "none", border: "1px solid #e6d6bd", borderRadius: 8, padding: "4px 12px", fontSize: 11, cursor: "pointer", color: "#9aabb8", fontFamily: "inherit" }}>Refresh</button>
+        <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14 }}>Pipeline Jobs</div>
+        <button onClick={load} style={{ background: "none", border: "1px solid #374151", borderRadius: 8, padding: "4px 12px", fontSize: 11, cursor: "pointer", color: "#9ca3af", fontFamily: "inherit" }}>Refresh</button>
       </div>
       {loading ? (
         <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic" }}>Loading…</div>
@@ -769,7 +769,7 @@ function JobsPanel() {
       ) : (
         <div>
           {/* Header row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 80px 80px", gap: 8, padding: "6px 10px", borderBottom: "1px solid #f0ece8", color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 80px 80px", gap: 8, padding: "6px 10px", borderBottom: "1px solid #1f2937", color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700 }}>
             <div>Pipeline</div><div>Status</div><div>Created</div><div>Duration</div><div>Steps</div>
           </div>
           {jobs.map(j => {
@@ -782,30 +782,30 @@ function JobsPanel() {
               <div key={j.job_id}>
                 <div
                   onClick={() => toggleExpand(j.job_id)}
-                  style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 80px 80px", gap: 8, padding: "9px 10px", borderBottom: "1px solid #f8f4f0", cursor: "pointer", fontSize: 12, alignItems: "center", background: isOpen ? "#f8f6f2" : "transparent" }}
+                  style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 80px 80px", gap: 8, padding: "9px 10px", borderBottom: "1px solid #1f2937", cursor: "pointer", fontSize: 12, alignItems: "center", background: isOpen ? "#1a1a2e" : "transparent" }}
                 >
-                  <div style={{ fontWeight: 600, color: "#2d5a7a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.pipeline_name || j.pipeline_id.slice(0, 8)}</div>
+                  <div style={{ fontWeight: 600, color: "#e5e7eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.pipeline_name || j.pipeline_id.slice(0, 8)}</div>
                   <div><JobStatusBadge status={j.status} /></div>
                   <div style={{ color: "#9aabb8" }}>{created}</div>
                   <div style={{ color: "#9aabb8" }}>{durationMs != null ? `${durationMs}ms` : "—"}</div>
                   <div style={{ color: "#9aabb8" }}>{isOpen && expanded?.result?.steps ? expanded.result.steps.length : "—"}</div>
                 </div>
                 {isOpen && expanded && (
-                  <div style={{ padding: "12px 16px", background: "#f8f6f2", borderBottom: "1px solid #f0ece8", fontSize: 11 }}>
-                    <div style={{ color: "#9aabb8", marginBottom: 8 }}>Job ID: <code style={{ color: "#2d5a7a" }}>{expanded.job_id}</code></div>
+                  <div style={{ padding: "12px 16px", background: "#1a1a2e", borderBottom: "1px solid #1f2937", fontSize: 11 }}>
+                    <div style={{ color: "#9aabb8", marginBottom: 8 }}>Job ID: <code style={{ color: "#818cf8" }}>{expanded.job_id}</code></div>
                     {expanded.error && (
-                      <div style={{ color: "#991b1b", background: "#fee2e2", borderRadius: 6, padding: "8px 12px", marginBottom: 8 }}>{expanded.error}</div>
+                      <div style={{ color: "#fca5a5", background: "#450a0a", border: "1px solid #ef4444", borderRadius: 6, padding: "8px 12px", marginBottom: 8 }}>{expanded.error}</div>
                     )}
                     {expanded.result?.steps && expanded.result.steps.map((s, i) => (
-                      <div key={i} style={{ marginBottom: 8, padding: "8px 12px", background: "#fff", borderRadius: 8, border: "1px solid #e6d6bd" }}>
-                        <div style={{ fontWeight: 700, color: "#2d5a7a", marginBottom: 4 }}>{i + 1}. {s.agent_name} <span style={{ fontWeight: 400, color: "#9aabb8" }}>({s.latency_ms}ms{s.mock ? " · mock" : ""})</span></div>
-                        <pre style={{ margin: 0, fontSize: 10, color: "#4b5563", overflowX: "auto" }}>{JSON.stringify(s.output, null, 2)}</pre>
+                      <div key={i} style={{ marginBottom: 8, padding: "8px 12px", background: "#1a1a2e", borderRadius: 8, border: "1px solid #374151" }}>
+                        <div style={{ fontWeight: 700, color: "#818cf8", marginBottom: 4 }}>{i + 1}. {s.agent_name} <span style={{ fontWeight: 400, color: "#9aabb8" }}>({s.latency_ms}ms{s.mock ? " · mock" : ""})</span></div>
+                        <pre style={{ margin: 0, fontSize: 10, color: "#9ca3af", overflowX: "auto" }}>{JSON.stringify(s.output, null, 2)}</pre>
                       </div>
                     ))}
                     {expanded.result?.final && (
                       <div style={{ marginTop: 8 }}>
-                        <div style={{ fontWeight: 700, color: "#2d5a7a", marginBottom: 4 }}>Final State</div>
-                        <pre style={{ margin: 0, fontSize: 10, color: "#4b5563", background: "#fff", borderRadius: 8, padding: "8px 12px", border: "1px solid #e6d6bd", overflowX: "auto" }}>{JSON.stringify(expanded.result.final, null, 2)}</pre>
+                        <div style={{ fontWeight: 700, color: "#818cf8", marginBottom: 4 }}>Final State</div>
+                        <pre style={{ margin: 0, fontSize: 10, color: "#9ca3af", background: "#1a1a2e", borderRadius: 8, padding: "8px 12px", border: "1px solid #374151", overflowX: "auto" }}>{JSON.stringify(expanded.result.final, null, 2)}</pre>
                       </div>
                     )}
                   </div>
@@ -859,20 +859,20 @@ function CreditsPanel({ auth }) {
   const color   = credits === null ? "#9aabb8" : credits < 500 ? "#E67B7B" : credits < 2000 ? "#E6C36B" : "#6BCF8B";
 
   return (
-    <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", border: "1px solid #e6d6bd", marginBottom: 16 }}>
+    <div style={{ background: "#111827", borderRadius: 14, padding: "16px 18px", border: "1px solid #1f2937", marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 13 }}>Credits</div>
+        <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 13 }}>Credits</div>
         <div style={{ color, fontWeight: 800, fontSize: 20 }}>{credits !== null ? credits.toLocaleString() : "—"}</div>
       </div>
       <div style={{ color: "#9aabb8", fontSize: 10, marginBottom: 10 }}>1 credit = $0.01 · used to call agents & run pipelines</div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {[5, 10, 25, 50].map(usd => (
-          <button key={usd} onClick={() => topUp(usd)} disabled={busy} style={{ flex: 1, minWidth: 54, background: "#f0f8ff", border: "1px solid #6BB6E640", borderRadius: 8, padding: "6px 4px", fontSize: 11, fontWeight: 700, cursor: busy ? "default" : "pointer", color: "#4a9fd4", fontFamily: "inherit" }}>
+          <button key={usd} onClick={() => topUp(usd)} disabled={busy} style={{ flex: 1, minWidth: 54, background: "#1a1a2e", border: "1px solid #374151", borderRadius: 8, padding: "6px 4px", fontSize: 11, fontWeight: 700, cursor: busy ? "default" : "pointer", color: "#818cf8", fontFamily: "inherit" }}>
             +{usd * 100}<div style={{ fontSize: 9, fontWeight: 400, color: "#9aabb8" }}>${usd}</div>
           </button>
         ))}
       </div>
-      {ok && <div style={{ marginTop: 8, color: "#065f46", fontSize: 11, fontWeight: 600 }}>{ok}</div>}
+      {ok && <div style={{ marginTop: 8, color: "#34d399", fontSize: 11, fontWeight: 600 }}>{ok}</div>}
     </div>
   );
 }
@@ -937,23 +937,23 @@ export default function DeveloperView() {
   ];
 
   return (
-    <div style={{ height: "100%", overflowY: "auto", background: "#f4e7d0", padding: "28px 36px", fontFamily: "var(--font-nunito), Nunito, system-ui, sans-serif" }}>
+    <div style={{ height: "100%", overflowY: "auto", background: "#0a0a0f", padding: "28px 36px", fontFamily: "var(--font-nunito), Nunito, system-ui, sans-serif" }}>
 
       {/* Header */}
       <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
-          <div style={{ color: "#2d5a7a", fontSize: 22, fontWeight: 800, letterSpacing: "-0.3px" }}>Developer Hub</div>
+          <div style={{ color: "#f9fafb", fontSize: 22, fontWeight: 800, letterSpacing: "-0.3px" }}>Developer Hub</div>
           <div style={{ color: "#9aabb8", fontSize: 13, marginTop: 4 }}>Monitor agents, manage API keys, track revenue.</div>
         </div>
         {auth ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ background: "#4a9fd418", border: "1px solid #4a9fd440", borderRadius: 20, padding: "4px 14px", color: "#4a9fd4", fontSize: 12, fontWeight: 700 }}>@{auth.username}</div>
+            <div style={{ background: "#818cf818", border: "1px solid #818cf840", borderRadius: 20, padding: "4px 14px", color: "#818cf8", fontSize: 12, fontWeight: 700 }}>@{auth.username}</div>
             <button onClick={() => setTab("mine")} style={{ background: "none", border: "1px solid #6BCF8B40", color: "#6BCF8B", borderRadius: 8, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>My Agents</button>
-            <button onClick={handleLogout} style={{ background: "none", border: "1px solid #e6d6bd", color: "#9aabb8", borderRadius: 8, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
+            <button onClick={handleLogout} style={{ background: "none", border: "1px solid #374151", color: "#9aabb8", borderRadius: 8, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
           </div>
         ) : (
           <div style={{ fontSize: 11, color: "#9aabb8" }}>
-            <a onClick={() => setTab("register")} style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }}>Sign in</a> to manage your agents
+            <a onClick={() => setTab("register")} style={{ color: "#818cf8", cursor: "pointer", fontWeight: 700 }}>Sign in</a> to manage your agents
           </div>
         )}
       </div>
@@ -962,7 +962,7 @@ export default function DeveloperView() {
 
       {/* Stats bar */}
       <div style={{ display: "flex", gap: 10, marginBottom: 22, flexWrap: "wrap" }}>
-        <Pill label="Agents" value={agents.length} color="#4a9fd4" />
+        <Pill label="Agents" value={agents.length} color="#6366f1" />
         <Pill label="Total Calls" value={totalCalls} color="#6BCF8B" />
         <Pill label="Total Earned" value={`${Math.round(parseFloat(totalEarnings) * 100)} credits`} color="#E6C36B" />
       </div>
@@ -970,11 +970,11 @@ export default function DeveloperView() {
       {/* First-time guide — shown when signed in with no agents */}
       {auth && myAgents.length === 0 && (
         <div style={{
-          background: "#fff", border: "1px solid #e6d6bd", borderRadius: 12,
+          background: "#111827", border: "1px solid #1f2937", borderRadius: 12,
           padding: "16px 20px", marginBottom: 20,
-          borderLeft: "4px solid #4a9fd4",
+          borderLeft: "4px solid #6366f1",
         }}>
-          <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+          <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
             Welcome, @{auth.username} — here's how to get started
           </div>
           <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
@@ -984,7 +984,7 @@ export default function DeveloperView() {
               ["Track earnings", "Every call to your agent is logged here. Check My Agents to see calls, latency, and credits earned."],
             ].map(([title, body]) => (
               <div key={title} style={{ flex: "1 1 160px" }}>
-                <div style={{ color: "#4a9fd4", fontWeight: 700, fontSize: 11, marginBottom: 3 }}>{title}</div>
+                <div style={{ color: "#818cf8", fontWeight: 700, fontSize: 11, marginBottom: 3 }}>{title}</div>
                 <div style={{ color: "#9aabb8", fontSize: 11, lineHeight: 1.6 }}>{body}</div>
               </div>
             ))}
@@ -995,14 +995,14 @@ export default function DeveloperView() {
       {/* Not signed in nudge */}
       {!auth && tab === "agents" && (
         <div style={{
-          background: "#fff", border: "1px solid #e6d6bd", borderRadius: 12,
+          background: "#111827", border: "1px solid #1f2937", borderRadius: 12,
           padding: "12px 18px", marginBottom: 18,
           display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10,
         }}>
-          <div style={{ color: "#6b7d92", fontSize: 12 }}>
+          <div style={{ color: "#9ca3af", fontSize: 12 }}>
             Sign in to register your own agents, track calls, and earn credits per API call.
           </div>
-          <button onClick={() => setTab("register")} style={{ background: "#4a9fd4", color: "#fff", border: "none", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+          <button onClick={() => setTab("register")} style={{ background: "#6366f1", color: "#fff", border: "none", borderRadius: 9, padding: "7px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
             Sign In / Register
           </button>
         </div>
@@ -1011,7 +1011,7 @@ export default function DeveloperView() {
       {/* Tab bar */}
       <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "6px 16px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === t.id ? "#4a9fd418" : "transparent", color: tab === t.id ? "#4a9fd4" : "#9aabb8", boxShadow: tab === t.id ? "inset 0 0 0 1px #4a9fd440" : "none", transition: "all 0.15s", fontFamily: "inherit" }}>
+          <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "6px 16px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === t.id ? "#818cf818" : "transparent", color: tab === t.id ? "#818cf8" : "#9aabb8", boxShadow: tab === t.id ? "inset 0 0 0 1px #818cf840" : "none", transition: "all 0.15s", fontFamily: "inherit" }}>
             {t.label}
           </button>
         ))}
@@ -1021,11 +1021,11 @@ export default function DeveloperView() {
       {tab === "mine" && auth && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16, alignItems: "start" }}>
           <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, alignItems: "start" }}>
-            <div style={{ background: "#fff", borderRadius: 16, padding: "14px 8px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
+            <div style={{ background: "#111827", borderRadius: 16, padding: "14px 8px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>
               {myAgents.length === 0 ? (
                 <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic", textAlign: "center", padding: "24px 16px" }}>
                   You haven&apos;t registered any agents yet.<br />
-                  <span style={{ color: "#4a9fd4", cursor: "pointer", fontWeight: 700 }} onClick={() => setTab("register")}>Register your first agent →</span>
+                  <span style={{ color: "#818cf8", cursor: "pointer", fontWeight: 700 }} onClick={() => setTab("register")}>Register your first agent →</span>
                 </div>
               ) : myAgents.map(a => (
                 <AgentRow key={a.id} agent={a} metrics={metrics[a.id]} selected={selected} onClick={setSelected} />
@@ -1052,7 +1052,7 @@ export default function DeveloperView() {
 
       {/* API Keys tab */}
       {tab === "keys" && auth && (
-        <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: 20 }}>
+        <div style={{ background: "#111827", borderRadius: 16, padding: "20px 22px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)", marginBottom: 20 }}>
           <ApiKeyManager token={auth.token} />
         </div>
       )}
@@ -1064,8 +1064,8 @@ export default function DeveloperView() {
         </div>
       )}
       {tab === "register" && auth && (
-        <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", marginBottom: 20 }}>
-          <div style={{ color: "#2d5a7a", fontWeight: 800, fontSize: 14, marginBottom: 14 }}>Register New Agent</div>
+        <div style={{ background: "#111827", borderRadius: 16, padding: "20px 22px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)", marginBottom: 20 }}>
+          <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14, marginBottom: 14 }}>Register New Agent</div>
           <RegisterForm token={auth.token} onDone={() => { loadAgents(); setTab("agents"); }} />
         </div>
       )}
@@ -1073,9 +1073,9 @@ export default function DeveloperView() {
       {/* Agents tab */}
       {tab === "agents" && (
         <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, alignItems: "start" }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: "14px 8px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
-            <div style={{ padding: "0 8px 10px", borderBottom: "1px solid #f0ece8", marginBottom: 8 }}>
-              <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter agents…" style={{ width: "100%", border: "1px solid #e6d6bd", borderRadius: 8, padding: "6px 10px", fontSize: 12, outline: "none", fontFamily: "inherit", background: "#f8f6f2", color: "#2d3a4a", boxSizing: "border-box" }} />
+          <div style={{ background: "#111827", borderRadius: 16, padding: "14px 8px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>
+            <div style={{ padding: "0 8px 10px", borderBottom: "1px solid #1f2937", marginBottom: 8 }}>
+              <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter agents…" style={{ width: "100%", border: "1px solid #374151", borderRadius: 8, padding: "6px 10px", fontSize: 12, outline: "none", fontFamily: "inherit", background: "#1f2937", color: "#f3f4f6", boxSizing: "border-box" }} />
             </div>
             {visible.length === 0 ? (
               <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic", textAlign: "center", padding: "20px 0" }}>No agents found.</div>
@@ -1084,7 +1084,7 @@ export default function DeveloperView() {
             ))}
           </div>
 
-          <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid #e6d6bd", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", minHeight: 400 }}>
+          <div style={{ background: "#111827", borderRadius: 16, padding: "20px 22px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)", minHeight: 400 }}>
             {selected ? (
               <AgentDetail agent={selected} metrics={metrics[selected.id]} pipelines={pipelines} token={auth?.token} onHealthCheck={loadAgents} onDeleted={() => { loadAgents(); setSelected(null); }} />
             ) : (

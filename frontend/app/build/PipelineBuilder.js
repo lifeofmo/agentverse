@@ -14,18 +14,18 @@ import { API as REGISTRY_URL } from "@/app/lib/config";
 // ── Agent display names + categories ─────────────────────────────────────────
 
 const AGENT_PURPOSE = {
-  MomentumAgent:   { displayName: "Momentum Signal",     tagline: "Detects price momentum trends",           cat: "trading"  },
-  PriceAgent:      { displayName: "Live Price Feed",      tagline: "Real-time market prices",                 cat: "data"     },
-  SentimentAgent:  { displayName: "Sentiment Pulse",      tagline: "Social & news sentiment score",           cat: "analysis" },
-  RiskAgent:       { displayName: "Risk Assessor",        tagline: "Portfolio risk & exposure",               cat: "risk"     },
-  PortfolioAgent:  { displayName: "Portfolio Optimizer",  tagline: "Rebalance & optimize allocations",        cat: "risk"     },
-  ArbitrageAgent:  { displayName: "Arb Scanner",          tagline: "Cross-exchange price gaps",               cat: "trading"  },
-  NewsAgent:       { displayName: "News Digest",          tagline: "Latest market-moving headlines",          cat: "analysis" },
-  VolatilityAgent: { displayName: "Volatility Meter",     tagline: "Measures market volatility",              cat: "data"     },
-  LiquidityAgent:  { displayName: "Liquidity Depth",      tagline: "Order book depth & spread",               cat: "data"     },
-  SignalAgent:     { displayName: "Trading Signal",       tagline: "BUY / SELL / HOLD recommendation",        cat: "trading"  },
-  TrendAgent:      { displayName: "Trend Detector",       tagline: "Multi-timeframe trend analysis",          cat: "analysis" },
-  CryptoAgent:     { displayName: "Crypto Overview",      tagline: "Full market snapshot",                    cat: "trading"  },
+  MomentumAgent:      { displayName: "Momentum Signal",     tagline: "Detects price momentum trends",                   cat: "trading"  },
+  ArbitrageAgent:     { displayName: "Arb Scanner",          tagline: "Cross-exchange price gaps",                       cat: "trading"  },
+  SentimentAgent:     { displayName: "Sentiment Pulse",      tagline: "Social & on-chain Fear & Greed score",            cat: "trading"  },
+  VolatilityScanner:  { displayName: "Volatility Scanner",   tagline: "Implied & realized vol + regime classification",  cat: "trading"  },
+  PriceFeedAgent:     { displayName: "Live Price Feed",      tagline: "Real-time prices with 24h stats",                 cat: "data"     },
+  NewsFeedAgent:      { displayName: "News Digest",          tagline: "Headlines + sentiment impact score",              cat: "data"     },
+  MarketDepthAgent:   { displayName: "Market Depth",         tagline: "Order book depth, spread & liquidity score",      cat: "data"     },
+  TrendAnalyzer:      { displayName: "Trend Detector",       tagline: "Multi-timeframe EMA & ADX trend analysis",        cat: "analysis" },
+  PatternDetector:    { displayName: "Pattern Detector",     tagline: "Chart patterns with confidence scores",           cat: "analysis" },
+  CorrelationAgent:   { displayName: "Correlation Matrix",   tagline: "Cross-asset correlations & risk regimes",         cat: "analysis" },
+  RiskAgent:          { displayName: "Risk Assessor",        tagline: "VaR, max drawdown & position sizing",             cat: "risk"     },
+  PortfolioOptimizer: { displayName: "Portfolio Optimizer",  tagline: "Mean-variance optimization & Sharpe ratio",       cat: "risk"     },
 };
 
 function getDisplayName(rawName) {
@@ -88,25 +88,25 @@ function getSignalColor(v) {
 
 const PIPELINE_TEMPLATES = [
   {
-    id: "crypto-signal",
-    name: "Crypto Signal",
-    desc: "Price → Momentum → BUY/SELL/HOLD",
-    agents: ["PriceAgent", "MomentumAgent", "SignalAgent"],
+    id: "market-pulse",
+    name: "Market Pulse",
+    desc: "Price → Sentiment → Momentum signal",
+    agents: ["PriceFeedAgent", "SentimentAgent", "MomentumAgent"],
     color: "#10b981",
-  },
-  {
-    id: "market-scan",
-    name: "Market Scanner",
-    desc: "Price feed + sentiment analysis + trend",
-    agents: ["PriceAgent", "SentimentAgent", "TrendAgent"],
-    color: "#818cf8",
   },
   {
     id: "risk-check",
     name: "Risk Check",
-    desc: "Live price → volatility → risk score",
-    agents: ["PriceAgent", "VolatilityAgent", "RiskAgent"],
+    desc: "Price → Volatility scan → Risk score",
+    agents: ["PriceFeedAgent", "VolatilityScanner", "RiskAgent"],
     color: "#c084fc",
+  },
+  {
+    id: "trend-analysis",
+    name: "Trend Analysis",
+    desc: "Price → Trend → Patterns → Momentum",
+    agents: ["PriceFeedAgent", "TrendAnalyzer", "PatternDetector", "MomentumAgent"],
+    color: "#818cf8",
   },
 ];
 
@@ -632,16 +632,17 @@ function Builder() {
   // ── Save pipeline ────────────────────────────────────────────────────────────
 
   const savePipeline = async () => {
-    if (!pipelineName.trim()) { setStatus({ ok: false, msg: "Add a pipeline name first" }); return; }
-    if (nodes.length < 2)     { setStatus({ ok: false, msg: "Add at least 2 agents to the canvas" }); return; }
+    if (!pipelineName.trim()) { setStatus({ ok: false, msg: "Add a pipeline name first" }); return null; }
+    if (nodes.length < 2)     { setStatus({ ok: false, msg: "Add at least 2 agents to the canvas" }); return null; }
 
     const orderedIds = topoSort(nodes, edges)
       .map(nodeId => nodes.find(n => n.id === nodeId)?.data.agentId)
       .filter(Boolean);
 
-    if (orderedIds.length < 2) { setStatus({ ok: false, msg: "Connect the agents with edges first" }); return; }
+    if (orderedIds.length < 2) { setStatus({ ok: false, msg: "Connect the agents with edges first" }); return null; }
 
     setSaving(true);
+    let newId = null;
     try {
       const res = await fetch(`${REGISTRY_URL}/pipelines`, {
         method: "POST",
@@ -650,21 +651,28 @@ function Builder() {
       });
       const saved = await res.json();
       setSavedId(saved.id);
+      newId = saved.id;
       setStatus({ ok: true, msg: `Saved — ready to run` });
     } catch (err) {
       setStatus({ ok: false, msg: String(err) });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
+    return newId;
   };
 
   // ── Run pipeline ─────────────────────────────────────────────────────────────
 
   const runPipeline = async () => {
-    if (!savedId) { setStatus({ ok: false, msg: "Save the pipeline first" }); return; }
+    let id = savedId;
+    if (!id) {
+      id = await savePipeline();
+      if (!id) return;
+    }
     setRunning(true);
     setRunResult(null);
     try {
-      const res = await fetch(`${REGISTRY_URL}/run-pipeline/${savedId}`, {
+      const res = await fetch(`${REGISTRY_URL}/run-pipeline/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ market: "BTC" }),
@@ -929,16 +937,14 @@ function Builder() {
             {saving ? "Saving…" : "Save"}
           </button>
 
-          {savedId && (
-            <button onClick={runPipeline} disabled={running} style={{
-              background: running ? "#1f2937" : "#059669",
-              color: running ? "#6b7280" : "#fff",
-              border: "none", borderRadius: 8, padding: "7px 16px",
-              fontSize: 12, fontWeight: 600, cursor: running ? "not-allowed" : "pointer",
-            }}>
-              {running ? "Running…" : "▶ Run"}
-            </button>
-          )}
+          <button onClick={runPipeline} disabled={running || saving} style={{
+            background: (running || saving) ? "#1f2937" : "#059669",
+            color: (running || saving) ? "#6b7280" : "#fff",
+            border: "none", borderRadius: 8, padding: "7px 16px",
+            fontSize: 12, fontWeight: 600, cursor: (running || saving) ? "not-allowed" : "pointer",
+          }}>
+            {running ? "Running…" : saving ? "Saving…" : "▶ Run"}
+          </button>
 
           {savedId && !compositeAgentId && (
             <button onClick={() => setShowWorldPicker(true)} style={{
@@ -1039,6 +1045,30 @@ function Builder() {
 
           {/* Run result */}
           {runResult && <ResultCard result={runResult} />}
+
+          {/* Take to a World */}
+          {runResult && (
+            <div style={{ marginTop: 16, padding: "12px 16px", background: "#0a0a0f", border: "1px solid #1f2937", borderRadius: 12 }}>
+              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 10 }}>Take this pipeline to</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {[
+                  { id: "defi",     label: "⚡ Tomorrowland", color: "#c084fc", sub: "Run live" },
+                  { id: "trading",  label: "◈ Vegas",         color: "#ff2d78", sub: "Track earnings" },
+                  { id: "data",     label: "≋ Matrix",        color: "#00FF41", sub: "View system" },
+                ].map(w => (
+                  <a key={w.id} href="/" style={{
+                    display: "flex", flexDirection: "column", gap: 2,
+                    background: `${w.color}10`, border: `1px solid ${w.color}30`,
+                    borderRadius: 9, padding: "8px 12px", cursor: "pointer",
+                    textDecoration: "none",
+                  }}>
+                    <span style={{ color: w.color, fontSize: 11, fontWeight: 700 }}>{w.label}</span>
+                    <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 9 }}>{w.sub}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Deployed state */}
           {compositeAgentId && deployedWorld && (

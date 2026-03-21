@@ -2266,11 +2266,53 @@ async def _health_loop():
             pass
         await asyncio.sleep(120)  # check every 2 minutes
 
+async def _schedule_loop():
+    """Auto-execute due schedules every 60 seconds."""
+    await asyncio.sleep(60)  # wait for full startup
+    while True:
+        try:
+            now = _now()
+            conn = get_db()
+            due = conn.execute(
+                "SELECT * FROM schedules WHERE is_active = 1 AND next_run_at IS NOT NULL AND next_run_at <= ?",
+                (now,)
+            ).fetchall()
+            conn.close()
+            for row in due:
+                sched = dict(row)
+                try:
+                    result = await execute_pipeline(sched["pipeline_id"], RunRequest(market="BTC"))
+                    run_result = result if isinstance(result, dict) else {}
+                except Exception as e:
+                    run_result = {"error": str(e)}
+                ts   = _now()
+                secs = _INTERVAL_SECONDS.get(sched["interval"], 0)
+                from datetime import timedelta
+                next_run = (datetime.now(timezone.utc) + timedelta(seconds=secs)).isoformat() if secs else None
+                conn2 = get_db()
+                try:
+                    conn2.execute("UPDATE schedules SET last_run_at = ?, next_run_at = ? WHERE id = ?",
+                                  (ts, next_run, sched["id"]))
+                    conn2.commit()
+                finally:
+                    conn2.close()
+                if sched.get("webhook_url"):
+                    try:
+                        async with httpx.AsyncClient(timeout=10) as client:
+                            await client.post(sched["webhook_url"], json={"schedule_id": sched["id"], "result": run_result, "triggered_at": ts})
+                    except Exception:
+                        pass
+                logger.info("Schedule auto-triggered", extra={"step": sched["id"], "pipeline_id": sched["pipeline_id"]})
+        except Exception as e:
+            logger.warning(f"Schedule loop error: {e}")
+        await asyncio.sleep(60)
+
 @app.on_event("startup")
 async def _startup():
     init_db()
     _seed_if_empty()
     asyncio.create_task(_health_loop())
+    asyncio.create_task(_schedule_loop())
     logger.info("AgentVerse API started", extra={"status": "ok"})
     # Warm up the Redis queue pool (no-op if REDIS_URL not set)
     try:

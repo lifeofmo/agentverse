@@ -35,12 +35,12 @@ function agentPurpose(nameOrAgent) {
 // ── Category palette ──────────────────────────────────────────────────────────
 
 const CAT = {
-  trading:   { color: "#10b981", pill: "#ecfdf5", icon: "↗", label: "Trading"    },
-  analysis:  { color: "#8b5cf6", pill: "#f5f3ff", icon: "◎", label: "Analysis"   },
-  data:      { color: "#3b82f6", pill: "#eff6ff", icon: "≋", label: "Market Data" },
-  risk:      { color: "#ef4444", pill: "#fef2f2", icon: "◬", label: "Risk"       },
-  composite: { color: "#f59e0b", pill: "#fffbeb", icon: "⊕", label: "Workflow"   },
-  default:   { color: "#6b7280", pill: "#f9fafb", icon: "·", label: "Agent"      },
+  trading:   { color: "#10b981", pill: "#064e3b", icon: "↗", label: "Trading"    },
+  analysis:  { color: "#8b5cf6", pill: "#2e1065", icon: "◎", label: "Analysis"   },
+  data:      { color: "#3b82f6", pill: "#1e3a5f", icon: "≋", label: "Market Data" },
+  risk:      { color: "#ef4444", pill: "#450a0a", icon: "◬", label: "Risk"       },
+  composite: { color: "#f59e0b", pill: "#451a03", icon: "⊕", label: "Workflow"   },
+  default:   { color: "#6b7280", pill: "#1f2937", icon: "·", label: "Agent"      },
 };
 // back-compat aliases used by older code paths
 const cat = (c) => {
@@ -139,8 +139,8 @@ function NodeShell({ color, selected, active, revenueFlash, children, minW = 160
   return (
     <div className={active ? "agent-node-active" : ""} style={{
       "--pulse-color": `${color}50`,
-      background: "#fff",
-      border: selected ? `2px solid ${color}` : "2px solid rgba(255,255,255,0.12)",
+      background: "#111827",
+      border: selected ? `2px solid ${color}` : "2px solid #1f2937",
       borderRadius: 14,
       padding: "12px 14px",
       minWidth: minW,
@@ -177,7 +177,7 @@ const AgentNode = memo(({ data, selected }) => {
     <NodeShell color={c.color} selected={selected}
       active={data.active} revenueFlash={data.revenueFlash}>
       <Handle type="target" position={Position.Left}
-        style={{ background: c.color, border: "2px solid #fff", width: 10, height: 10, left: -6 }} />
+        style={{ background: c.color, border: "2px solid #111827", width: 10, height: 10, left: -6 }} />
 
       {/* Icon + category */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -192,7 +192,7 @@ const AgentNode = memo(({ data, selected }) => {
       </div>
 
       {/* Name */}
-      <div style={{ color: "#111827", fontWeight: 700, fontSize: 13, lineHeight: 1.2, marginBottom: showDetails ? 4 : 0 }}>
+      <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: 13, lineHeight: 1.2, marginBottom: showDetails ? 4 : 0 }}>
         {p.displayName}
       </div>
 
@@ -206,7 +206,7 @@ const AgentNode = memo(({ data, selected }) => {
         </div>
       )}
       {showDetails && out.price_usd && !highlight && (
-        <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: "#374151" }}>
+        <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: "#e5e7eb" }}>
           ${Number(out.price_usd).toLocaleString()}
         </div>
       )}
@@ -225,7 +225,7 @@ const AgentNode = memo(({ data, selected }) => {
       )}
 
       <Handle type="source" position={Position.Right}
-        style={{ background: c.color, border: "2px solid #fff", width: 10, height: 10, right: -6 }} />
+        style={{ background: c.color, border: "2px solid #111827", width: 10, height: 10, right: -6 }} />
     </NodeShell>
   );
 });
@@ -238,21 +238,21 @@ const CompositeNode = memo(({ data, selected }) => {
   return (
     <NodeShell color={c.color} selected={selected} active={data.active} minW={175}>
       <Handle type="target" position={Position.Left}
-        style={{ background: c.color, border: "2px solid #fff", width: 10, height: 10, left: -6 }} />
+        style={{ background: c.color, border: "2px solid #111827", width: 10, height: 10, left: -6 }} />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <div style={{ width: 32, height: 32, background: c.pill, borderRadius: 8,
           display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{c.icon}</div>
         <span style={{ background: c.pill, color: c.color, fontSize: 9, fontWeight: 700,
           padding: "2px 7px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.6 }}>Workflow</span>
       </div>
-      <div style={{ color: "#111827", fontWeight: 700, fontSize: 13 }}>{p.displayName}</div>
+      <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: 13 }}>{p.displayName}</div>
       {zoom > 0.55 && data.requests > 0 && (
         <div style={{ marginTop: 4, fontSize: 10, color: "#9ca3af" }}>
           {data.requests} runs
         </div>
       )}
       <Handle type="source" position={Position.Right}
-        style={{ background: c.color, border: "2px solid #fff", width: 10, height: 10, right: -6 }} />
+        style={{ background: c.color, border: "2px solid #111827", width: 10, height: 10, right: -6 }} />
     </NodeShell>
   );
 });
@@ -261,19 +261,19 @@ CompositeNode.displayName = "CompositeNode";
 const PipelineNode = memo(({ data, selected }) => (
   <NodeShell color="#8b5cf6" selected={selected} minW={200}>
     <Handle type="target" position={Position.Left}
-      style={{ background: "#8b5cf6", border: "2px solid #fff", width: 10, height: 10, left: -6 }} />
+      style={{ background: "#8b5cf6", border: "2px solid #111827", width: 10, height: 10, left: -6 }} />
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-      <div style={{ width: 32, height: 32, background: "#f5f3ff", borderRadius: 8,
+      <div style={{ width: 32, height: 32, background: "#2e1065", borderRadius: 8,
         display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🔗</div>
-      <span style={{ background: "#f5f3ff", color: "#8b5cf6", fontSize: 9, fontWeight: 700,
+      <span style={{ background: "#2e1065", color: "#8b5cf6", fontSize: 9, fontWeight: 700,
         padding: "2px 7px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.6 }}>Pipeline</span>
     </div>
-    <div style={{ color: "#111827", fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{data.label}</div>
+    <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{data.label}</div>
     {(data.agentNames || []).length > 0 && (
       <div style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap" }}>
         {data.agentNames.map((name, i) => (
           <span key={i} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            <span style={{ background: "#f5f3ff", color: "#8b5cf6", borderRadius: 4,
+            <span style={{ background: "#2e1065", color: "#8b5cf6", borderRadius: 4,
               padding: "2px 6px", fontSize: 9, fontWeight: 600 }}>
               {agentPurpose(name).displayName}
             </span>
@@ -283,7 +283,7 @@ const PipelineNode = memo(({ data, selected }) => (
       </div>
     )}
     <Handle type="source" position={Position.Right}
-      style={{ background: "#8b5cf6", border: "2px solid #fff", width: 10, height: 10, right: -6 }} />
+      style={{ background: "#8b5cf6", border: "2px solid #111827", width: 10, height: 10, right: -6 }} />
   </NodeShell>
 ));
 PipelineNode.displayName = "PipelineNode";
@@ -417,7 +417,7 @@ function BigResultCard({ bigResult, onRetry, onSave, onDismiss }) {
   const isGood = signal === "BUY" || signal === "UPTREND" || signal === "HIGH" || (riskScore != null && Number(riskScore) < 4);
   const isBad  = signal === "SELL" || signal === "DOWNTREND" || (riskScore != null && Number(riskScore) > 7);
   const signalColor = isGood ? "#10b981" : isBad ? "#ef4444" : "#f59e0b";
-  const signalBg    = isGood ? "#ecfdf5" : isBad ? "#fef2f2" : "#fefce8";
+  const signalBg    = isGood ? "#064e3b" : isBad ? "#450a0a" : "#451a03";
 
   const insight = (() => {
     if (signal === "BUY")       return `Bullish momentum confirmed — sentiment and price action align upward for ${market}.`;
@@ -442,7 +442,7 @@ function BigResultCard({ bigResult, onRetry, onSave, onDismiss }) {
       animation: "spFadeUp 0.4s ease forwards",
     }}>
       {/* Signal header */}
-      <div style={{ background: "#fff", borderBottom: `1px solid #f3f4f6`, padding: "24px 24px 20px" }}>
+      <div style={{ background: "#111827", borderBottom: `1px solid #1f2937`, padding: "24px 24px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
@@ -473,7 +473,7 @@ function BigResultCard({ bigResult, onRetry, onSave, onDismiss }) {
             {price && (
               <>
                 <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 4 }}>Live Price</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#111827" }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#f9fafb" }}>
                   ${Number(price).toLocaleString()}
                 </div>
                 {change != null && (
@@ -488,36 +488,36 @@ function BigResultCard({ bigResult, onRetry, onSave, onDismiss }) {
       </div>
 
       {/* Insight */}
-      <div style={{ background: "#fff", padding: "16px 24px", borderBottom: "1px solid #f3f4f6" }}>
-        <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.65 }}>{insight}</div>
+      <div style={{ background: "#111827", padding: "16px 24px", borderBottom: "1px solid #1f2937" }}>
+        <div style={{ fontSize: 13, color: "#e5e7eb", lineHeight: 1.65 }}>{insight}</div>
       </div>
 
       {/* Market re-run + actions */}
-      <div style={{ background: "#fff", padding: "16px 24px" }}>
+      <div style={{ background: "#111827", padding: "16px 24px" }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>
           Try another market
         </div>
-        <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 3, marginBottom: 14, gap: 2 }}>
+        <div style={{ display: "flex", background: "#1f2937", borderRadius: 10, padding: 3, marginBottom: 14, gap: 2 }}>
           {QUICK_MARKETS.map(m => (
             <button key={m} onClick={() => onRetry(template, m)} style={{
               flex: 1, padding: "8px 0", borderRadius: 8,
               border: "none",
-              background: m === market ? "#fff" : "transparent",
-              color: m === market ? "#111827" : "#6b7280",
+              background: m === market ? "#374151" : "transparent",
+              color: m === market ? "#f9fafb" : "#6b7280",
               fontSize: 12, fontWeight: m === market ? 700 : 500,
               cursor: "pointer", transition: "all 0.12s",
-              boxShadow: m === market ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
+              boxShadow: m === market ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
             }}>{m}</button>
           ))}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onSave} style={{
-            flex: 1, background: "#111827", color: "#fff", border: "none",
+            flex: 1, background: "#6366f1", color: "#fff", border: "none",
             borderRadius: 10, padding: "13px", fontSize: 13, fontWeight: 700, cursor: "pointer",
             letterSpacing: 0.1,
           }}>Save as Agent</button>
           <button onClick={onDismiss} style={{
-            flex: 1, background: "#f9fafb", color: "#6b7280", border: "1px solid #e5e7eb",
+            flex: 1, background: "transparent", color: "#9ca3af", border: "1px solid #374151",
             borderRadius: 10, padding: "13px", fontSize: 13, fontWeight: 600, cursor: "pointer",
           }}>Build manually</button>
         </div>
@@ -557,7 +557,7 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
     <div style={{
       position: "absolute", left: 16, top: 16, bottom: 16,
       width: collapsed ? 44 : 228,
-      background: "#fff", border: "1px solid #e5e7eb",
+      background: "#111827", border: "1px solid #1f2937",
       borderRadius: 16, zIndex: 50,
       transition: "width 0.2s ease", overflow: "hidden",
       boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
@@ -565,11 +565,11 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
     }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", padding: "12px 14px",
-        borderBottom: "1px solid #f3f4f6", flexShrink: 0 }}>
+        borderBottom: "1px solid #1f2937", flexShrink: 0 }}>
         {!collapsed && (
           <div style={{ flex: 1 }}>
-            <div style={{ color: "#111827", fontSize: 12, fontWeight: 700 }}>Agents</div>
-            <div style={{ color: "#9ca3af", fontSize: 10, marginTop: 1 }}>drag onto canvas</div>
+            <div style={{ color: "#f9fafb", fontSize: 12, fontWeight: 700 }}>Agents</div>
+            <div style={{ color: "#6b7280", fontSize: 10, marginTop: 1 }}>drag onto canvas</div>
           </div>
         )}
         <button onClick={onToggle} style={{ background: "none", border: "none",
@@ -598,16 +598,16 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
                     const p = agentPurpose(a);
                     return (
                   <div key={a.id} draggable onDragStart={(e) => onDragAgent(e, a)}
-                    style={{ background: "#f9fafb", border: "1px solid #e5e7eb",
+                    style={{ background: "#1a1a2e", border: "1px solid #1f2937",
                       borderLeft: `3px solid ${c.color}`,
                       borderRadius: 8, padding: "8px 9px", marginBottom: 5,
                       cursor: "grab", userSelect: "none",
                       transition: "all 0.15s",
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = `0 2px 8px ${c.color}20`; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "#f9fafb"; e.currentTarget.style.boxShadow = "none"; }}>
-                    <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 12, lineHeight: 1.2 }}>{p.displayName}</div>
-                    <div style={{ color: "#9aabb8", fontSize: 9, marginTop: 2, lineHeight: 1.4 }}>{p.tagline}</div>
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "#1f2937"; e.currentTarget.style.boxShadow = `0 2px 8px ${c.color}20`; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "#1a1a2e"; e.currentTarget.style.boxShadow = "none"; }}>
+                    <div style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 12, lineHeight: 1.2 }}>{p.displayName}</div>
+                    <div style={{ color: "#6b7280", fontSize: 9, marginTop: 2, lineHeight: 1.4 }}>{p.tagline}</div>
                   </div>
                     );
                   })}
@@ -636,14 +636,14 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
                 const names = p.agent_ids.map((id) => agentMap[id] ?? "…");
                 return (
                   <div key={p.id} draggable onDragStart={(e) => onDragPipeline(e, p, names)}
-                    style={{ background: "#f9fafb", border: "1px solid #e5e7eb",
+                    style={{ background: "#1a1a2e", border: "1px solid #1f2937",
                       borderLeft: "3px solid #8b5cf6",
                       borderRadius: 8, padding: "8px 9px", marginBottom: 5,
                       cursor: "grab", userSelect: "none", transition: "all 0.15s" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = "#fff"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "#f9fafb"; }}>
-                    <div style={{ color: "#111827", fontWeight: 700, fontSize: 12 }}>{p.name}</div>
-                    <div style={{ color: "#9ca3af", fontSize: 9, marginTop: 2 }}>
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "#1f2937"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "#1a1a2e"; }}>
+                    <div style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 12 }}>{p.name}</div>
+                    <div style={{ color: "#6b7280", fontSize: 9, marginTop: 2 }}>
                       {names.slice(0, 3).map(n => agentPurpose(n).displayName).join(" → ")}{names.length > 3 ? " …" : ""}
                     </div>
                   </div>
@@ -665,13 +665,13 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
                 const p = agentPurpose(a);
                 return (
                 <div key={a.id} draggable onDragStart={(e) => onDragAgent(e, a)}
-                  style={{ background: "#f9fafb", border: "1px solid #e5e7eb",
+                  style={{ background: "#1a1a2e", border: "1px solid #1f2937",
                     borderLeft: "3px solid #f59e0b",
                     borderRadius: 8, padding: "8px 9px", marginBottom: 5,
                     cursor: "grab", userSelect: "none", transition: "all 0.15s" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "#fff"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "#f9fafb"; }}>
-                  <div style={{ color: "#111827", fontWeight: 700, fontSize: 12 }}>{p.displayName}</div>
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "#1f2937"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "#1a1a2e"; }}>
+                  <div style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 12 }}>{p.displayName}</div>
                   <div style={{ color: "#9ca3af", fontSize: 9, marginTop: 2 }}>multi-agent workflow</div>
                 </div>
                 );
@@ -769,34 +769,34 @@ function GuideTooltip() {
         <div style={{
           position: "absolute", bottom: 90, left: 256, zIndex: 200,
           width: 280,
-          background: "#fff", border: "1px solid #e5e7eb",
+          background: "#111827", border: "1px solid #1f2937",
           borderRadius: 16, padding: "18px",
-          boxShadow: "0 16px 48px rgba(0,0,0,0.35)",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
         }}>
           {/* Avatar + dismiss */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <span style={{ width: 24, height: 24, borderRadius: "50%", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "#fff", flexShrink: 0 }}>?</span>
-            <button onClick={dismiss} style={{ background: "none", border: "none", color: "#d1d5db", fontSize: 11, cursor: "pointer", padding: 0, fontWeight: 600 }}>Skip</button>
+            <button onClick={dismiss} style={{ background: "none", border: "none", color: "#6b7280", fontSize: 11, cursor: "pointer", padding: 0, fontWeight: 600 }}>Skip</button>
           </div>
           {/* Progress bar */}
           <div style={{ display: "flex", gap: 3, marginBottom: 14 }}>
             {GUIDE_STEPS.map((_, i) => (
               <div key={i} style={{
                 height: 3, flex: i === step ? 2 : 1, borderRadius: 2,
-                background: i === step ? "#3b82f6" : i < step ? "#93c5fd" : "#e5e7eb",
+                background: i === step ? "#6366f1" : i < step ? "#818cf8" : "#374151",
                 transition: "all 0.3s ease",
               }} />
             ))}
           </div>
 
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 6 }}>{s.title}</div>
-          <p style={{ color: "#6b7280", fontSize: 12, lineHeight: 1.65, margin: "0 0 16px 0" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#f9fafb", marginBottom: 6 }}>{s.title}</div>
+          <p style={{ color: "#9ca3af", fontSize: 12, lineHeight: 1.65, margin: "0 0 16px 0" }}>
             {s.body}
           </p>
 
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button onClick={next} style={{
-              background: "#3b82f6", border: "none", color: "#fff",
+              background: "#6366f1", border: "none", color: "#fff",
               borderRadius: 8, padding: "8px 18px",
               fontSize: 12, fontWeight: 700, cursor: "pointer",
             }}>{s.cta}</button>
@@ -850,10 +850,10 @@ function ResultsPanel({ results, totalCost, running, onClose }) {
   return (
     <div style={{
       position: "absolute", right: 16, top: 16, width: 248,
-      background: "#fff", border: "1px solid #e5e7eb",
+      background: "#111827", border: "1px solid #1f2937",
       borderTop: "3px solid #10b981",
       borderRadius: 16, padding: "14px", zIndex: 50,
-      boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+      boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div>
@@ -876,11 +876,11 @@ function ResultsPanel({ results, totalCost, running, onClose }) {
           const signal = out.signal || out.trend || out.opportunity || out.recommendation;
           const signalColors = { BUY: "#10b981", SELL: "#ef4444", HOLD: "#f59e0b", UPTREND: "#10b981", DOWNTREND: "#ef4444", HIGH: "#10b981", LOW: "#6b7280" };
           return (
-            <div key={i} style={{ background: "#f8f6f2", borderRadius: 8, padding: "8px 10px",
-              borderLeft: `3px solid ${r.done ? c.border : "#e6d6bd"}` }}>
+            <div key={i} style={{ background: "#1a1a2e", borderRadius: 8, padding: "8px 10px",
+              borderLeft: `3px solid ${r.done ? c.border : "#374151"}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: r.done ? 5 : 0 }}>
                 <CatDot category={r.category} size={11} />
-                <span style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 11 }}>{p.displayName}</span>
+                <span style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 11 }}>{p.displayName}</span>
                 {r.done && <span style={{ marginLeft: "auto", color: "#6BCF8B", fontSize: 10 }}>✓</span>}
                 {!r.done && <span style={{ marginLeft: "auto", color: c.border, fontSize: 9 }}>●</span>}
               </div>
@@ -890,7 +890,7 @@ function ResultsPanel({ results, totalCost, running, onClose }) {
                 </div>
               )}
               {r.done && out.price_usd && (
-                <div style={{ fontSize: 11, color: "#2d3a4a", fontWeight: 600 }}>
+                <div style={{ fontSize: 11, color: "#e5e7eb", fontWeight: 600 }}>
                   ${Number(out.price_usd).toLocaleString()}
                   {out.change_24h_pct != null && (
                     <span style={{ marginLeft: 6, color: out.change_24h_pct >= 0 ? "#10b981" : "#ef4444", fontSize: 10 }}>
@@ -910,10 +910,10 @@ function ResultsPanel({ results, totalCost, running, onClose }) {
       </div>
 
       {!running && results.length > 0 && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #f3f4f6",
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #1f2937",
           display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ color: "#9ca3af", fontSize: 11 }}>Total cost</span>
-          <span style={{ color: "#111827", fontWeight: 700, fontSize: 13 }}>${totalCost.toFixed(4)}</span>
+          <span style={{ color: "#f9fafb", fontWeight: 700, fontSize: 13 }}>${totalCost.toFixed(4)}</span>
         </div>
       )}
     </div>
@@ -929,17 +929,17 @@ function Inspector({ node, onCall, onClose, lastOutput }) {
   return (
     <div style={{
       position: "absolute", right: 16, top: 16, width: 248,
-      background: "#fff", border: "1px solid #e5e7eb",
+      background: "#111827", border: "1px solid #1f2937",
       borderTop: `3px solid ${c.color}`,
       borderRadius: 16, padding: "16px 14px", zIndex: 51,
       overflowY: "auto",
-      boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+      boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
         <div>
           <div style={{ color: c.border, fontSize: 9, fontWeight: 700,
             textTransform: "uppercase", letterSpacing: 1 }}>{node.data.category}</div>
-          <div style={{ color: "#2d3a4a", fontWeight: 700, fontSize: 15, marginTop: 3 }}>{p.displayName}</div>
+          <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: 15, marginTop: 3 }}>{p.displayName}</div>
           <div style={{ color: "#9aabb8", fontSize: 11, marginTop: 2 }}>{p.tagline}</div>
         </div>
         <button onClick={onClose} style={{ background: "none", border: "none",
@@ -947,8 +947,8 @@ function Inspector({ node, onCall, onClose, lastOutput }) {
       </div>
 
       {lastOutput && (
-        <div style={{ background: "#f8f6f2", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
-          <div style={{ color: "#9aabb8", fontSize: 9, textTransform: "uppercase",
+        <div style={{ background: "#0d1117", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
+          <div style={{ color: "#6b7280", fontSize: 9, textTransform: "uppercase",
             letterSpacing: 0.8, marginBottom: 8 }}>Last Output</div>
           {Object.entries(lastOutput)
             .filter(([k]) => k !== "market" && k !== "_mock")

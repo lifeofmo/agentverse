@@ -6,7 +6,8 @@ import Playground from "./components/Playground";
 import ChallengesView from "./components/ChallengesView";
 import MarketplaceView from "./components/MarketplaceView";
 import DeveloperView from "./components/DeveloperView";
-import LobbySelect from "./components/LobbySelect";
+import LobbySelect, { LOBBIES } from "./components/LobbySelect";
+import WorldOverlay from "./components/WorldOverlay";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 const ExperimentalWorld = dynamic(() => import("./components/ExperimentalWorld"), { ssr: false });
@@ -17,7 +18,7 @@ const LasVegasWorld     = dynamic(() => import("./components/LasVegasWorld"),   
 const HogwartsWorld     = dynamic(() => import("./components/HogwartsWorld"),     { ssr: false });
 const AgentCity         = dynamic(() => import("./components/AgentCity"),         { ssr: false });
 
-import { API } from "@/app/lib/config";
+import { useAuth } from "@/app/lib/useAuth";
 
 // ── Splash ─────────────────────────────────────────────────────────────────────
 
@@ -158,18 +159,7 @@ const NAV = [
 // ── Credits HUD ────────────────────────────────────────────────────────────────
 
 function CreditsHUD() {
-  const [balance, setBalance] = useState(null);
-
-  useEffect(() => {
-    const load = () =>
-      fetch(`${API}/wallets/demo`)
-        .then(r => r.json())
-        .then(w => setBalance(w.balance))
-        .catch(() => {});
-    load();
-    const iv = setInterval(load, 10000);
-    return () => clearInterval(iv);
-  }, []);
+  const { walletBalance: balance } = useAuth({ fetchWallet: true });
 
   if (balance === null) return null;
 
@@ -359,6 +349,15 @@ export default function App() {
             {tab === "city" && activeLobby?.id === "defi"         && <TomorrowlandWorld key="defi" />}
             {tab === "city" && activeLobby?.id === "trading"      && <LasVegasWorld     key="trading" />}
             {tab === "city" && activeLobby?.id === "all"          && <HogwartsWorld     key="all" />}
+            {tab === "city" && activeLobby !== null && (
+              <WorldOverlay
+                worldId={activeLobby.id}
+                onWorldSwitch={(id) => {
+                  const lobby = LOBBIES.find(l => l.id === id);
+                  if (lobby) setActiveLobby(lobby);
+                }}
+              />
+            )}
             {tab === "challenges"  && <ChallengesView />}
             {tab === "marketplace" && <MarketplaceView />}
             {tab === "developer"   && <DeveloperView />}
