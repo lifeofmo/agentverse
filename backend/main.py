@@ -17,6 +17,8 @@ import secrets
 import base64
 import os
 import re
+import ipaddress
+import socket
 import logging
 import logging.config
 from collections import defaultdict
@@ -167,7 +169,15 @@ async def _verify_x402_payment(payment_header: str, agent_id: str, price_usd: fl
     return True
 
 # ── Auth / Safety constants ───────────────────────────────────────────────────
-JWT_SECRET          = os.environ.get("JWT_SECRET", "agentverse-dev-secret-CHANGE-IN-PROD")
+_jwt_secret_raw = os.environ.get("JWT_SECRET")
+if not _jwt_secret_raw:
+    import warnings
+    warnings.warn(
+        "JWT_SECRET env var not set — using insecure default. Set JWT_SECRET in production!",
+        RuntimeWarning, stacklevel=1,
+    )
+    _jwt_secret_raw = "agentverse-dev-secret-CHANGE-IN-PROD"
+JWT_SECRET = _jwt_secret_raw
 API_KEY_PREFIX      = "av_"
 TOKEN_TTL_SECONDS   = 86400          # 24 h
 MAX_PIPELINE_STEPS      = 10
@@ -177,13 +187,48 @@ MAX_AGENT_RETRIES       = 1          # retry a failing agent call once
 RATE_LIMIT_WINDOW       = 60         # seconds
 RATE_LIMIT_MAX          = 100        # requests per window per key/IP
 MAX_PRICE_PER_REQUEST   = 10.0       # hard cap per agent call (USD)
+MAX_AGENTS_PER_USER     = 20         # max agents a single developer can register
 _rate_store: dict[str, list[float]] = defaultdict(list)
 _pipeline_semaphore = asyncio.Semaphore(MAX_CONCURRENT_PIPELINES)
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
+
+def _validate_public_url(url: str, field: str = "endpoint") -> None:
+    """Raise HTTPException if the URL resolves to a private/internal address (SSRF prevention)."""
+    import urllib.parse
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise HTTPException(400, f"{field} must use http or https")
+        hostname = parsed.hostname
+        if not hostname:
+            raise HTTPException(400, f"Invalid {field} URL")
+        lower = hostname.lower()
+        # Block obviously internal hostnames
+        if lower in ("localhost", "metadata.google.internal") or lower.endswith(".local"):
+            raise HTTPException(400, f"{field} must be a public URL")
+        # Try to parse as IP first
+        try:
+            ip = ipaddress.ip_address(lower)
+        except ValueError:
+            # It's a hostname — resolve it
+            try:
+                ip_str = socket.gethostbyname(hostname)
+                ip = ipaddress.ip_address(ip_str)
+            except socket.gaierror:
+                return  # Cannot resolve — allow (might be a valid domain that's just down)
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            raise HTTPException(400, f"{field} must be a public URL, not a private/internal address")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(400, f"Invalid {field} URL")
+
 
 def _migrate(conn):
     """Safe migration: add columns/tables that may not exist yet."""
@@ -289,9 +334,15 @@ def init_db():
             amount REAL NOT NULL,
             platform_fee REAL NOT NULL,
             agent_earnings REAL NOT NULL,
-            timestamp TEXT NOT NULL
+            timestamp TEXT NOT NULL,
+            idempotency_key TEXT UNIQUE
         )
     """)
+    # Migration: add idempotency_key to existing transactions
+    try:
+        conn.execute("ALTER TABLE transactions ADD COLUMN idempotency_key TEXT UNIQUE")
+    except Exception:
+        pass  # Column already exists
 
     # ── Auth tables ──────────────────────────────────────────────────────────
     conn.execute("""
@@ -764,8 +815,14 @@ async def bill_transaction(
     price: float,
     pipeline_id: str | None = None,
     owner_wallet_id: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict:
-    """Deduct from user, split earnings 80/20, log transaction, broadcast event."""
+    """Deduct from user, split earnings 80/20, log transaction, broadcast event.
+
+    Uses BEGIN IMMEDIATE to atomically check balance + debit in a single write lock,
+    preventing double-charge race conditions. Supports idempotency keys to safely
+    handle retried requests.
+    """
     if price <= 0:
         return {"amount": 0.0, "platform_fee": 0.0, "agent_earnings": 0.0}
 
@@ -775,46 +832,92 @@ async def bill_transaction(
     tx_id    = str(uuid.uuid4())
 
     conn = get_db()
-    wallet_row = _get_wallet(conn, user_wallet_id)
-    MIN_BALANCE = -1.0  # allow $1 overdraft for demo/grace period
-    if wallet_row and wallet_row["balance"] - price < MIN_BALANCE:
-        conn.close()
-        raise HTTPException(402, "Insufficient credits. Top up your wallet to continue.")
-    conn.execute("""
-        UPDATE wallets SET
-            balance     = balance - ?,
-            total_spent = total_spent + ?
-        WHERE id = ?
-    """, (price, price, user_wallet_id))
+    conn.isolation_level = None  # Manual transaction control
 
-    # Credit platform
-    conn.execute("""
-        UPDATE wallets SET balance = balance + ?, total_earned = total_earned + ?
-        WHERE id = ?
-    """, (fee, fee, PLATFORM_WALLET))
+    try:
+        # ── Idempotency check (before acquiring write lock) ────────────────────
+        if idempotency_key:
+            existing = conn.execute(
+                "SELECT * FROM transactions WHERE idempotency_key = ?", (idempotency_key,)
+            ).fetchone()
+            if existing:
+                conn.close()
+                logger.info("billing idempotency hit — not double-charging",
+                            extra={"agent_id": agent_id, "key": idempotency_key[:16]})
+                return {
+                    "transaction_id": existing["id"],
+                    "amount":          existing["amount"],
+                    "platform_fee":    existing["platform_fee"],
+                    "agent_earnings":  existing["agent_earnings"],
+                    "user_balance":    0,  # balance already reflected
+                    "idempotent":      True,
+                }
 
-    # Credit agent owner (if set and wallet exists)
-    if owner_wallet_id:
-        owner_exists = conn.execute(
-            "SELECT id FROM wallets WHERE id = ?", (owner_wallet_id,)
+        # ── BEGIN IMMEDIATE: acquires write lock before any reads ──────────────
+        # This prevents two concurrent requests both passing the balance check.
+        conn.execute("BEGIN IMMEDIATE")
+
+        MIN_BALANCE = -1.0  # allow $1 overdraft for demo/grace period
+        wallet_row = conn.execute(
+            "SELECT balance FROM wallets WHERE id = ?", (user_wallet_id,)
         ).fetchone()
-        if owner_exists:
-            conn.execute("""
-                UPDATE wallets SET balance = balance + ?, total_earned = total_earned + ?
-                WHERE id = ?
-            """, (earnings, earnings, owner_wallet_id))
+        if wallet_row and wallet_row["balance"] - price < MIN_BALANCE:
+            conn.execute("ROLLBACK")
+            conn.close()
+            raise HTTPException(402, "Insufficient credits. Top up your wallet to continue.")
 
-    # Log transaction
-    conn.execute(
-        "INSERT INTO transactions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (tx_id, user_wallet_id, agent_id, pipeline_id, price, fee, earnings, now)
-    )
-    conn.commit()
+        conn.execute("""
+            UPDATE wallets SET
+                balance     = balance - ?,
+                total_spent = total_spent + ?
+            WHERE id = ?
+        """, (price, price, user_wallet_id))
 
-    # Fetch updated balance for event
-    user_balance = conn.execute(
-        "SELECT balance FROM wallets WHERE id = ?", (user_wallet_id,)
-    ).fetchone()
+        # Credit platform
+        conn.execute("""
+            UPDATE wallets SET balance = balance + ?, total_earned = total_earned + ?
+            WHERE id = ?
+        """, (fee, fee, PLATFORM_WALLET))
+
+        # Credit agent owner (if set and wallet exists)
+        if owner_wallet_id:
+            owner_exists = conn.execute(
+                "SELECT id FROM wallets WHERE id = ?", (owner_wallet_id,)
+            ).fetchone()
+            if owner_exists:
+                conn.execute("""
+                    UPDATE wallets SET balance = balance + ?, total_earned = total_earned + ?
+                    WHERE id = ?
+                """, (earnings, earnings, owner_wallet_id))
+
+        # Log transaction
+        conn.execute(
+            "INSERT INTO transactions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (tx_id, user_wallet_id, agent_id, pipeline_id, price, fee, earnings, now, idempotency_key)
+        )
+
+        user_balance = conn.execute(
+            "SELECT balance FROM wallets WHERE id = ?", (user_wallet_id,)
+        ).fetchone()
+
+        conn.execute("COMMIT")
+
+    except HTTPException:
+        try:
+            conn.execute("ROLLBACK")
+        except Exception:
+            pass
+        conn.close()
+        raise
+    except Exception as e:
+        try:
+            conn.execute("ROLLBACK")
+        except Exception:
+            pass
+        conn.close()
+        logger.error("bill_transaction failed", extra={"error": str(e), "agent_id": agent_id})
+        raise HTTPException(500, "Billing error — please try again")
+
     conn.close()
 
     result = {
@@ -876,6 +979,8 @@ async def lobby_chat_endpoint(websocket: WebSocket, lobby_id: str):
 async def register_agent(agent: AgentRegister):
     """Register a new agent. Validates the run endpoint with a probe call."""
     # ── Input validation ──────────────────────────────────────────────────────
+    if agent.price_per_request < 0:
+        raise HTTPException(status_code=400, detail="price_per_request cannot be negative")
     if agent.price_per_request > MAX_PRICE_PER_REQUEST:
         raise HTTPException(
             status_code=400,
@@ -886,6 +991,12 @@ async def register_agent(agent: AgentRegister):
             status_code=400,
             detail="owner_wallet must be a valid Ethereum address (0x followed by 40 hex characters)"
         )
+    # SSRF prevention — block private/internal endpoint URLs
+    _validate_public_url(agent.endpoint, "endpoint")
+    if agent.health_endpoint:
+        _validate_public_url(agent.health_endpoint, "health_endpoint")
+    if agent.schema_endpoint:
+        _validate_public_url(agent.schema_endpoint, "schema_endpoint")
 
     status = "active"
 
@@ -1204,6 +1315,20 @@ async def call_agent(agent_id: str, payload: dict, request: Request):
     owner_wallet = agent.get("owner_wallet") or ""
     price        = agent["price_per_request"]
 
+    # ── Resolve which wallet to bill ──────────────────────────────────────────
+    # Prefer the authenticated user's own wallet; fall back to demo for public access.
+    # Never trust a wallet_id supplied in the payload (would allow charging any wallet).
+    auth_user = await _get_current_user(request)
+    if auth_user:
+        _wconn = get_db()
+        _prof = _wconn.execute(
+            "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (auth_user["id"],)
+        ).fetchone()
+        _wconn.close()
+        billing_wallet = _prof["wallet_id"] if _prof else DEMO_WALLET
+    else:
+        billing_wallet = DEMO_WALLET
+
     # ── x402 payment gate ─────────────────────────────────────────────────────
     # Activated when: x402 is globally enabled AND the agent has an on-chain
     # wallet address (0x…) AND the request is not an internal probe.
@@ -1234,8 +1359,7 @@ async def call_agent(agent_id: str, payload: dict, request: Request):
             })
     # ─────────────────────────────────────────────────────────────────────────
 
-    # Wallet from payload, default to demo (legacy internal billing)
-    user_wallet_id = payload.get("wallet_id", DEMO_WALLET)
+    user_wallet_id = billing_wallet
 
     await manager.broadcast({
         "type":       "agent_call_start",
@@ -1434,8 +1558,15 @@ async def _execute_pipeline_inner(
         price      = agent["price_per_request"]
         agent_earn = round(price * (1 - PLATFORM_FEE), 6)
         # Only charge for successful steps — don't bill users for mock fallbacks
-        if not error:
+        if not error and price > 0:
             total_cost += price
+            # Credit the agent owner immediately per step
+            await bill_transaction(
+                user_wallet_id, agent_id, price,
+                pipeline_id=pipeline_id,
+                owner_wallet_id=agent.get("owner_wallet") or None,
+                idempotency_key=f"{pipeline_id}:{agent_id}:{len(steps)}",
+            )
 
         record_metrics(agent_id, latency_ms, price, earnings=0.0 if error else agent_earn, error=error)
 
@@ -1451,9 +1582,8 @@ async def _execute_pipeline_inner(
             "metrics":     get_metrics(agent_id),
         })
 
-    # Charge pipeline total at once
-    tx = await bill_transaction(user_wallet_id, agent_ids[-1] if agent_ids else "",
-                                total_cost, pipeline_id=pipeline_id)
+    # Summarise the total cost for the caller (billing already happened per step above)
+    tx = {"amount": round(total_cost, 6), "pipeline_id": pipeline_id, "steps": len(steps)}
 
     await manager.broadcast({
         "type":          "pipeline_done",
@@ -1467,14 +1597,25 @@ async def _execute_pipeline_inner(
     return {"pipeline": pipeline_name, "steps": steps, "final": state, "total_cost": round(total_cost, 6), "transaction": tx}
 
 @app.post("/run-pipeline/{pipeline_id}")
-async def run_pipeline(pipeline_id: str, payload: dict):
+async def run_pipeline(pipeline_id: str, payload: dict, request: Request):
+    # Auth: if user is authenticated, use their wallet; otherwise fall back to demo
+    user = await _get_current_user(request)
     conn = get_db()
     row = conn.execute("SELECT * FROM pipelines WHERE id = ?", (pipeline_id,)).fetchone()
     conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Pipeline not found")
 
-    user_wallet_id = payload.get("wallet_id", DEMO_WALLET)
+    if user:
+        # Use the authenticated user's wallet
+        user_conn = get_db()
+        profile = user_conn.execute(
+            "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
+        ).fetchone()
+        user_conn.close()
+        user_wallet_id = profile["wallet_id"] if profile else payload.get("wallet_id", DEMO_WALLET)
+    else:
+        user_wallet_id = payload.get("wallet_id", DEMO_WALLET)
     agent_ids      = json.loads(row["agent_ids"])
 
     # ── Try async queue path first ────────────────────────────────────────
@@ -1620,16 +1761,17 @@ def register_pipeline_as_agent(pipeline_id: str, body: RegisterAsAgentRequest = 
 
 @app.post("/wallets", status_code=201)
 def create_wallet(body: WalletCreate):
+    # Always create with zero balance — deposits go through /wallets/{id}/deposit (requires auth)
     wid = str(uuid.uuid4())
     now = _now()
     conn = get_db()
     conn.execute(
         "INSERT INTO wallets VALUES (?, ?, ?, ?, ?, ?)",
-        (wid, body.owner_name, body.initial_balance, 0.0, 0.0, now)
+        (wid, body.owner_name, 0.0, 0.0, 0.0, now)
     )
     conn.commit()
     conn.close()
-    return {"wallet_id": wid, "owner_name": body.owner_name, "balance": body.initial_balance, "created_at": now}
+    return {"wallet_id": wid, "owner_name": body.owner_name, "balance": 0.0, "created_at": now}
 
 @app.get("/wallets/{wallet_id}")
 def get_wallet_route(wallet_id: str):
@@ -1648,10 +1790,20 @@ def get_wallet_route(wallet_id: str):
     return {**row, "recent_transactions": [dict(t) for t in txs]}
 
 @app.post("/wallets/{wallet_id}/deposit")
-def deposit_wallet(wallet_id: str, body: WalletDeposit):
+def deposit_wallet(wallet_id: str, body: WalletDeposit, user: dict = Depends(_require_auth)):
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
+    if body.amount > 10_000:
+        raise HTTPException(status_code=400, detail="Single deposit cannot exceed $10,000")
+    # Verify the user owns this wallet
     conn = get_db()
+    profile = conn.execute(
+        "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
+    ).fetchone()
+    user_wallet = profile["wallet_id"] if profile else None
+    if user_wallet != wallet_id:
+        conn.close()
+        raise HTTPException(403, "You can only deposit to your own wallet")
     row = _get_wallet(conn, wallet_id)
     if not row:
         conn.close()
@@ -1670,10 +1822,18 @@ class WalletWithdraw(BaseModel):
     destination: str = "external"  # wallet address or "external"
 
 @app.post("/wallets/{wallet_id}/withdraw")
-def withdraw_wallet(wallet_id: str, body: WalletWithdraw):
+def withdraw_wallet(wallet_id: str, body: WalletWithdraw, user: dict = Depends(_require_auth)):
     if body.amount <= 0:
         raise HTTPException(400, "Amount must be positive")
+    # Verify the authenticated user owns this wallet
     conn = get_db()
+    profile = conn.execute(
+        "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
+    ).fetchone()
+    user_wallet = profile["wallet_id"] if profile else None
+    if user_wallet != wallet_id:
+        conn.close()
+        raise HTTPException(403, "You can only withdraw from your own wallet")
     row = _get_wallet(conn, wallet_id)
     if not row:
         conn.close()
@@ -1685,7 +1845,7 @@ def withdraw_wallet(wallet_id: str, body: WalletWithdraw):
                  (body.amount, body.amount, wallet_id))
     tx_id = str(uuid.uuid4())
     conn.execute(
-        "INSERT INTO transactions VALUES (?, ?, NULL, NULL, ?, 0, 0, ?)",
+        "INSERT INTO transactions VALUES (?, ?, NULL, NULL, ?, 0, 0, ?, NULL)",
         (tx_id, wallet_id, -body.amount, _now())
     )
     conn.commit()
@@ -1695,9 +1855,20 @@ def withdraw_wallet(wallet_id: str, body: WalletWithdraw):
     return {"wallet_id": wallet_id, "withdrawn": body.amount, "destination": body.destination, "balance": round(new_bal, 4)}
 
 @app.get("/wallets")
-def list_wallets():
+def list_wallets(user: dict = Depends(_require_auth)):
+    """Return only the authenticated user's own wallet (not everyone's)."""
     conn = get_db()
-    rows = conn.execute("SELECT id, owner_name, balance, total_spent, total_earned FROM wallets").fetchall()
+    profile = conn.execute(
+        "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
+    ).fetchone()
+    wallet_id = profile["wallet_id"] if profile else None
+    if not wallet_id:
+        conn.close()
+        return []
+    rows = conn.execute(
+        "SELECT id, owner_name, balance, total_spent, total_earned FROM wallets WHERE id = ?",
+        (wallet_id,)
+    ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -2005,6 +2176,13 @@ def _create_token(user_id: str) -> str:
     sig = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return base64.urlsafe_b64encode(f"{payload}:{sig}".encode()).decode()
 
+async def _require_auth(request: Request):
+    """Async dependency — use as Depends() in endpoints that MUST have auth."""
+    user = await _get_current_user(request)
+    if not user:
+        raise HTTPException(401, "Authentication required. Provide Bearer token or ApiKey header.")
+    return user
+
 def _verify_token(token: str) -> str | None:
     try:
         decoded = base64.urlsafe_b64decode(token.encode()).decode()
@@ -2052,15 +2230,6 @@ async def _get_current_user(request: Request) -> dict | None:
         ).fetchone()
         user["wallet_id"] = profile["wallet_id"] if profile else None
     conn.close()
-    return user
-
-def _require_auth(request: Request):
-    """Sync wrapper — use as Depends() in endpoints that MUST have auth."""
-    import asyncio
-    loop = asyncio.get_event_loop()
-    user = loop.run_until_complete(_get_current_user(request))
-    if not user:
-        raise HTTPException(401, "Authentication required. Provide Bearer token or ApiKey header.")
     return user
 
 def _check_rate_limit(identifier: str) -> None:
@@ -2345,11 +2514,28 @@ async def developer_register_agent(req: AgentRegisterRequest, request: Request):
     user = await _get_current_user(request)
     if not user:
         raise HTTPException(401, "Not authenticated")
+    if req.price_per_request < 0:
+        raise HTTPException(400, "price_per_request cannot be negative")
     if req.price_per_request > MAX_PRICE_PER_REQUEST:
         raise HTTPException(400, f"price_per_request cannot exceed ${MAX_PRICE_PER_REQUEST:.2f}")
+    # SSRF prevention — block private/internal endpoint URLs
+    _validate_public_url(req.endpoint, "endpoint")
+    if req.health_endpoint:
+        _validate_public_url(req.health_endpoint, "health_endpoint")
+    if req.schema_endpoint:
+        _validate_public_url(req.schema_endpoint, "schema_endpoint")
+
     conn = get_db()
     profile = conn.execute("SELECT * FROM developer_profiles WHERE user_id = ?", (user["id"],)).fetchone()
     wallet_id = dict(profile)["wallet_id"] if profile else None
+
+    # Per-user agent limit
+    agent_count = conn.execute(
+        "SELECT COUNT(*) FROM agents WHERE developer_name = ?", (user["username"],)
+    ).fetchone()[0]
+    if agent_count >= MAX_AGENTS_PER_USER:
+        conn.close()
+        raise HTTPException(400, f"Agent limit reached ({MAX_AGENTS_PER_USER} max per developer)")
 
     # Validate endpoint reachability (non-blocking — mark as pending if unreachable)
     status = "pending"
