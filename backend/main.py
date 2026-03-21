@@ -1732,6 +1732,31 @@ async def run_pipeline(pipeline_id: str, payload: dict, request: Request):
         pipeline_id, row["name"], agent_ids, payload, user_wallet_id
     )
 
+@app.get("/jobs/recent")
+async def get_recent_jobs(limit: int = 10):
+    """Must be declared before /jobs/{job_id} so FastAPI doesn't match 'recent' as a job_id."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM pipeline_jobs ORDER BY created_at DESC LIMIT ?", (min(limit, 100),)
+    ).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        entry = {
+            "job_id": r["id"], "pipeline_id": r["pipeline_id"],
+            "pipeline_name": r["pipeline_name"], "status": r["status"],
+            "created_at": r["created_at"], "completed_at": r["completed_at"],
+        }
+        if r["status"] == "completed" and r["result"]:
+            try:
+                parsed = json.loads(r["result"])
+                entry["result"] = parsed
+                entry["signal"] = parsed.get("final", {}).get("signal") or parsed.get("signal")
+            except Exception:
+                pass
+        out.append(entry)
+    return out
+
 @app.get("/jobs/{job_id}")
 async def get_job_status(job_id: str):
     """Poll the status of a queued pipeline execution."""
@@ -1758,7 +1783,6 @@ async def get_job_status(job_id: str):
 
 
 @app.get("/jobs")
-@app.get("/jobs/recent")
 async def list_recent_jobs(limit: int = 20):
     """Return the most recent pipeline jobs with full result data."""
     conn = get_db()
