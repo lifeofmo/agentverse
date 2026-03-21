@@ -1723,31 +1723,6 @@ async def run_pipeline(pipeline_id: str, payload: dict, request: Request):
         pipeline_id, row["name"], agent_ids, payload, user_wallet_id
     )
 
-@app.get("/jobs/{job_id}")
-async def get_job_status(job_id: str):
-    """Poll the status of a queued pipeline execution."""
-    conn = get_db()
-    row = conn.execute("SELECT * FROM pipeline_jobs WHERE id = ?", (job_id,)).fetchone()
-    conn.close()
-    if not row:
-        raise HTTPException(status_code=404, detail="Job not found")
-    out: dict = {
-        "job_id":        row["id"],
-        "pipeline_id":   row["pipeline_id"],
-        "pipeline_name": row["pipeline_name"],
-        "status":        row["status"],
-        "wallet_id":     row["wallet_id"],
-        "created_at":    row["created_at"],
-        "started_at":    row["started_at"],
-        "completed_at":  row["completed_at"],
-    }
-    if row["status"] == "completed" and row["result"]:
-        out["result"] = json.loads(row["result"])
-    if row["status"] == "failed":
-        out["error"] = row["error"]
-    return out
-
-
 @app.get("/jobs")
 @app.get("/jobs/recent")
 async def list_recent_jobs(limit: int = 20):
@@ -1776,6 +1751,31 @@ async def list_recent_jobs(limit: int = 20):
             except Exception:
                 pass
         out.append(entry)
+    return out
+
+
+@app.get("/jobs/{job_id}")
+async def get_job_status(job_id: str):
+    """Poll the status of a queued pipeline execution."""
+    conn = get_db()
+    row = conn.execute("SELECT * FROM pipeline_jobs WHERE id = ?", (job_id,)).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Job not found")
+    out: dict = {
+        "job_id":        row["id"],
+        "pipeline_id":   row["pipeline_id"],
+        "pipeline_name": row["pipeline_name"],
+        "status":        row["status"],
+        "wallet_id":     row["wallet_id"],
+        "created_at":    row["created_at"],
+        "started_at":    row["started_at"],
+        "completed_at":  row["completed_at"],
+    }
+    if row["status"] == "completed" and row["result"]:
+        out["result"] = json.loads(row["result"])
+    if row["status"] == "failed":
+        out["error"] = row["error"]
     return out
 
 
