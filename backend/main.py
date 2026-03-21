@@ -1414,7 +1414,7 @@ async def _execute_pipeline_inner(
         record_metrics(agent_id, latency_ms, price, earnings=0.0 if error else agent_earn, error=error)
 
         state.update(result)
-        steps.append({"agent": agent["name"], "output": result})
+        steps.append({"agent": agent["name"], "output": result, "latency_ms": latency_ms, "error": error})
 
         await manager.broadcast({
             "type":        "pipeline_step_done",
@@ -2363,26 +2363,35 @@ async def developer_validate_agent(agent_id: str, request: Request):
     conn.close()
     if not agent:
         raise HTTPException(404, "Agent not found")
-    endpoint = agent["health_endpoint"] or agent["endpoint"]
     start = time.monotonic()
-    status, latency_ms = "offline", 0.0
-    async with httpx.AsyncClient(timeout=8.0) as client:
-        try:
-            r = await client.get(endpoint)
-            latency_ms = round((time.monotonic() - start) * 1000, 1)
-            status = "active" if r.status_code == 200 else "degraded"
-        except Exception:
-            status = "offline"
+    async with httpx.AsyncClient() as client:
+        status = await _probe_endpoint(client, agent["health_endpoint"], agent["endpoint"])
+    latency_ms = round((time.monotonic() - start) * 1000, 1)
     conn = get_db()
     conn.execute("UPDATE agents SET status = ? WHERE id = ?", (status, agent_id))
     conn.commit()
     conn.close()
-    return {"agent_id": agent_id, "status": status, "latency_ms": latency_ms, "endpoint": endpoint}
+    return {"agent_id": agent_id, "status": status, "latency_ms": latency_ms, "endpoint": agent["health_endpoint"] or agent["endpoint"]}
 
 
 # =============================================================================
 # AGENT HEALTH MONITORING
 # =============================================================================
+
+async def _probe_endpoint(client: httpx.AsyncClient, health_endpoint: str | None, run_endpoint: str) -> str:
+    """Returns 'active', 'degraded', or 'offline'."""
+    if health_endpoint:
+        try:
+            r = await client.get(health_endpoint, timeout=5.0)
+            return "active" if r.status_code == 200 else "degraded"
+        except Exception:
+            return "offline"
+    # No health endpoint — do a lightweight POST probe to the run endpoint
+    try:
+        r = await client.post(run_endpoint, json={"_probe": True}, timeout=5.0)
+        return "active" if r.status_code < 500 else "degraded"
+    except Exception:
+        return "offline"
 
 async def _health_check_all():
     conn = get_db()
@@ -2390,14 +2399,9 @@ async def _health_check_all():
         "SELECT id, endpoint, health_endpoint FROM agents WHERE status != 'deleted'"
     ).fetchall()
     conn.close()
-    async with httpx.AsyncClient(timeout=5.0) as client:
+    async with httpx.AsyncClient() as client:
         for agent in agents:
-            ep = agent["health_endpoint"] or agent["endpoint"]
-            try:
-                r = await client.get(ep)
-                status = "active" if r.status_code == 200 else "degraded"
-            except Exception:
-                status = "offline"
+            status = await _probe_endpoint(client, agent["health_endpoint"], agent["endpoint"])
             conn = get_db()
             conn.execute("UPDATE agents SET status = ? WHERE id = ?", (status, agent["id"]))
             conn.commit()
@@ -2533,21 +2537,15 @@ async def agent_health(agent_id: str):
     conn.close()
     if not agent:
         raise HTTPException(404, "Agent not found")
-    ep = agent["health_endpoint"] or agent["endpoint"]
     start = time.monotonic()
-    status, latency_ms = "offline", 0.0
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        try:
-            r = await client.get(ep)
-            latency_ms = round((time.monotonic() - start) * 1000, 1)
-            status = "active" if r.status_code == 200 else "degraded"
-        except Exception:
-            status = "offline"
+    async with httpx.AsyncClient() as client:
+        status = await _probe_endpoint(client, agent["health_endpoint"], agent["endpoint"])
+    latency_ms = round((time.monotonic() - start) * 1000, 1)
     conn = get_db()
     conn.execute("UPDATE agents SET status = ? WHERE id = ?", (status, agent_id))
     conn.commit()
     conn.close()
-    return {"agent_id": agent_id, "name": agent["name"], "status": status, "latency_ms": latency_ms}
+    return {"agent_id": agent_id, "name": agent["name"], "status": status, "latency_ms": latency_ms, "endpoint": agent["health_endpoint"] or agent["endpoint"]}
 
 
 # =============================================================================

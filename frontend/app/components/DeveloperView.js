@@ -841,8 +841,11 @@ function JobsPanel() {
                       <div style={{ color: "#fca5a5", background: "#450a0a", border: "1px solid #ef4444", borderRadius: 6, padding: "8px 12px", marginBottom: 8 }}>{expanded.error}</div>
                     )}
                     {expanded.result?.steps && expanded.result.steps.map((s, i) => (
-                      <div key={i} style={{ marginBottom: 8, padding: "8px 12px", background: "#1a1a2e", borderRadius: 8, border: "1px solid #374151" }}>
-                        <div style={{ fontWeight: 700, color: "#818cf8", marginBottom: 4 }}>{i + 1}. {s.agent_name} <span style={{ fontWeight: 400, color: "#9aabb8" }}>({s.latency_ms}ms{s.mock ? " · mock" : ""})</span></div>
+                      <div key={i} style={{ marginBottom: 8, padding: "8px 12px", background: "#1a1a2e", borderRadius: 8, border: `1px solid ${s.error ? "#7f1d1d" : "#374151"}` }}>
+                        <div style={{ fontWeight: 700, color: s.error ? "#f87171" : "#818cf8", marginBottom: 4 }}>
+                          {i + 1}. {s.agent || s.agent_name || "—"}
+                          <span style={{ fontWeight: 400, color: "#9aabb8" }}> ({s.latency_ms != null ? `${s.latency_ms}ms` : "—"}{s.error ? " · mock" : ""})</span>
+                        </div>
                         <pre style={{ margin: 0, fontSize: 10, color: "#9ca3af", overflowX: "auto" }}>{JSON.stringify(s.output, null, 2)}</pre>
                       </div>
                     ))}
