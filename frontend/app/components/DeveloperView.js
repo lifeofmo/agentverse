@@ -1929,7 +1929,7 @@ export default function DeveloperView() {
   ];
 
   return (
-    <div style={{ height: "100%", overflowY: "auto", background: "#0a0a0f", padding: "28px 36px", fontFamily: "var(--font-nunito), Nunito, system-ui, sans-serif" }}>
+    <div style={{ height: "100%", overflowY: "auto", WebkitOverflowScrolling: "touch", background: "#0a0a0f", padding: "28px 20px", fontFamily: "var(--font-nunito), Nunito, system-ui, sans-serif" }}>
 
       {/* Header */}
       <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -2000,10 +2000,10 @@ export default function DeveloperView() {
         </div>
       )}
 
-      {/* Tab bar */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+      {/* Tab bar — horizontally scrollable on mobile */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 16, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none", paddingBottom: 2 }}>
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "6px 16px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === t.id ? "#818cf818" : "transparent", color: tab === t.id ? "#818cf8" : "#9aabb8", boxShadow: tab === t.id ? "inset 0 0 0 1px #818cf840" : "none", transition: "all 0.15s", fontFamily: "inherit" }}>
+          <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 16px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === t.id ? "#818cf818" : "transparent", color: tab === t.id ? "#818cf8" : "#9aabb8", boxShadow: tab === t.id ? "inset 0 0 0 1px #818cf840" : "none", transition: "all 0.15s", fontFamily: "inherit", flexShrink: 0, WebkitTapHighlightColor: "transparent" }}>
             {t.label}
           </button>
         ))}
@@ -2011,8 +2011,8 @@ export default function DeveloperView() {
 
       {/* My Agents tab */}
       {tab === "mine" && auth && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16, alignItems: "start" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) min(280px,100%)", gap: 16, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "min(280px,100%) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
             <div style={{ background: "#111827", borderRadius: 16, padding: "14px 8px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>
               {myAgents.length === 0 ? (
                 <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic", textAlign: "center", padding: "24px 16px" }}>
@@ -2070,7 +2070,7 @@ export default function DeveloperView() {
 
       {/* Agents tab */}
       {tab === "agents" && (
-        <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "min(280px,100%) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
           <div style={{ background: "#111827", borderRadius: 16, padding: "14px 8px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>
             <div style={{ padding: "0 8px 10px", borderBottom: "1px solid #1f2937", marginBottom: 8 }}>
               <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter agents…" style={{ width: "100%", border: "1px solid #374151", borderRadius: 8, padding: "6px 10px", fontSize: 12, outline: "none", fontFamily: "inherit", background: "#1f2937", color: "#f3f4f6", boxSizing: "border-box" }} />

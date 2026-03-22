@@ -347,7 +347,8 @@ export default function App() {
         />
       )}
       <div style={{
-        display: "flex", flexDirection: "column", height: "100vh",
+        display: "flex", flexDirection: "column",
+        height: "100dvh",           /* dvh = dynamic viewport height — fixes iOS Safari URL bar */
         background: "#0a0a0f", overflow: "hidden",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}>
@@ -365,17 +366,21 @@ export default function App() {
             .desktop-only { display: none !important; }
             .mobile-only  { display: flex !important; }
             .nav-tabs-desktop { display: none !important; }
-            .main-content { padding-bottom: 64px !important; }
+            /* bottom-tab height (60px) + iPhone home indicator */
+            .main-content { padding-bottom: calc(60px + env(safe-area-inset-bottom)) !important; }
           }
         `}</style>
 
         {/* ── Top nav ───────────────────────────────────────────────────────── */}
         <nav style={{
           display: "flex", alignItems: "center",
-          padding: "0 14px", height: 52, flexShrink: 0,
+          /* paddingTop covers iPhone status bar / Dynamic Island in standalone mode */
+          padding: "env(safe-area-inset-top) 14px 0",
+          height: "calc(52px + env(safe-area-inset-top))",
+          flexShrink: 0,
           background: "rgba(10,10,15,0.97)",
           borderBottom: "1px solid rgba(255,255,255,0.06)",
-          backdropFilter: "blur(16px)",
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
           zIndex: 100,
         }}>
           {/* Logo */}
@@ -458,30 +463,37 @@ export default function App() {
         <nav className="mobile-only" style={{
           position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
           background: "rgba(10,10,15,0.97)", borderTop: "1px solid rgba(255,255,255,0.08)",
-          backdropFilter: "blur(16px)", height: 60, alignItems: "center",
-          justifyContent: "space-around", padding: "0 4px",
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+          /* height = 60px tabs + iPhone home indicator safe area */
+          paddingBottom: "env(safe-area-inset-bottom)",
+          alignItems: "flex-start", justifyContent: "space-around",
+          padding: "0 4px", paddingBottom: "env(safe-area-inset-bottom)",
         }}>
           {NAV.map(n => {
             const active = tab === n.id;
             return (
               <button key={n.id} onClick={() => handleTabChange(n.id)} style={{
-                flex: 1, height: "100%", background: "none", border: "none",
+                flex: 1, minHeight: 52, background: "none", border: "none",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                 gap: 3, cursor: "pointer", fontFamily: "inherit",
-                color: active ? "#818cf8" : "rgba(255,255,255,0.3)",
+                color: active ? "#818cf8" : "rgba(255,255,255,0.35)",
+                WebkitTapHighlightColor: "transparent",
+                transition: "color 0.15s",
               }}>
-                <span style={{ fontSize: 18 }}>{n.icon}</span>
-                <span style={{ fontSize: 9, fontWeight: active ? 700 : 400 }}>{n.label}</span>
+                <span style={{ fontSize: 20, lineHeight: 1 }}>{n.icon}</span>
+                <span style={{ fontSize: 10, fontWeight: active ? 700 : 400, letterSpacing: 0.2 }}>{n.label}</span>
+                {active && <div style={{ position: "absolute", bottom: "calc(env(safe-area-inset-bottom) + 0px)", width: 20, height: 2, borderRadius: 1, background: "#818cf8" }} />}
               </button>
             );
           })}
           <a href="/build" style={{
-            flex: 1, height: "100%", display: "flex", flexDirection: "column",
+            flex: 1, minHeight: 52, display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center", gap: 3,
             textDecoration: "none", color: "#818cf8",
+            WebkitTapHighlightColor: "transparent",
           }}>
-            <span style={{ fontSize: 18 }}>+</span>
-            <span style={{ fontSize: 9, fontWeight: 700 }}>Build</span>
+            <span style={{ fontSize: 20, lineHeight: 1 }}>✦</span>
+            <span style={{ fontSize: 10, fontWeight: 700 }}>Build</span>
           </a>
         </nav>
 

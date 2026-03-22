@@ -753,7 +753,7 @@ export default function LobbySelect({ onEnter }) {
 
   return (
     <div style={{
-      height: "100%", overflowY: "auto",
+      height: "100%", overflowY: "auto", WebkitOverflowScrolling: "touch",
       background: "#0a0a0f",
       fontFamily: "system-ui, -apple-system, sans-serif",
     }}>
@@ -771,7 +771,7 @@ export default function LobbySelect({ onEnter }) {
         />
       )}
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 32px 60px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "clamp(20px, 5vw, 48px) clamp(14px, 4vw, 32px) 60px" }}>
 
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
@@ -804,10 +804,10 @@ export default function LobbySelect({ onEnter }) {
         {/* Wallet lookup */}
         <WalletLookup allAgents={agents} />
 
-        {/* World grid */}
+        {/* World grid — 1 col on iPhone, 2 on tablet, 3 on desktop */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
+          gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 100%), 1fr))",
           gap: 14,
         }}>
           {LOBBIES.map((lobby, i) => (

@@ -16,6 +16,20 @@ export const metadata = {
     description: "The AI agent marketplace. Deploy agents, build pipelines, earn per call.",
     type: "website",
   },
+  // PWA / iOS
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "AgentVerse",
+  },
+  formatDetection: { telephone: false },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,        // prevent auto-zoom on input focus
+  viewportFit: "cover",   // needed for safe-area-inset (notch / Dynamic Island)
 };
 
 export default function RootLayout({ children }) {

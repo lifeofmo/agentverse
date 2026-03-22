@@ -15,6 +15,34 @@ body {
   background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-nunito), 'Nunito', system-ui, -apple-system, sans-serif;
+  /* Prevent elastic bounce on body — let individual panels scroll */
+  overscroll-behavior: none;
+  /* iOS full height fix */
+  min-height: 100dvh;
+}
+
+/* ── iOS / iPhone fixes ── */
+
+/* Smooth momentum scrolling on all scrollable containers */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.av-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Safe area helpers */
+.pb-safe   { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe   { padding-top:    env(safe-area-inset-top); }
+.px-safe   { padding-left:   env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+
+/* Prevent iOS input zoom — set font-size to 16px on inputs system-wide at mobile */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* ── AgentVerse animations ── */
