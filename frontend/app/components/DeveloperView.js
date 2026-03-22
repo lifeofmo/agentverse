@@ -667,6 +667,50 @@ function GuideSection({ step, title, children }) {
   );
 }
 
+function RevenueCalculator() {
+  const [calls, setCalls] = useState("100");
+  const [price, setPrice] = useState("0.005");
+
+  const dailyCalls  = Math.max(0, parseFloat(calls) || 0);
+  const callPrice   = Math.max(0, parseFloat(price) || 0);
+  const dailyGross  = dailyCalls * callPrice;
+  const dailyNet    = dailyGross * 0.9;
+  const monthlyNet  = dailyNet * 30;
+  const yearlyNet   = dailyNet * 365;
+
+  const fmt = (n) => n < 1 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`;
+
+  return (
+    <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: 10, padding: "14px 16px" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ color: "#9aabb8", fontSize: 10, marginBottom: 4 }}>Calls / day</div>
+          <input type="number" value={calls} onChange={e => setCalls(e.target.value)} min="1"
+            style={{ width: "100%", background: "#1f2937", border: "1px solid #374151", borderRadius: 6, padding: "6px 8px", fontSize: 12, color: "#f9fafb", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div style={{ color: "#9aabb8", fontSize: 10, marginBottom: 4 }}>Price per call (USD)</div>
+          <input type="number" value={price} onChange={e => setPrice(e.target.value)} min="0.001" step="0.001"
+            style={{ width: "100%", background: "#1f2937", border: "1px solid #374151", borderRadius: 6, padding: "6px 8px", fontSize: 12, color: "#f9fafb", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        {[
+          { label: "Daily",   value: fmt(dailyNet)   },
+          { label: "Monthly", value: fmt(monthlyNet), highlight: true },
+          { label: "Yearly",  value: fmt(yearlyNet)  },
+        ].map(({ label, value, highlight }) => (
+          <div key={label} style={{ flex: 1, background: highlight ? "#064e3b20" : "#111827", border: `1px solid ${highlight ? "#059669" : "#1f2937"}`, borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
+            <div style={{ color: "#9aabb8", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</div>
+            <div style={{ color: highlight ? "#34d399" : "#f9fafb", fontWeight: 800, fontSize: 16, marginTop: 2 }}>{value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ color: "#4b5563", fontSize: 10, marginTop: 8 }}>90% to you · 10% platform fee · payouts in USDC</div>
+    </div>
+  );
+}
+
 function DeployGuide() {
   const apiBase = API;
 
@@ -795,7 +839,11 @@ app.listen(3001);`}</CodeBlock>
         </div>
       </GuideSection>
 
-      <GuideSection step="5" title="API reference">
+      <GuideSection step="5" title="Estimate your earnings">
+        <RevenueCalculator />
+      </GuideSection>
+
+      <GuideSection step="6" title="API reference">
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto 1fr", gap: "6px 14px", fontSize: 12, alignItems: "center" }}>
           {[
             ["POST", "/agents",                     "Register agent"],
@@ -952,6 +1000,14 @@ function CreditsPanel({ auth }) {
   const [usdcMsg,    setUsdcMsg]    = useState("");
   const [copied,     setCopied]     = useState(false);
 
+  // Withdrawal state
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [withdrawAmt,  setWithdrawAmt]  = useState("");
+  const [withdrawAddr, setWithdrawAddr] = useState("");
+  const [withdrawBusy, setWithdrawBusy] = useState(false);
+  const [withdrawMsg,  setWithdrawMsg]  = useState("");
+  const [payouts,      setPayouts]      = useState([]);
+
   const load = () => {
     if (!auth?.token) return;
     fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${auth.token}` } })
@@ -1009,6 +1065,35 @@ function CreditsPanel({ auth }) {
     navigator.clipboard.writeText(PLATFORM_WALLET_ADDRESS).then(() => {
       setCopied(true); setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const loadPayouts = () => {
+    if (!walletId || !auth?.token) return;
+    fetch(`${API}/wallets/${walletId}/payouts`, { headers: { Authorization: `Bearer ${auth.token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then(setPayouts)
+      .catch(() => {});
+  };
+
+  useEffect(() => { if (walletId) loadPayouts(); }, [walletId]);
+
+  const submitWithdraw = async () => {
+    if (!withdrawAmt || !withdrawAddr.trim()) return;
+    setWithdrawBusy(true); setWithdrawMsg("");
+    try {
+      const res = await fetch(`${API}/wallets/${walletId}/withdraw`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ amount: parseFloat(withdrawAmt), eth_address: withdrawAddr.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Request failed");
+      load(); loadPayouts();
+      setWithdrawMsg(`Payout of $${parseFloat(withdrawAmt).toFixed(2)} requested — sent to ${withdrawAddr.slice(0, 10)}... within 24h`);
+      setWithdrawAmt(""); setWithdrawAddr("");
+      setTimeout(() => { setWithdrawMsg(""); setShowWithdraw(false); }, 6000);
+    } catch (e) { setWithdrawMsg(`Error: ${e.message}`); }
+    finally { setWithdrawBusy(false); }
   };
 
   const credits = balance !== null ? Math.round(balance * 100) : null;
@@ -1075,6 +1160,60 @@ function CreditsPanel({ auth }) {
             {usdcMsg && (
               <div style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: usdcMsg.startsWith("Error") ? "#f87171" : "#34d399" }}>
                 {usdcMsg}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Withdraw / Request Payout */}
+      <div style={{ marginTop: 10, borderTop: "1px solid #1f2937", paddingTop: 10 }}>
+        <button onClick={() => setShowWithdraw(v => !v)} style={{ background: "none", border: "1px solid #374151", borderRadius: 8, padding: "5px 10px", fontSize: 11, fontWeight: 700, color: "#34d399", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ fontSize: 12 }}>↑</span> Request Payout {showWithdraw ? "▲" : "▼"}
+        </button>
+        {showWithdraw && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ color: "#9aabb8", fontSize: 10, marginBottom: 8, lineHeight: 1.5 }}>
+              Credits are converted to USDC and sent to your World Chain address within 24 hours.
+              <br /><span style={{ color: "#E6C36B" }}>Available: {credits !== null ? `${credits} credits ($${(credits / 100).toFixed(2)})` : "—"}</span>
+            </div>
+            <input
+              value={withdrawAddr}
+              onChange={e => setWithdrawAddr(e.target.value)}
+              placeholder="Your ETH address (0x...)"
+              style={{ width: "100%", background: "#0d1117", border: "1px solid #374151", borderRadius: 6, padding: "6px 8px", fontSize: 11, color: "#f9fafb", fontFamily: "monospace", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
+            />
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              <input
+                value={withdrawAmt}
+                onChange={e => setWithdrawAmt(e.target.value)}
+                placeholder="Amount in USD"
+                type="number" min="1" step="0.01" max={credits ? credits / 100 : 0}
+                style={{ flex: 1, background: "#0d1117", border: "1px solid #374151", borderRadius: 6, padding: "6px 8px", fontSize: 11, color: "#f9fafb", fontFamily: "inherit", outline: "none" }}
+              />
+              <button onClick={() => setWithdrawAmt(credits ? (credits / 100).toFixed(2) : "")} style={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 6, padding: "6px 10px", fontSize: 10, color: "#9aabb8", cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>Max</button>
+            </div>
+            <button
+              onClick={submitWithdraw}
+              disabled={withdrawBusy || !withdrawAmt || !withdrawAddr.trim() || parseFloat(withdrawAmt) <= 0}
+              style={{ width: "100%", background: withdrawBusy ? "#374151" : "#065f46", border: "1px solid #059669", borderRadius: 8, padding: "7px", fontSize: 11, fontWeight: 700, color: "#34d399", cursor: withdrawBusy ? "default" : "pointer", fontFamily: "inherit" }}>
+              {withdrawBusy ? "Submitting..." : "Request Payout"}
+            </button>
+            {withdrawMsg && (
+              <div style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: withdrawMsg.startsWith("Error") ? "#f87171" : "#34d399", lineHeight: 1.5 }}>
+                {withdrawMsg}
+              </div>
+            )}
+            {payouts.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ color: "#9aabb8", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>Payout History</div>
+                {payouts.slice(0, 5).map(p => (
+                  <div key={p.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 4, fontFamily: "monospace" }}>
+                    <span style={{ color: "#6b7280" }}>{p.eth_address.slice(0, 10)}...</span>
+                    <span style={{ color: "#E6C36B" }}>${p.amount_usd.toFixed(2)}</span>
+                    <span style={{ color: p.status === "paid" ? "#34d399" : p.status === "pending" ? "#f59e0b" : "#9aabb8" }}>{p.status}</span>
+                  </div>
+                ))}
               </div>
             )}
           </div>

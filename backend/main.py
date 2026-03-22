@@ -316,6 +316,19 @@ def _migrate(conn):
         )
     """)
 
+    # ── Payout requests ───────────────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS payout_requests (
+            id          TEXT PRIMARY KEY,
+            wallet_id   TEXT NOT NULL,
+            amount_usd  REAL NOT NULL,
+            eth_address TEXT NOT NULL,
+            status      TEXT DEFAULT 'pending',
+            created_at  TEXT NOT NULL,
+            paid_at     TEXT
+        )
+    """)
+
     new_agent_cols = [
         ("schema_endpoint",   "TEXT"),
         ("health_endpoint",   "TEXT"),
@@ -2026,13 +2039,17 @@ async def deposit_worldchain(wallet_id: str, body: WalletWorldChainDeposit, user
 
 class WalletWithdraw(BaseModel):
     amount:      float
-    destination: str = "external"  # wallet address or "external"
+    eth_address: str        # World Chain ETH address for USDC payout
 
 @app.post("/wallets/{wallet_id}/withdraw")
 def withdraw_wallet(wallet_id: str, body: WalletWithdraw, user: dict = Depends(_require_auth)):
     if body.amount <= 0:
         raise HTTPException(400, "Amount must be positive")
-    # Verify the authenticated user owns this wallet
+    if body.amount > 10_000:
+        raise HTTPException(400, "Single withdrawal cannot exceed $10,000")
+    if not re.match(r'^0x[0-9a-fA-F]{40}$', body.eth_address.strip()):
+        raise HTTPException(400, "Invalid ETH address — must be 0x followed by 40 hex characters")
+
     conn = get_db()
     profile = conn.execute(
         "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
@@ -2048,18 +2065,45 @@ def withdraw_wallet(wallet_id: str, body: WalletWithdraw, user: dict = Depends(_
     if row["balance"] < body.amount:
         conn.close()
         raise HTTPException(400, f"Insufficient balance. Available: ${row['balance']:.4f}")
-    conn.execute("UPDATE wallets SET balance = balance - ?, total_spent = total_spent + ? WHERE id = ?",
-                 (body.amount, body.amount, wallet_id))
-    tx_id = str(uuid.uuid4())
+
+    # Debit balance immediately so it can't be double-spent
+    conn.execute("UPDATE wallets SET balance = balance - ? WHERE id = ?", (body.amount, wallet_id))
+
+    # Record payout request
+    req_id = str(uuid.uuid4())
     conn.execute(
-        "INSERT INTO transactions VALUES (?, ?, NULL, NULL, ?, 0, 0, ?, NULL)",
-        (tx_id, wallet_id, -body.amount, _now())
+        "INSERT INTO payout_requests (id, wallet_id, amount_usd, eth_address, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)",
+        (req_id, wallet_id, body.amount, body.eth_address.strip().lower(), _now())
     )
     conn.commit()
     new_bal = conn.execute("SELECT balance FROM wallets WHERE id = ?", (wallet_id,)).fetchone()["balance"]
     conn.close()
-    logger.info("wallet_withdrawal", extra={"wallet_id": wallet_id, "amount": body.amount})
-    return {"wallet_id": wallet_id, "withdrawn": body.amount, "destination": body.destination, "balance": round(new_bal, 4)}
+    logger.info("payout_requested", extra={"wallet_id": wallet_id, "amount": body.amount, "eth_address": body.eth_address})
+    return {
+        "request_id": req_id,
+        "wallet_id": wallet_id,
+        "amount_usd": body.amount,
+        "eth_address": body.eth_address.strip().lower(),
+        "status": "pending",
+        "balance": round(new_bal, 4),
+        "message": "Payout request submitted. USDC will be sent to your address within 24 hours.",
+    }
+
+@app.get("/wallets/{wallet_id}/payouts")
+def list_payouts(wallet_id: str, user: dict = Depends(_require_auth)):
+    conn = get_db()
+    profile = conn.execute(
+        "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
+    ).fetchone()
+    if not profile or profile["wallet_id"] != wallet_id:
+        conn.close()
+        raise HTTPException(403, "Access denied")
+    rows = conn.execute(
+        "SELECT * FROM payout_requests WHERE wallet_id = ? ORDER BY created_at DESC LIMIT 20",
+        (wallet_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 @app.get("/wallets")
 def list_wallets(user: dict = Depends(_require_auth)):
