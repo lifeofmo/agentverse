@@ -1414,20 +1414,39 @@ function CreditsPanel({ auth }) {
 
   useEffect(() => { load(); }, [auth?.token]);
 
+  // Detect Stripe redirect back (?stripe_success=1 or ?stripe_cancel=1)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("stripe_success")) {
+      setOk("Payment successful! Credits will appear in a few seconds.");
+      setTimeout(() => { load(); setOk(""); }, 4000);
+      const clean = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, "", clean);
+    } else if (params.get("stripe_cancel")) {
+      setOk("Payment cancelled.");
+      setTimeout(() => setOk(""), 3000);
+      const clean = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, "", clean);
+    }
+  }, []);
+
   const topUp = async (usd) => {
     if (!walletId) return;
     setBusy(true); setOk("");
     try {
-      const res = await fetch(`${API}/wallets/${walletId}/deposit`, {
-        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ amount: usd }),
+      const res = await fetch(`${API}/wallets/${walletId}/deposit/stripe/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ amount_usd: usd }),
       });
-      if (!res.ok) throw new Error("Failed");
-      load();
-      setOk(`+${usd * 100} credits added!`);
-      setTimeout(() => setOk(""), 3000);
-    } catch { setOk("Error adding credits."); }
-    finally { setBusy(false); }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to create checkout session");
+      }
+      const { url } = await res.json();
+      window.location.href = url;
+    } catch (e) { setOk(`Error: ${e.message}`); setBusy(false); }
   };
 
   const submitUsdcDeposit = async () => {
@@ -1494,14 +1513,17 @@ function CreditsPanel({ auth }) {
         <div style={{ color, fontWeight: 800, fontSize: 20 }}>{credits !== null ? credits.toLocaleString() : "—"}</div>
       </div>
       <div style={{ color: "#9aabb8", fontSize: 10, marginBottom: 10 }}>1 credit = $0.01 · used to call agents & run pipelines</div>
+      <div style={{ color: "#9aabb8", fontSize: 9, marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ fontSize: 11 }}>💳</span> Pay with card via Stripe — secure, instant
+      </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {[5, 10, 25, 50].map(usd => (
           <button key={usd} onClick={() => topUp(usd)} disabled={busy} style={{ flex: 1, minWidth: 54, background: "#1a1a2e", border: "1px solid #374151", borderRadius: 8, padding: "6px 4px", fontSize: 11, fontWeight: 700, cursor: busy ? "default" : "pointer", color: "#818cf8", fontFamily: "inherit" }}>
-            +{usd * 100}<div style={{ fontSize: 9, fontWeight: 400, color: "#9aabb8" }}>${usd}</div>
+            {busy ? "…" : `+${usd * 100}`}<div style={{ fontSize: 9, fontWeight: 400, color: "#9aabb8" }}>${usd}</div>
           </button>
         ))}
       </div>
-      {ok && <div style={{ marginTop: 8, color: "#34d399", fontSize: 11, fontWeight: 600 }}>{ok}</div>}
+      {ok && <div style={{ marginTop: 8, color: ok.startsWith("Error") ? "#f87171" : "#34d399", fontSize: 11, fontWeight: 600 }}>{ok}</div>}
 
       {/* USDC on World Chain top-up */}
       <div style={{ marginTop: 10, borderTop: "1px solid #1f2937", paddingTop: 10 }}>

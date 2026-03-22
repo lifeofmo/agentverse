@@ -75,10 +75,18 @@ PLATFORM_FEE    = 0.10   # 10 % to platform, 90 % to agent creator
 
 # ── x402 payment protocol ─────────────────────────────────────────────────────
 # Docs: https://x402.org  |  Spec: https://github.com/coinbase/x402
-X402_ENABLED      = os.environ.get("X402_ENABLED", "false").lower() == "true"
-X402_NETWORK      = os.environ.get("X402_NETWORK", "base-sepolia")   # "base-mainnet" for prod
+X402_ENABLED      = os.environ.get("X402_ENABLED", "true").lower() == "true"
+X402_NETWORK      = os.environ.get("X402_NETWORK", "base-mainnet")
 X402_FACILITATOR  = os.environ.get("X402_FACILITATOR", "https://x402.org/facilitator")
 X402_API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
+
+# ── Stripe payments ────────────────────────────────────────────────────────────
+import stripe as _stripe_lib
+STRIPE_SECRET_KEY      = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET  = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+FRONTEND_URL           = os.environ.get("FRONTEND_URL", "https://agentverse-puce.vercel.app")
+if STRIPE_SECRET_KEY:
+    _stripe_lib.api_key = STRIPE_SECRET_KEY
 
 # USDC contract addresses (6 decimals)
 _USDC = {
@@ -2154,6 +2162,118 @@ async def deposit_worldchain(wallet_id: str, body: WalletWorldChainDeposit, user
         "balance": round(new_bal, 4),
         "tx_hash": tx_hash,
     }
+
+
+# ── Stripe deposit ─────────────────────────────────────────────────────────────
+
+class StripeSessionCreate(BaseModel):
+    amount_usd: float
+
+@app.post("/wallets/{wallet_id}/deposit/stripe/session")
+async def create_stripe_session(
+    wallet_id: str, body: StripeSessionCreate, user: dict = Depends(_require_auth)
+):
+    """Create a Stripe Checkout session. Returns {url, session_id}."""
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(503, "Card payments not configured on this server")
+    if body.amount_usd < 1 or body.amount_usd > 10_000:
+        raise HTTPException(400, "Amount must be between $1 and $10,000")
+
+    conn = get_db()
+    profile = conn.execute(
+        "SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)
+    ).fetchone()
+    conn.close()
+    if not profile or profile["wallet_id"] != wallet_id:
+        raise HTTPException(403, "You can only deposit to your own wallet")
+
+    try:
+        session = _stripe_lib.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {
+                        "name": f"AgentVerse Credits — ${body.amount_usd:.2f}",
+                        "description": f"{int(body.amount_usd * 100)} credits · 1 credit = $0.01",
+                    },
+                    "unit_amount": int(body.amount_usd * 100),  # Stripe uses cents
+                },
+                "quantity": 1,
+            }],
+            mode="payment",
+            success_url=f"{FRONTEND_URL}/?stripe_success=1",
+            cancel_url=f"{FRONTEND_URL}/?stripe_cancel=1",
+            metadata={
+                "wallet_id":  wallet_id,
+                "user_id":    user["id"],
+                "amount_usd": str(body.amount_usd),
+            },
+        )
+        return {"url": session.url, "session_id": session.id}
+    except _stripe_lib.StripeError as e:
+        logger.warning("Stripe session creation failed", extra={"error": str(e)})
+        raise HTTPException(502, f"Stripe error: {e.user_message or str(e)}")
+
+
+@app.post("/stripe/webhook")
+async def stripe_webhook(request: Request):
+    """Stripe sends checkout.session.completed here → credit the wallet."""
+    if not STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(503, "Stripe webhook not configured")
+
+    payload   = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    try:
+        event = _stripe_lib.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+    except _stripe_lib.SignatureVerificationError:
+        logger.warning("Stripe webhook signature invalid")
+        raise HTTPException(400, "Invalid Stripe signature")
+    except Exception as e:
+        raise HTTPException(400, f"Webhook parse error: {e}")
+
+    if event["type"] == "checkout.session.completed":
+        session    = event["data"]["object"]
+        meta       = session.get("metadata", {})
+        wallet_id  = meta.get("wallet_id")
+        amount_usd = float(meta.get("amount_usd", 0))
+        session_id = session["id"]
+
+        if not wallet_id or amount_usd <= 0:
+            return {"received": True}  # malformed metadata — ignore
+        if session.get("payment_status") != "paid":
+            return {"received": True}  # not actually paid yet
+
+        conn = get_db()
+        # Idempotency key: reuse the used_tx_hashes table
+        idempotency_key = f"stripe_{session_id}"
+        existing = conn.execute(
+            "SELECT 1 FROM used_tx_hashes WHERE tx_hash = ?", (idempotency_key,)
+        ).fetchone()
+        if existing:
+            conn.close()
+            return {"received": True}  # already processed
+
+        try:
+            conn.execute(
+                "INSERT INTO used_tx_hashes (tx_hash, wallet_id, amount_usd, ts) VALUES (?, ?, ?, ?)",
+                (idempotency_key, wallet_id, amount_usd, _now())
+            )
+            conn.execute(
+                "UPDATE wallets SET balance = balance + ? WHERE id = ?",
+                (amount_usd, wallet_id)
+            )
+            conn.commit()
+            logger.info("Stripe deposit credited", extra={"wallet_id": wallet_id, "amount_usd": amount_usd})
+        except Exception as e:
+            conn.rollback()
+            conn.close()
+            logger.warning("Stripe webhook DB error", extra={"error": str(e)})
+            raise HTTPException(500, "Failed to credit wallet — Stripe will retry")
+        conn.close()
+
+    return {"received": True}
 
 
 class WalletWithdraw(BaseModel):

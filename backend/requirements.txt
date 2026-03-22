@@ -14,3 +14,6 @@ asyncpg==0.29.0
 
 # Async task queue (Redis-backed)
 arq==0.26.1
+
+# Stripe payments
+stripe>=9.0.0
