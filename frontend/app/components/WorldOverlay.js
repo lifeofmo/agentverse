@@ -417,137 +417,199 @@ function TomorrowlandPanel() {
 
 // ── Vegas panel (trading) ─────────────────────────────────────────────────────
 
+const REP_TIER = (r) => r >= 4.5 ? { label: "Elite", color: "#f59e0b" } : r >= 3.5 ? { label: "Pro", color: "#818cf8" } : r >= 2.5 ? { label: "Active", color: "#34d399" } : { label: "New", color: "#9aabb8" };
+
 function VegasPanel() {
-  const [agents,    setAgents]    = useState([]);
-  const [metrics,   setMetrics]   = useState({});
-  const [stats,     setStats]     = useState(null);
-  const [earnings,  setEarnings]  = useState([]);
-  const tickRef = useRef(null);
+  const [econ,      setEcon]      = useState(null);
+  const [jobs,      setJobs]      = useState([]);
+  const [flow,      setFlow]      = useState([]);
+  const [jobView,   setJobView]   = useState("board"); // "board" | "post"
+  const [postForm,  setPostForm]  = useState({ title: "", description: "", required_category: "", required_min_rep: 0, bounty_credits: "", deadline_hours: 24 });
+  const [posting,   setPosting]   = useState(false);
+  const [postMsg,   setPostMsg]   = useState("");
+  const token = typeof window !== "undefined" ? localStorage.getItem("av_token") : null;
+
+  const load = () => {
+    fetch(`${API}/economy/stats`).then(r => r.json()).then(setEcon).catch(() => {});
+    fetch(`${API}/agent-jobs?status=open&limit=10`).then(r => r.json()).then(d => setJobs(Array.isArray(d) ? d : [])).catch(() => {});
+  };
 
   useEffect(() => {
-    fetch(`${API}/agents`).then(r => r.json()).then(d => {
-      const sorted = [...d].sort((a, b) =>
-        (b.requests || 0) - (a.requests || 0)
-      );
-      const top = sorted.slice(0, 8);
-      setAgents(top);
-      // Fetch metrics for these agents
-      const ids = top.map(a => a.id).filter(Boolean);
-      if (ids.length > 0) {
-        fetch(`${API}/metrics?ids=${ids.join(",")}`)
-          .then(r => r.json())
-          .then(m => {
-            // m may be an array or object keyed by agent_id
-            if (Array.isArray(m)) {
-              const map = {};
-              m.forEach(x => { if (x.agent_id) map[x.agent_id] = x; });
-              setMetrics(map);
-            } else {
-              setMetrics(m || {});
-            }
-          })
-          .catch(() => {});
-      }
-    }).catch(() => {});
-
-    fetch(`${API}/platform/stats`).then(r => r.json()).then(setStats).catch(() => {});
-
-    // Simulate revenue flow ticks
-    const tick = () => {
-      const amount = (Math.random() * 0.05 + 0.001).toFixed(4);
-      const names = ["PriceFeedAgent", "MomentumAgent", "RiskEngine", "SentimentBot", "TrendScanner"];
-      const name = names[Math.floor(Math.random() * names.length)];
-      setEarnings(prev => [{ id: Date.now(), label: `+$${amount}`, name }, ...prev].slice(0, 5));
-    };
-    tick();
-    tickRef.current = setInterval(tick, 6000);
-    return () => clearInterval(tickRef.current);
+    load();
+    const iv = setInterval(load, 15000);
+    return () => clearInterval(iv);
   }, []);
+
+  // WS-driven revenue flow
+  useEffect(() => {
+    let ws, retry;
+    const connect = () => {
+      try {
+        ws = new WebSocket(typeof window !== "undefined" ? (window.__AV_WS__ || "wss://agentverse-production.up.railway.app/ws") : "");
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (["agent_call_done", "job_completed", "pipeline_done"].includes(msg.type)) {
+              const label = msg.type === "job_completed" ? `+$${Number(msg.payout || 0).toFixed(4)} job` : `+$${Number(msg.price || msg.amount || 0).toFixed(4)}`;
+              const name  = msg.agent_name || msg.title || msg.pipeline_id?.slice(0, 8) || "agent";
+              setFlow(prev => [{ id: Date.now(), label, name }, ...prev].slice(0, 6));
+            }
+          } catch {}
+        };
+        ws.onclose = () => { retry = setTimeout(connect, 6000); };
+      } catch {}
+    };
+    connect();
+    return () => { clearTimeout(retry); try { ws?.close(); } catch {} };
+  }, []);
+
+  const postJob = async () => {
+    if (!token) { setPostMsg("Sign in to post a job"); return; }
+    if (!postForm.title || !postForm.bounty_credits) { setPostMsg("Title and bounty required"); return; }
+    setPosting(true); setPostMsg("");
+    try {
+      const res = await fetch(`${API}/agent-jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...postForm, bounty_credits: parseFloat(postForm.bounty_credits), input_data: {} }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || "Failed");
+      setPostMsg(`Job posted! Bounty $${postForm.bounty_credits} escrowed.`);
+      setPostForm({ title: "", description: "", required_category: "", required_min_rep: 0, bounty_credits: "", deadline_hours: 24 });
+      setJobView("board");
+      load();
+    } catch (e) { setPostMsg(`Error: ${e.message}`); }
+    finally { setPosting(false); }
+  };
+
+  const claimJob = async (jobId) => {
+    if (!token) { alert("Sign in to claim a job"); return; }
+    const agentId = prompt("Enter your agent ID to claim this job:");
+    if (!agentId) return;
+    const res = await fetch(`${API}/agent-jobs/${jobId}/claim?agent_id=${agentId}`, {
+      method: "POST", headers: { Authorization: `Bearer ${token}` },
+    });
+    const d = await res.json();
+    alert(res.ok ? `Job claimed by ${agentId}` : d.detail || "Failed");
+    load();
+  };
+
+  const top = econ?.top_agents || [];
+  const inputStyle = { width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "5px 8px", fontSize: 11, color: "#f9fafb", fontFamily: "system-ui, sans-serif", outline: "none", boxSizing: "border-box" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14, fontFamily: "system-ui, sans-serif", letterSpacing: "-0.2px", marginBottom: 16, flexShrink: 0 }}>
-        AGENT ECONOMY
-      </div>
+      <style>{`@keyframes slideIn { from { opacity:0; transform:translateX(12px); } to { opacity:1; transform:translateX(0); } }`}</style>
+      <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14, fontFamily: "system-ui, sans-serif", letterSpacing: "-0.2px", marginBottom: 12, flexShrink: 0 }}>AGENT ECONOMY</div>
 
       <div style={{ overflowY: "auto", flex: 1 }}>
-        {/* Platform stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 14 }}>
+
+        {/* Economy stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
           {[
-            { label: "Total Calls", value: stats?.total_transactions ? stats.total_transactions.toLocaleString() : "—" },
-            { label: "Revenue",     value: stats?.platform_revenue  ? `$${Number(stats.platform_revenue).toFixed(2)}` : "—" },
-            { label: "Agents",      value: stats?.agents ?? (agents.length || "—") },
+            { label: "Open Jobs",      value: econ?.open_jobs ?? "—",                                    color: "#f59e0b" },
+            { label: "Jobs Completed", value: econ?.completed_jobs ?? "—",                               color: "#34d399" },
+            { label: "Bounties Paid",  value: econ ? `$${Number(econ.total_bounties_paid).toFixed(2)}` : "—", color: "#818cf8" },
+            { label: "Top Agents",     value: top.length || "—",                                          color: "#9aabb8" },
           ].map(s => (
-            <div key={s.label} style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.07)",
-              borderRadius: 8,
-              padding: "8px 10px",
-              textAlign: "center",
-            }}>
-              <div style={{ ...dataValue, fontSize: 12 }}>{s.value}</div>
-              <div style={{ ...mutedLabel, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8 }}>{s.label}</div>
+            <div key={s.label} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+              <div style={{ color: s.color, fontWeight: 800, fontSize: 14, fontFamily: "monospace" }}>{s.value}</div>
+              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8, marginTop: 2 }}>{s.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Leaderboard */}
-        <div style={sectionHeader}>Leaderboard</div>
+        {/* Top earners with rep tiers */}
+        <div style={sectionHeader}>Top Earners</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 14 }}>
-          {agents.length === 0 && (
-            <div style={mutedLabel}>Loading agents...</div>
-          )}
-          {agents.map((a, i) => {
-            const m = metrics[a.id] || {};
-            const earned = m.earnings || a.earnings || 0;
-            const calls = m.requests || a.requests || 0;
+          {top.slice(0, 6).map((a, i) => {
+            const tier = REP_TIER(a.reputation || 3);
             return (
-              <div key={a.id} style={{
-                display: "flex", alignItems: "center", gap: 8,
-                background: "rgba(255,255,255,0.025)",
-                border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 8,
-                padding: "7px 10px",
-              }}>
-                <span style={{
-                  color: i < 3 ? "#f59e0b" : "rgba(255,255,255,0.25)",
-                  fontWeight: 700, fontSize: 10,
-                  fontFamily: "monospace",
-                  width: 16, textAlign: "center", flexShrink: 0,
-                }}>#{i + 1}</span>
+              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "7px 10px" }}>
+                <span style={{ color: i === 0 ? "#f59e0b" : "rgba(255,255,255,0.25)", fontWeight: 700, fontSize: 10, fontFamily: "monospace", width: 16, textAlign: "center", flexShrink: 0 }}>#{i + 1}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: "#e5e7eb", fontSize: 11, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "system-ui, sans-serif" }}>
-                    {i === 0 && <span style={{ marginRight: 4 }}>👑</span>}{a.name}
+                  <div style={{ color: "#e5e7eb", fontSize: 11, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {i === 0 && "👑 "}{a.name}
                   </div>
-                  <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontFamily: "monospace" }}>
-                    {calls} calls
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 1 }}>
+                    <span style={{ background: `${tier.color}20`, border: `1px solid ${tier.color}50`, borderRadius: 4, padding: "0 5px", fontSize: 8, color: tier.color, fontWeight: 700 }}>{tier.label}</span>
+                    <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 9 }}>{(a.reputation || 0).toFixed(1)}★ · {a.total_calls || 0} calls</span>
                   </div>
                 </div>
-                <div style={{ ...dataValue, fontSize: 11, color: "#34d399", flexShrink: 0 }}>
-                  ${(earned).toFixed(4)}
-                </div>
+                <div style={{ color: "#34d399", fontWeight: 800, fontSize: 11, flexShrink: 0, fontFamily: "monospace" }}>${Number(a.total_earned || 0).toFixed(4)}</div>
               </div>
             );
           })}
+          {top.length === 0 && <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>No earnings yet — call some agents.</div>}
         </div>
 
-        {/* Revenue flow */}
-        <div style={sectionHeader}>Revenue Flow</div>
+        {/* Jobs board */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={sectionHeader}>Jobs Board</div>
+          <button onClick={() => setJobView(v => v === "post" ? "board" : "post")} style={{ background: jobView === "post" ? "rgba(255,255,255,0.08)" : "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", borderRadius: 6, padding: "3px 10px", fontSize: 10, color: "#818cf8", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>
+            {jobView === "post" ? "← Board" : "+ Post Job"}
+          </button>
+        </div>
+
+        {jobView === "post" ? (
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+            <input value={postForm.title} onChange={e => setPostForm(f => ({ ...f, title: e.target.value }))} placeholder="Job title" style={{ ...inputStyle, marginBottom: 6 }} />
+            <textarea value={postForm.description} onChange={e => setPostForm(f => ({ ...f, description: e.target.value }))} placeholder="What needs to be done?" rows={2} style={{ ...inputStyle, resize: "vertical", marginBottom: 6 }} />
+            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+              <select value={postForm.required_category} onChange={e => setPostForm(f => ({ ...f, required_category: e.target.value }))} style={{ ...inputStyle, flex: 1 }}>
+                <option value="">Any category</option>
+                {["trading", "analysis", "data", "risk", "composite"].map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <input value={postForm.bounty_credits} onChange={e => setPostForm(f => ({ ...f, bounty_credits: e.target.value }))} placeholder="Bounty $" type="number" min="0.01" step="0.01" style={{ ...inputStyle, width: 80, flex: "none" }} />
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>Min rep:</span>
+              <input value={postForm.required_min_rep} onChange={e => setPostForm(f => ({ ...f, required_min_rep: parseFloat(e.target.value) || 0 }))} type="number" min="0" max="5" step="0.5" style={{ ...inputStyle, width: 60, flex: "none" }} />
+              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>Deadline (h):</span>
+              <input value={postForm.deadline_hours} onChange={e => setPostForm(f => ({ ...f, deadline_hours: parseInt(e.target.value) || 24 }))} type="number" min="1" style={{ ...inputStyle, width: 60, flex: "none" }} />
+            </div>
+            <button onClick={postJob} disabled={posting} style={{ width: "100%", background: posting ? "rgba(255,255,255,0.05)" : "rgba(129,140,248,0.2)", border: "1px solid rgba(129,140,248,0.4)", borderRadius: 7, padding: "7px", fontSize: 11, fontWeight: 700, color: "#818cf8", cursor: posting ? "default" : "pointer", fontFamily: "inherit" }}>
+              {posting ? "Posting..." : "Post Job & Escrow Bounty"}
+            </button>
+            {postMsg && <div style={{ marginTop: 6, fontSize: 10, color: postMsg.startsWith("Error") ? "#f87171" : "#34d399" }}>{postMsg}</div>}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+            {jobs.length === 0 && <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>No open jobs — be the first to post one.</div>}
+            {jobs.map(j => (
+              <div key={j.id} style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "9px 11px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: "#e5e7eb", fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.title}</div>
+                    <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9, marginTop: 2 }}>
+                      {j.required_category && <span style={{ color: "#818cf8", marginRight: 6 }}>{j.required_category}</span>}
+                      {j.required_min_rep > 0 && <span style={{ marginRight: 6 }}>{j.required_min_rep}★ min</span>}
+                      by {j.poster_name || "anon"}
+                    </div>
+                  </div>
+                  <div style={{ flexShrink: 0, textAlign: "right" }}>
+                    <div style={{ color: "#f59e0b", fontWeight: 800, fontSize: 12, fontFamily: "monospace" }}>${Number(j.bounty_credits).toFixed(2)}</div>
+                    <button onClick={() => claimJob(j.id)} style={{ marginTop: 4, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: 5, padding: "2px 8px", fontSize: 9, color: "#34d399", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>Claim</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Live revenue flow */}
+        <div style={sectionHeader}>Live Flow</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <style>{`
-            @keyframes slideIn { from { opacity:0; transform:translateX(12px); } to { opacity:1; transform:translateX(0); } }
-          `}</style>
-          {earnings.map((e, i) => (
-            <div key={e.id} style={{
-              display: "flex", alignItems: "center", gap: 8,
-              animation: i === 0 ? "slideIn 0.35s ease" : "none",
-              opacity: 1 - i * 0.18,
-            }}>
+          {flow.length === 0 && <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>Waiting for activity…</div>}
+          {flow.map((e, i) => (
+            <div key={e.id} style={{ display: "flex", gap: 8, animation: i === 0 ? "slideIn 0.35s ease" : "none", opacity: 1 - i * 0.18 }}>
               <span style={{ color: "#10b981", fontFamily: "monospace", fontSize: 11, fontWeight: 700 }}>{e.label}</span>
-              <span style={{ ...mutedLabel, fontSize: 10 }}>{e.name}</span>
+              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>{e.name}</span>
             </div>
           ))}
         </div>
+
       </div>
     </div>
   );
