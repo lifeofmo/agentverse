@@ -513,8 +513,8 @@ export default function App() {
           backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
           zIndex: 100,
         }}>
-          {/* Logo */}
-          <div style={{ marginRight: 20, cursor: "default", userSelect: "none", flexShrink: 0 }}>
+          {/* Logo — click to return to splash */}
+          <div onClick={() => setShowSplash(true)} style={{ marginRight: 20, cursor: "pointer", userSelect: "none", flexShrink: 0, WebkitTapHighlightColor: "transparent" }}>
             <span style={{
               background: "linear-gradient(135deg, #818cf8, #34d399)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
