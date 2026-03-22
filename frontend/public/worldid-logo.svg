@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="24" height="24">
+  <!-- Outer ring -->
+  <circle cx="50" cy="50" r="48" fill="none" stroke="#fff" stroke-width="4"/>
+  <!-- Mid ring -->
+  <circle cx="50" cy="50" r="32" fill="none" stroke="#fff" stroke-width="2.5" stroke-opacity="0.6"/>
+  <!-- Inner ring -->
+  <circle cx="50" cy="50" r="17" fill="none" stroke="#fff" stroke-width="2" stroke-opacity="0.35"/>
+  <!-- Pupil -->
+  <circle cx="50" cy="50" r="7" fill="#fff"/>
+  <!-- Latitude line -->
+  <path d="M2 50 Q50 35 98 50" fill="none" stroke="#fff" stroke-width="1.5" stroke-opacity="0.25"/>
+  <path d="M2 50 Q50 65 98 50" fill="none" stroke="#fff" stroke-width="1.5" stroke-opacity="0.25"/>
+  <!-- Meridian line -->
+  <path d="M50 2 Q35 50 50 98" fill="none" stroke="#fff" stroke-width="1.5" stroke-opacity="0.25"/>
+  <path d="M50 2 Q65 50 50 98" fill="none" stroke="#fff" stroke-width="1.5" stroke-opacity="0.25"/>
+</svg>

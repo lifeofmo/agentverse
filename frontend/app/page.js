@@ -182,9 +182,7 @@ function SplashScreen({ onEnter }) {
               background: "rgba(99,91,255,0.08)", border: "1px solid rgba(99,91,255,0.25)",
               borderRadius: 10, padding: "8px 14px",
             }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z" fill="#635bff"/>
-              </svg>
+              <img src="/stripe-logo.svg" width="18" height="18" alt="Stripe" style={{ flexShrink: 0 }} />
               <div style={{ textAlign: "left" }}>
                 <div style={{ color: "#635bff", fontWeight: 800, fontSize: 12, letterSpacing: "-0.2px" }}>Stripe</div>
                 <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9 }}>Card payments</div>
@@ -197,31 +195,19 @@ function SplashScreen({ onEnter }) {
               background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.22)",
               borderRadius: 10, padding: "8px 14px",
             }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <rect x="2" y="5" width="20" height="14" rx="3" stroke="#34d399" strokeWidth="1.8" fill="none"/>
-                <path d="M2 10h20" stroke="#34d399" strokeWidth="1.8"/>
-                <circle cx="17" cy="15" r="1.5" fill="#34d399"/>
-                <circle cx="13" cy="15" r="1.5" fill="#34d39960"/>
-              </svg>
+              <img src="/x402-logo.svg" width="44" height="20" alt="x402" style={{ flexShrink: 0 }} />
               <div style={{ textAlign: "left" }}>
-                <div style={{ color: "#34d399", fontWeight: 800, fontSize: 12, letterSpacing: "-0.2px" }}>x402</div>
                 <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9 }}>HTTP micropayments</div>
               </div>
             </div>
 
-            {/* WorldChain */}
+            {/* World ID */}
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
               background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.15)",
               borderRadius: 10, padding: "8px 14px",
             }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="#fff" strokeWidth="1.6" fill="none"/>
-                <circle cx="12" cy="12" r="6"  stroke="#fff" strokeWidth="1.2" strokeOpacity="0.5" fill="none"/>
-                <circle cx="12" cy="12" r="2.5" fill="#fff"/>
-                <line x1="12" y1="2"  x2="12" y2="22" stroke="#fff" strokeWidth="1" strokeOpacity="0.2"/>
-                <line x1="2"  y1="12" x2="22" y2="12" stroke="#fff" strokeWidth="1" strokeOpacity="0.2"/>
-              </svg>
+              <img src="/worldid-logo.svg" width="20" height="20" alt="World ID" style={{ flexShrink: 0 }} />
               <div style={{ textAlign: "left" }}>
                 <div style={{ color: "#fff", fontWeight: 800, fontSize: 12, letterSpacing: "-0.2px" }}>World ID</div>
                 <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9 }}>Proof of humanity</div>
