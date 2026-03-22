@@ -83,6 +83,38 @@ X402_API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
 # ── Stripe payments ────────────────────────────────────────────────────────────
 import stripe as _stripe_lib
 STRIPE_SECRET_KEY      = os.environ.get("STRIPE_SECRET_KEY", "")
+
+# ── Email / SMTP ───────────────────────────────────────────────────────────────
+import smtplib, ssl
+from email.mime.multipart import MIMEMultipart
+from email.mime.text      import MIMEText
+
+SMTP_HOST     = os.environ.get("SMTP_HOST", "")
+SMTP_PORT     = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER     = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+EMAIL_FROM    = os.environ.get("EMAIL_FROM", "noreply@agentverse.ai")
+
+def _send_email(to: str, subject: str, body_html: str) -> bool:
+    """Send an HTML email via SMTP. Returns True on success, False if not configured."""
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD):
+        return False
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = EMAIL_FROM
+    msg["To"]      = to
+    msg.attach(MIMEText(body_html, "html"))
+    try:
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            server.ehlo()
+            server.starttls(context=ctx)
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(EMAIL_FROM, to, msg.as_string())
+        return True
+    except Exception as e:
+        logger.warning("SMTP send failed", extra={"error": str(e), "to": to})
+        return False
 STRIPE_WEBHOOK_SECRET  = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 FRONTEND_URL           = os.environ.get("FRONTEND_URL", "https://agentverse-puce.vercel.app")
 if STRIPE_SECRET_KEY:
@@ -2717,9 +2749,9 @@ async def auth_register(req: RegisterRequest):
         "INSERT INTO users VALUES (?, ?, ?, ?, ?, 1, ?)",
         (user_id, req.email.lower(), req.username, _hash_password(req.password), now, req.world_nullifier),
     )
-    # Create linked wallet with welcome credits ($1 = 100 credits free to start)
+    # Create linked wallet with welcome credits ($5 = 500 credits free to start)
     wallet_id = f"w_{user_id[:8]}"
-    WELCOME_CREDITS = 1.0  # $1.00 free
+    WELCOME_CREDITS = 5.0  # $5.00 free
     conn.execute(
         "INSERT INTO wallets VALUES (?, ?, ?, ?, ?, ?)",
         (wallet_id, req.username, WELCOME_CREDITS, 0.0, 0.0, now),
@@ -2779,14 +2811,34 @@ async def auth_forgot_password(req: ForgotPasswordRequest):
         (reset_token, user_id, expires_at),
     )
     conn.commit()
+
+    # ── Send reset email ──────────────────────────────────────────────────────
+    reset_url = f"{FRONTEND_URL}/reset-password?token={reset_token}"
+    email_body = f"""
+    <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0d1117;color:#f3f4f6;border-radius:12px;">
+      <h2 style="margin:0 0 8px;font-size:22px;color:#f9fafb;">Reset your AgentVerse password</h2>
+      <p style="color:#9aabb8;font-size:14px;line-height:1.6;margin:0 0 24px;">
+        Someone requested a password reset for your account. If this was you, click below.
+        The link expires in <strong style="color:#f9fafb;">1 hour</strong>.
+      </p>
+      <a href="{reset_url}" style="display:inline-block;background:#818cf8;color:#fff;text-decoration:none;
+         padding:12px 28px;border-radius:8px;font-weight:700;font-size:14px;">Reset Password</a>
+      <p style="color:#4b5563;font-size:12px;margin:24px 0 0;line-height:1.6;">
+        If you didn't request this, you can safely ignore this email.<br/>
+        Token: <code style="color:#818cf8;">{reset_token}</code>
+      </p>
+    </div>
+    """
+    sent = _send_email(req.email.lower(), "Reset your AgentVerse password", email_body)
+
     conn.close()
-    # In production this token would be emailed. For now we return it directly.
-    return {
-        "message": "If that email is registered, a reset token has been generated.",
-        "reset_token": reset_token,
-        "expires_in": "1 hour",
-        "note": "In production, this token would be sent by email. Copy it and use /auth/reset-password.",
-    }
+
+    resp: dict = {"message": "If that email is registered, a reset link has been sent."}
+    if not sent:
+        # SMTP not configured — surface token for dev/demo environments only
+        resp["reset_token"] = reset_token
+        resp["note"] = "SMTP not configured. Use this token directly with /auth/reset-password."
+    return resp
 
 @app.post("/auth/reset-password", tags=["auth"])
 async def auth_reset_password(req: ResetPasswordRequest):
@@ -3043,6 +3095,11 @@ async def test_external_endpoint(body: dict, user: dict = Depends(_require_auth)
 
 async def _probe_endpoint(client: httpx.AsyncClient, health_endpoint: str | None, run_endpoint: str) -> str:
     """Returns 'active', 'degraded', or 'offline'."""
+    # Internal/mock agents (localhost, 127.0.0.1) respond via _mock_response() fallback —
+    # never reachable externally so treat as always active.
+    probe_url = health_endpoint or run_endpoint or ""
+    if "127.0.0.1" in probe_url or "localhost" in probe_url:
+        return "active"
     if health_endpoint:
         try:
             r = await client.get(health_endpoint, timeout=5.0)

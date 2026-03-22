@@ -1938,7 +1938,21 @@ export default function DeveloperView() {
     return agents.filter(a => a.name.toLowerCase().includes(q) || a.category.toLowerCase().includes(q));
   }, [agents, filter]);
 
-  const handleAuth = (data) => { setAuth({ token: data.token, user_id: data.user_id, username: data.username }); showToast(`Welcome, @${data.username}!`); };
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  const handleAuth = (data) => {
+    setAuth({ token: data.token, user_id: data.user_id, username: data.username });
+    const key = `av_welcomed_${data.user_id}`;
+    if (!localStorage.getItem(key)) {
+      setShowWelcome(true);
+    }
+    showToast(`Welcome, @${data.username}!`);
+  };
+
+  const dismissWelcome = () => {
+    setShowWelcome(false);
+    if (auth?.user_id) localStorage.setItem(`av_welcomed_${auth.user_id}`, "1");
+  };
   const handleLogout = () => { localStorage.removeItem("av_token"); localStorage.removeItem("av_user"); setAuth(null); showToast("Signed out", "warning"); };
 
   const myAgents = useMemo(() =>
@@ -1989,27 +2003,37 @@ export default function DeveloperView() {
         <Pill label="Total Earned" value={`$${parseFloat(totalEarnings).toFixed(4)}`} color="#E6C36B" />
       </div>
 
-      {/* First-time guide — shown when signed in with no agents */}
-      {auth && myAgents.length === 0 && (
+      {/* Welcome banner — shown once after first sign-in */}
+      {auth && showWelcome && (
         <div style={{
-          background: "#111827", border: "1px solid #1f2937", borderRadius: 12,
-          padding: "16px 20px", marginBottom: 20,
-          borderLeft: "4px solid #6366f1",
+          background: "linear-gradient(135deg, #1a1040 0%, #111827 100%)",
+          border: "1px solid #818cf840", borderRadius: 14,
+          padding: "18px 20px", marginBottom: 20, position: "relative",
         }}>
-          <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
-            Welcome, @{auth.username} — here's how to get started
+          <button onClick={dismissWelcome} style={{ position: "absolute", top: 12, right: 14, background: "none", border: "none", color: "#6b7280", fontSize: 16, cursor: "pointer", lineHeight: 1 }}>×</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <span style={{ fontSize: 22 }}>🎉</span>
+            <div>
+              <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14 }}>Welcome to AgentVerse, @{auth.username}!</div>
+              <div style={{ color: "#818cf8", fontSize: 12, marginTop: 2 }}>You have <strong>500 free credits ($5.00)</strong> to get started.</div>
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             {[
-              ["Register an agent", "Click New Agent above. Give it a name, endpoint URL, category and price. It will appear in the matching world immediately."],
-              ["Build a pipeline", "Go to the Pipeline Builder to chain multiple agents together. Register it as a composite agent and it earns per call."],
-              ["Track earnings", "Every call to your agent is logged here. Check My Agents to see calls, latency, and credits earned."],
-            ].map(([title, body]) => (
-              <div key={title} style={{ flex: "1 1 160px" }}>
-                <div style={{ color: "#818cf8", fontWeight: 700, fontSize: 11, marginBottom: 3 }}>{title}</div>
-                <div style={{ color: "#9aabb8", fontSize: 11, lineHeight: 1.6 }}>{body}</div>
+              ["🤖", "Import an agent", "Bring any HTTP endpoint into AgentVerse — it gets a public page, call logs, and earns credits per call."],
+              ["🔗", "Build a pipeline", "Chain agents together in the Playground. Save it as a composite agent and deploy it to the Marketplace."],
+              ["💸", "Earn per call", "Every call to your agent credits your wallet. Add a Base wallet to receive USDC directly."],
+            ].map(([icon, title, body]) => (
+              <div key={title} style={{ flex: "1 1 150px", background: "#ffffff08", borderRadius: 10, padding: "10px 12px" }}>
+                <div style={{ fontSize: 16, marginBottom: 4 }}>{icon}</div>
+                <div style={{ color: "#e2e8f0", fontWeight: 700, fontSize: 11, marginBottom: 3 }}>{title}</div>
+                <div style={{ color: "#9aabb8", fontSize: 10, lineHeight: 1.6 }}>{body}</div>
               </div>
             ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+            <button onClick={() => { setTab("register"); dismissWelcome(); }} style={{ background: "#818cf8", color: "#fff", border: "none", borderRadius: 8, padding: "7px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Import Agent →</button>
+            <button onClick={dismissWelcome} style={{ background: "none", border: "1px solid #374151", color: "#9aabb8", borderRadius: 8, padding: "7px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Dismiss</button>
           </div>
         </div>
       )}
