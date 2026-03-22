@@ -338,12 +338,38 @@ def _migrate(conn):
         ("reputation",        "REAL DEFAULT 5.0"),
         ("developer_name",    "TEXT"),
         ("developer_color",   "TEXT"),
+        ("agent_balance",     "REAL DEFAULT 0.0"),
+        ("total_calls",       "INTEGER DEFAULT 0"),
+        ("total_earned",      "REAL DEFAULT 0.0"),
     ]
     for col, typedef in new_agent_cols:
         try:
             conn.execute(f"ALTER TABLE agents ADD COLUMN {col} {typedef}")
         except Exception:
             pass  # already exists
+
+    # ── Agent jobs table (ERC-8183 inspired job marketplace) ─────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS agent_jobs (
+            id                TEXT PRIMARY KEY,
+            title             TEXT NOT NULL,
+            description       TEXT,
+            required_category TEXT,
+            required_min_rep  REAL DEFAULT 0.0,
+            bounty_credits    REAL NOT NULL,
+            input_data        TEXT DEFAULT '{}',
+            output_data       TEXT,
+            status            TEXT DEFAULT 'open',
+            poster_wallet_id  TEXT NOT NULL,
+            poster_name       TEXT,
+            claimer_agent_id  TEXT,
+            claimer_wallet_id TEXT,
+            created_at        TEXT NOT NULL,
+            deadline_at       TEXT,
+            claimed_at        TEXT,
+            completed_at      TEXT
+        )
+    """)
 
     new_metric_cols = [
         ("last_called", "TEXT"),
@@ -905,6 +931,20 @@ def record_metrics(agent_id: str, latency_ms: float, price: float,
     """, (agent_id, latency_ms, 1 if error else 0, earnings, _now()))
     conn.commit()
     conn.close()
+
+    # EMA reputation update
+    score = 0.0 if error else min(5.0, 4.5 + max(0, (2000 - latency_ms) / 2000) * 0.5)
+    conn2 = get_db()
+    conn2.execute("""
+        UPDATE agents SET
+            reputation    = MAX(0.5, MIN(5.0, reputation * 0.92 + ? * 0.08)),
+            agent_balance = agent_balance + ?,
+            total_calls   = total_calls + 1,
+            total_earned  = total_earned + ?
+        WHERE id = ?
+    """, (score, earnings, earnings, agent_id))
+    conn2.commit()
+    conn2.close()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Billing engine
@@ -3085,6 +3125,248 @@ async def trigger_schedule(schedule_id: str):
 
     return {"schedule_id": schedule_id, "result": run_res, "triggered_at": now,
             "next_run_at": next_run, "webhook_status": webhook_ok}
+
+
+# =============================================================================
+# AGENT JOB MARKETPLACE  (ERC-8183 inspired)
+# =============================================================================
+
+class AgentJobCreate(BaseModel):
+    title:             str
+    description:       str = ""
+    required_category: str = ""
+    required_min_rep:  float = 0.0
+    bounty_credits:    float          # in USD
+    input_data:        dict = {}
+    deadline_hours:    int = 24
+
+@app.post("/agent-jobs", status_code=201)
+async def post_agent_job(body: AgentJobCreate, user: dict = Depends(_require_auth)):
+    if body.bounty_credits <= 0:
+        raise HTTPException(400, "Bounty must be positive")
+    if body.bounty_credits > 1000:
+        raise HTTPException(400, "Bounty cannot exceed $1,000")
+
+    conn = get_db()
+    profile = conn.execute("SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)).fetchone()
+    if not profile:
+        conn.close()
+        raise HTTPException(400, "Create a wallet first")
+    wallet_id = profile["wallet_id"]
+
+    # Check balance (BEGIN IMMEDIATE for atomic read-debit)
+    conn.isolation_level = None
+    conn.execute("BEGIN IMMEDIATE")
+    row = conn.execute("SELECT balance FROM wallets WHERE id = ?", (wallet_id,)).fetchone()
+    if not row or row["balance"] < body.bounty_credits:
+        conn.execute("ROLLBACK")
+        conn.close()
+        raise HTTPException(402, f"Insufficient credits. Need ${body.bounty_credits}, have ${row['balance'] if row else 0:.4f}")
+
+    # Debit bounty into escrow (platform wallet holds it)
+    conn.execute("UPDATE wallets SET balance = balance - ? WHERE id = ?", (body.bounty_credits, wallet_id))
+    conn.execute("UPDATE wallets SET balance = balance + ? WHERE id = ?", (body.bounty_credits, PLATFORM_WALLET))
+
+    from datetime import timedelta
+    job_id = str(uuid.uuid4())
+    now = _now()
+    deadline = (datetime.now(timezone.utc) + timedelta(hours=body.deadline_hours)).isoformat()
+
+    user_row = conn.execute("SELECT username FROM users WHERE id = ?", (user["id"],)).fetchone()
+    poster_name = user_row["username"] if user_row else user["id"][:8]
+
+    conn.execute("""
+        INSERT INTO agent_jobs (id, title, description, required_category, required_min_rep,
+            bounty_credits, input_data, status, poster_wallet_id, poster_name,
+            created_at, deadline_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)
+    """, (job_id, body.title, body.description, body.required_category,
+          body.required_min_rep, body.bounty_credits, json.dumps(body.input_data),
+          wallet_id, poster_name, now, deadline))
+
+    conn.execute("COMMIT")
+    conn.close()
+
+    await manager.broadcast({"type": "job_posted", "job_id": job_id, "title": body.title, "bounty": body.bounty_credits})
+
+    return {"id": job_id, "title": body.title, "bounty_credits": body.bounty_credits,
+            "status": "open", "deadline_at": deadline, "created_at": now}
+
+
+@app.get("/agent-jobs")
+def list_agent_jobs(status: str = "open", category: str = "", limit: int = 50):
+    conn = get_db()
+    q = "SELECT * FROM agent_jobs WHERE 1=1"
+    params = []
+    if status != "all":
+        q += " AND status = ?"
+        params.append(status)
+    if category:
+        q += " AND (required_category = '' OR required_category = ?)"
+        params.append(category)
+    q += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+    rows = conn.execute(q, params).fetchall()
+    conn.close()
+    return [{**dict(r), "input_data": json.loads(r["input_data"] or "{}")} for r in rows]
+
+
+@app.post("/agent-jobs/{job_id}/claim")
+async def claim_agent_job(job_id: str, agent_id: str, user: dict = Depends(_require_auth)):
+    conn = get_db()
+    job = conn.execute("SELECT * FROM agent_jobs WHERE id = ?", (job_id,)).fetchone()
+    if not job:
+        conn.close()
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "open":
+        conn.close()
+        raise HTTPException(400, f"Job is {job['status']}, not open")
+
+    agent = conn.execute("SELECT * FROM agents WHERE id = ?", (agent_id,)).fetchone()
+    if not agent:
+        conn.close()
+        raise HTTPException(404, "Agent not found")
+    if job["required_category"] and agent["category"] != job["required_category"]:
+        conn.close()
+        raise HTTPException(400, f"Job requires category '{job['required_category']}', agent is '{agent['category']}'")
+    if agent["reputation"] < job["required_min_rep"]:
+        conn.close()
+        raise HTTPException(400, f"Agent reputation {agent['reputation']:.1f} below minimum {job['required_min_rep']:.1f}")
+
+    profile = conn.execute("SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)).fetchone()
+    claimer_wallet = profile["wallet_id"] if profile else None
+
+    conn.execute("""
+        UPDATE agent_jobs SET status='claimed', claimer_agent_id=?, claimer_wallet_id=?, claimed_at=?
+        WHERE id = ? AND status='open'
+    """, (agent_id, claimer_wallet, _now(), job_id))
+    conn.commit()
+    conn.close()
+
+    await manager.broadcast({"type": "job_claimed", "job_id": job_id, "agent_id": agent_id})
+    return {"job_id": job_id, "agent_id": agent_id, "status": "claimed"}
+
+
+class JobComplete(BaseModel):
+    output_data: dict = {}
+    result_summary: str = ""
+
+@app.post("/agent-jobs/{job_id}/complete")
+async def complete_agent_job(job_id: str, body: JobComplete, user: dict = Depends(_require_auth)):
+    conn = get_db()
+    job = conn.execute("SELECT * FROM agent_jobs WHERE id = ?", (job_id,)).fetchone()
+    if not job:
+        conn.close()
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "claimed":
+        conn.close()
+        raise HTTPException(400, "Job must be claimed before completing")
+
+    # Verify the claimer is calling this
+    profile = conn.execute("SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)).fetchone()
+    if not profile or profile["wallet_id"] != job["claimer_wallet_id"]:
+        conn.close()
+        raise HTTPException(403, "Only the claimer can complete this job")
+
+    bounty = job["bounty_credits"]
+    platform_cut = round(bounty * PLATFORM_FEE, 6)
+    claimer_payout = round(bounty - platform_cut, 6)
+
+    # Atomic payment: escrow (platform) → claimer wallet
+    conn.isolation_level = None
+    conn.execute("BEGIN IMMEDIATE")
+    conn.execute("UPDATE wallets SET balance = balance - ? WHERE id = ?", (bounty, PLATFORM_WALLET))
+    conn.execute("UPDATE wallets SET balance = balance + ?, total_earned = total_earned + ? WHERE id = ?",
+                 (claimer_payout, claimer_payout, job["claimer_wallet_id"]))
+
+    # Update agent balance too
+    if job["claimer_agent_id"]:
+        conn.execute("UPDATE agents SET agent_balance = agent_balance + ?, total_earned = total_earned + ? WHERE id = ?",
+                     (claimer_payout, claimer_payout, job["claimer_agent_id"]))
+
+    conn.execute("""
+        UPDATE agent_jobs SET status='completed', output_data=?, completed_at=?
+        WHERE id = ?
+    """, (json.dumps(body.output_data), _now(), job_id))
+
+    conn.execute("COMMIT")
+    conn.close()
+
+    await manager.broadcast({
+        "type": "job_completed", "job_id": job_id, "bounty": bounty,
+        "payout": claimer_payout, "summary": body.result_summary,
+    })
+
+    logger.info("job_completed", extra={"job_id": job_id, "bounty": bounty, "payout": claimer_payout})
+    return {"job_id": job_id, "status": "completed", "payout": claimer_payout, "platform_fee": platform_cut}
+
+
+@app.delete("/agent-jobs/{job_id}", status_code=200)
+async def cancel_agent_job(job_id: str, user: dict = Depends(_require_auth)):
+    conn = get_db()
+    job = conn.execute("SELECT * FROM agent_jobs WHERE id = ?", (job_id,)).fetchone()
+    if not job:
+        conn.close()
+        raise HTTPException(404, "Job not found")
+    if job["status"] not in ("open", "claimed"):
+        conn.close()
+        raise HTTPException(400, "Cannot cancel a completed or already-cancelled job")
+
+    profile = conn.execute("SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)).fetchone()
+    if not profile or profile["wallet_id"] != job["poster_wallet_id"]:
+        conn.close()
+        raise HTTPException(403, "Only the poster can cancel this job")
+
+    # Refund bounty from escrow
+    conn.isolation_level = None
+    conn.execute("BEGIN IMMEDIATE")
+    conn.execute("UPDATE wallets SET balance = balance - ? WHERE id = ?", (job["bounty_credits"], PLATFORM_WALLET))
+    conn.execute("UPDATE wallets SET balance = balance + ? WHERE id = ?", (job["bounty_credits"], job["poster_wallet_id"]))
+    conn.execute("UPDATE agent_jobs SET status='cancelled' WHERE id = ?", (job_id,))
+    conn.execute("COMMIT")
+    conn.close()
+
+    return {"job_id": job_id, "status": "cancelled", "refunded": job["bounty_credits"]}
+
+
+@app.get("/agents/{agent_id}/economy")
+def agent_economy(agent_id: str):
+    conn = get_db()
+    agent = conn.execute("SELECT id, name, reputation, agent_balance, total_calls, total_earned FROM agents WHERE id = ?", (agent_id,)).fetchone()
+    if not agent:
+        conn.close()
+        raise HTTPException(404, "Agent not found")
+    jobs_completed = conn.execute("SELECT COUNT(*) as c FROM agent_jobs WHERE claimer_agent_id = ? AND status = 'completed'", (agent_id,)).fetchone()["c"]
+    jobs_posted = conn.execute("SELECT COUNT(*) as c FROM agent_jobs WHERE poster_wallet_id = (SELECT owner_wallet FROM agents WHERE id = ?) AND status != 'cancelled'", (agent_id,)).fetchone()["c"]
+    conn.close()
+    return {
+        **dict(agent),
+        "jobs_completed": jobs_completed,
+        "jobs_posted": jobs_posted,
+        "rep_tier": "Elite" if agent["reputation"] >= 4.5 else "Pro" if agent["reputation"] >= 3.5 else "Active" if agent["reputation"] >= 2.5 else "New",
+    }
+
+
+@app.get("/economy/stats")
+def economy_stats():
+    conn = get_db()
+    total_jobs     = conn.execute("SELECT COUNT(*) FROM agent_jobs").fetchone()[0]
+    open_jobs      = conn.execute("SELECT COUNT(*) FROM agent_jobs WHERE status='open'").fetchone()[0]
+    completed_jobs = conn.execute("SELECT COUNT(*) FROM agent_jobs WHERE status='completed'").fetchone()[0]
+    total_bounties = conn.execute("SELECT COALESCE(SUM(bounty_credits),0) FROM agent_jobs WHERE status='completed'").fetchone()[0]
+    top_agents     = conn.execute("""
+        SELECT id, name, reputation, total_earned, total_calls, category
+        FROM agents WHERE total_calls > 0
+        ORDER BY total_earned DESC LIMIT 10
+    """).fetchall()
+    conn.close()
+    return {
+        "total_jobs": total_jobs,
+        "open_jobs": open_jobs,
+        "completed_jobs": completed_jobs,
+        "total_bounties_paid": round(total_bounties, 4),
+        "top_agents": [dict(a) for a in top_agents],
+    }
 
 
 # =============================================================================
