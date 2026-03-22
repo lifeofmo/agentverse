@@ -6,12 +6,18 @@ import { API } from "@/app/lib/config";
 import { useToast } from "@/app/components/Toast";
 
 const CAT = {
-  trading:   { border: "#6BCF8B", letter: "T" },
-  analysis:  { border: "#B59CE6", letter: "A" },
-  data:      { border: "#6BB6E6", letter: "D" },
-  risk:      { border: "#E67B7B", letter: "R" },
-  composite: { border: "#E6C36B", letter: "C" },
-  default:   { border: "#9aabb8", letter: "·" },
+  trading:      { border: "#6BCF8B", letter: "T" },
+  analysis:     { border: "#B59CE6", letter: "A" },
+  data:         { border: "#6BB6E6", letter: "D" },
+  risk:         { border: "#E67B7B", letter: "R" },
+  composite:    { border: "#E6C36B", letter: "C" },
+  productivity: { border: "#a78bfa", letter: "P" },
+  automation:   { border: "#f472b6", letter: "⚙" },
+  creative:     { border: "#fb923c", letter: "✦" },
+  research:     { border: "#38bdf8", letter: "R" },
+  web:          { border: "#4ade80", letter: "W" },
+  experimental: { border: "#FF6B35", letter: "X" },
+  default:      { border: "#9aabb8", letter: "·" },
 };
 const cat = (c) => CAT[c] ?? CAT.default;
 
@@ -898,7 +904,7 @@ app.listen(3001);`}</CodeBlock>
 
 /* ── Agent Jobs Marketplace ───────────────────────────────────────────────── */
 
-const AJOB_CATEGORIES = ["", "trading", "analysis", "data", "risk", "composite"];
+const AJOB_CATEGORIES = ["", "trading", "analysis", "data", "risk", "composite", "productivity", "automation", "creative", "research", "web", "experimental"];
 
 function fmtAgo(ts) {
   if (!ts) return "—";
