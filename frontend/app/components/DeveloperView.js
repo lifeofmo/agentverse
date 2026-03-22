@@ -1241,6 +1241,154 @@ function CreditsPanel({ auth }) {
   );
 }
 
+/* ── Schedules panel ─────────────────────────────────────────────────────── */
+
+const INTERVALS = ["5min", "15min", "hourly", "6h", "daily", "weekly"];
+const INTERVAL_LABELS = { "5min": "Every 5 min", "15min": "Every 15 min", hourly: "Hourly", "6h": "Every 6h", daily: "Daily", weekly: "Weekly" };
+
+function SchedulesPanel({ token }) {
+  const [schedules,   setSchedules]   = useState([]);
+  const [pipelines,   setPipelines]   = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [showForm,    setShowForm]    = useState(false);
+  const [form,        setForm]        = useState({ pipeline_id: "", interval: "hourly", label: "", webhook_url: "" });
+  const [creating,    setCreating]    = useState(false);
+  const [formErr,     setFormErr]     = useState("");
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  const load = () => {
+    Promise.all([
+      fetch(`${API}/schedules`, { headers }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/pipelines`,  { headers }).then(r => r.json()).catch(() => []),
+    ]).then(([s, p]) => {
+      setSchedules(Array.isArray(s) ? s : []);
+      setPipelines(Array.isArray(p) ? p : []);
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    if (!form.pipeline_id || !form.interval) { setFormErr("Select a pipeline and interval"); return; }
+    setCreating(true); setFormErr("");
+    try {
+      const res = await fetch(`${API}/schedules`, { method: "POST", headers, body: JSON.stringify(form) });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || "Failed"); }
+      setShowForm(false);
+      setForm({ pipeline_id: "", interval: "hourly", label: "", webhook_url: "" });
+      load();
+    } catch (e) { setFormErr(e.message); }
+    finally { setCreating(false); }
+  };
+
+  const toggle = async (id) => {
+    await fetch(`${API}/schedules/${id}/toggle`, { method: "PATCH", headers });
+    load();
+  };
+
+  const remove = async (id) => {
+    await fetch(`${API}/schedules/${id}`, { method: "DELETE", headers });
+    setSchedules(s => s.filter(x => x.id !== id));
+  };
+
+  const trigger = async (id) => {
+    await fetch(`${API}/schedules/${id}/trigger`, { method: "POST", headers });
+    load();
+  };
+
+  const fmtTime = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    const diff = Math.round((d - Date.now()) / 1000);
+    if (diff > 0) return `in ${diff < 60 ? `${diff}s` : diff < 3600 ? `${Math.round(diff/60)}m` : `${Math.round(diff/3600)}h`}`;
+    return `${Math.abs(diff) < 60 ? "just now" : Math.abs(diff) < 3600 ? `${Math.round(Math.abs(diff)/60)}m ago` : new Date(iso).toLocaleTimeString()}`;
+  };
+
+  if (loading) return <div style={{ color: "#9aabb8", padding: "32px 0", textAlign: "center" }}>Loading schedules…</div>;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div>
+          <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 16 }}>Pipeline Schedules</div>
+          <div style={{ color: "#9aabb8", fontSize: 12, marginTop: 2 }}>Auto-run pipelines on a recurring interval</div>
+        </div>
+        <button onClick={() => setShowForm(v => !v)} style={{ background: "#4f46e5", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "inherit" }}>
+          {showForm ? "Cancel" : "+ New Schedule"}
+        </button>
+      </div>
+
+      {showForm && (
+        <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: 12, padding: "18px 20px", marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <Label>Pipeline</Label>
+              <select value={form.pipeline_id} onChange={e => setForm(f => ({ ...f, pipeline_id: e.target.value }))}
+                style={{ ...FIELD, appearance: "none" }}>
+                <option value="">Select a pipeline…</option>
+                {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>Interval</Label>
+              <select value={form.interval} onChange={e => setForm(f => ({ ...f, interval: e.target.value }))}
+                style={{ ...FIELD, appearance: "none" }}>
+                {INTERVALS.map(i => <option key={i} value={i}>{INTERVAL_LABELS[i]}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <Label>Label (optional)</Label>
+            <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+              placeholder="My daily signal check" style={FIELD} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <Label>Webhook URL (optional — receive results via POST)</Label>
+            <input value={form.webhook_url} onChange={e => setForm(f => ({ ...f, webhook_url: e.target.value }))}
+              placeholder="https://your-server.com/webhook" style={FIELD} />
+          </div>
+          {formErr && <div style={{ color: "#f87171", fontSize: 11, marginBottom: 10 }}>{formErr}</div>}
+          <button onClick={create} disabled={creating} style={BTN("#4f46e5", creating)}>
+            {creating ? "Creating…" : "Create Schedule"}
+          </button>
+        </div>
+      )}
+
+      {schedules.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "48px 0", color: "#9aabb8", fontSize: 13 }}>
+          No schedules yet — create one to auto-run a pipeline on a recurring basis.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {schedules.map(s => (
+            <div key={s.id} style={{ background: "#111827", border: `1px solid ${s.is_active ? "#374151" : "#1f2937"}`, borderLeft: `3px solid ${s.is_active ? "#4f46e5" : "#374151"}`, borderRadius: 10, padding: "14px 16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{s.label || s.pipeline_name}</div>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ color: "#818cf8", fontSize: 10, fontWeight: 600 }}>{INTERVAL_LABELS[s.interval] || s.interval}</span>
+                    <span style={{ color: "#9aabb8", fontSize: 10 }}>Next: {fmtTime(s.next_run_at)}</span>
+                    {s.last_run_at && <span style={{ color: "#6b7280", fontSize: 10 }}>Last: {fmtTime(s.last_run_at)}</span>}
+                    {s.webhook_url && <span style={{ color: "#34d399", fontSize: 10 }}>Webhook ✓</span>}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => trigger(s.id)} title="Run now" style={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 6, padding: "4px 10px", fontSize: 10, color: "#f59e0b", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>▶ Run</button>
+                  <button onClick={() => toggle(s.id)} style={{ background: s.is_active ? "#064e3b20" : "#1f2937", border: `1px solid ${s.is_active ? "#059669" : "#374151"}`, borderRadius: 6, padding: "4px 10px", fontSize: 10, color: s.is_active ? "#34d399" : "#9aabb8", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>
+                    {s.is_active ? "Active" : "Paused"}
+                  </button>
+                  <button onClick={() => remove(s.id)} title="Delete" style={{ background: "none", border: "1px solid #374151", borderRadius: 6, padding: "4px 8px", fontSize: 11, color: "#6b7280", cursor: "pointer", fontFamily: "inherit" }}>✕</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Analytics panel ─────────────────────────────────────────────────────── */
 
 function AnalyticsPanel({ agents, metrics }) {
@@ -1392,6 +1540,7 @@ export default function DeveloperView() {
     { id: "agents",    label: "All Agents" },
     ...(auth ? [{ id: "mine",      label: `My Agents (${myAgents.length})` }] : []),
     ...(auth ? [{ id: "analytics", label: "Analytics" }] : []),
+    ...(auth ? [{ id: "schedules", label: "Schedules" }] : []),
     { id: "jobs",      label: "Jobs" },
     { id: "guide",     label: "Deploy Guide" },
     { id: "register",  label: auth ? "+ New Agent" : "Sign In / Register" },
@@ -1510,6 +1659,7 @@ export default function DeveloperView() {
 
       {/* Jobs tab */}
       {tab === "analytics" && auth && <AnalyticsPanel agents={myAgents} metrics={metrics} />}
+      {tab === "schedules" && auth && <SchedulesPanel token={auth.token} />}
       {tab === "jobs" && <JobsPanel />}
 
       {/* Deploy Guide tab */}

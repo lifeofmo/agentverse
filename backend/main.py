@@ -2998,9 +2998,18 @@ async def create_schedule(body: ScheduleCreate):
     }
 
 @app.get("/schedules", tags=["schedules"])
-def list_schedules():
+def list_schedules(user: dict = Depends(_require_auth)):
     conn = get_db()
-    rows = conn.execute("SELECT * FROM schedules ORDER BY created_at DESC").fetchall()
+    profile = conn.execute("SELECT wallet_id FROM developer_profiles WHERE user_id = ?", (user["id"],)).fetchone()
+    wallet_id = profile["wallet_id"] if profile else None
+    # Return schedules created by this user (matched via pipeline ownership)
+    rows = conn.execute(
+        """SELECT s.* FROM schedules s
+           JOIN pipelines p ON s.pipeline_id = p.id
+           WHERE p.wallet_id = ? OR p.wallet_id IS NULL
+           ORDER BY s.created_at DESC""",
+        (wallet_id,)
+    ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 

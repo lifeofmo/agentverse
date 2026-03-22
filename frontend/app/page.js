@@ -359,132 +359,135 @@ export default function App() {
           .nav-tab { transition: all 0.15s; }
           .nav-tab:hover { background: rgba(255,255,255,0.05) !important; }
           @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+          .desktop-only { display: flex; }
+          .mobile-only  { display: none; }
+          @media (max-width: 640px) {
+            .desktop-only { display: none !important; }
+            .mobile-only  { display: flex !important; }
+            .nav-tabs-desktop { display: none !important; }
+            .main-content { padding-bottom: 64px !important; }
+          }
         `}</style>
 
         {/* ── Top nav ───────────────────────────────────────────────────────── */}
         <nav style={{
           display: "flex", alignItems: "center",
-          padding: "0 20px", height: 56, flexShrink: 0,
-          background: "rgba(10,10,15,0.95)",
+          padding: "0 14px", height: 52, flexShrink: 0,
+          background: "rgba(10,10,15,0.97)",
           borderBottom: "1px solid rgba(255,255,255,0.06)",
           backdropFilter: "blur(16px)",
           zIndex: 100,
         }}>
           {/* Logo */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 0,
-            marginRight: 28, cursor: "default", userSelect: "none",
-          }}>
+          <div style={{ marginRight: 20, cursor: "default", userSelect: "none", flexShrink: 0 }}>
             <span style={{
               background: "linear-gradient(135deg, #818cf8, #34d399)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-              fontWeight: 800, fontSize: 16, letterSpacing: "-0.3px",
+              fontWeight: 800, fontSize: 15, letterSpacing: "-0.3px",
             }}>AgentVerse</span>
           </div>
 
-          {/* Tabs */}
-          <div style={{ display: "flex", gap: 2 }}>
+          {/* Desktop tabs */}
+          <div className="nav-tabs-desktop" style={{ display: "flex", gap: 2 }}>
             {NAV.map(n => {
               const active = tab === n.id;
               return (
-                <button
-                  key={n.id}
-                  className="nav-tab"
-                  onClick={() => handleTabChange(n.id)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "6px 14px", borderRadius: 8, border: "none",
-                    cursor: "pointer", fontSize: 13, fontWeight: 600,
-                    background: active ? "rgba(255,255,255,0.08)" : "transparent",
-                    color: active ? "#f1f5f9" : "rgba(255,255,255,0.38)",
-                    position: "relative",
-                  }}
-                >
-                  <span style={{
-                    fontSize: 11,
-                    color: active ? "#818cf8" : "rgba(255,255,255,0.25)",
-                  }}>{n.icon}</span>
+                <button key={n.id} className="nav-tab" onClick={() => handleTabChange(n.id)} style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "6px 12px", borderRadius: 8, border: "none",
+                  cursor: "pointer", fontSize: 12, fontWeight: 600,
+                  background: active ? "rgba(255,255,255,0.08)" : "transparent",
+                  color: active ? "#f1f5f9" : "rgba(255,255,255,0.38)",
+                  position: "relative", fontFamily: "inherit",
+                }}>
+                  <span style={{ fontSize: 11, color: active ? "#818cf8" : "rgba(255,255,255,0.25)" }}>{n.icon}</span>
                   {n.label}
-                  {active && (
-                    <div style={{
-                      position: "absolute", bottom: 0, left: "50%",
-                      transform: "translateX(-50%)",
-                      width: 20, height: 2, borderRadius: 1,
-                      background: "linear-gradient(90deg, #818cf8, #34d399)",
-                    }} />
-                  )}
+                  {active && <div style={{ position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", width: 20, height: 2, borderRadius: 1, background: "linear-gradient(90deg, #818cf8, #34d399)" }} />}
                 </button>
               );
             })}
           </div>
 
-          {/* World breadcrumb */}
+          {/* World breadcrumb (desktop) */}
           {inCity && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 12 }}>
+            <div className="desktop-only" style={{ alignItems: "center", gap: 8, marginLeft: 10 }}>
               <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 12 }}>›</span>
-              <div style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: `${activeLobby.color}18`,
-                border: `1px solid ${activeLobby.color}40`,
-                borderRadius: 8, padding: "4px 10px",
-              }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: `${activeLobby.color}18`, border: `1px solid ${activeLobby.color}40`, borderRadius: 8, padding: "4px 10px" }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: activeLobby.color }} />
-                <span style={{ color: activeLobby.color, fontSize: 12, fontWeight: 700 }}>
-                  {activeLobby.label}
-                </span>
+                <span style={{ color: activeLobby.color, fontSize: 12, fontWeight: 700 }}>{activeLobby.label}</span>
               </div>
-              <button onClick={() => setActiveLobby(null)} style={{
-                background: "transparent", border: "none",
-                color: "rgba(255,255,255,0.3)", fontSize: 12,
-                cursor: "pointer", padding: "3px 8px",
-                borderRadius: 6, fontWeight: 500,
-                fontFamily: "inherit",
-              }}>← Worlds</button>
+              <button onClick={() => setActiveLobby(null)} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 12, cursor: "pointer", padding: "3px 8px", borderRadius: 6, fontWeight: 500, fontFamily: "inherit" }}>← Worlds</button>
             </div>
           )}
 
-          <div style={{ flex: 1 }} />
+          {/* Mobile: current tab label */}
+          <div className="mobile-only" style={{ alignItems: "center", flex: 1 }}>
+            <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: 600 }}>
+              {inCity ? activeLobby.label : NAV.find(n => n.id === tab)?.label || ""}
+            </span>
+            {inCity && (
+              <button onClick={() => setActiveLobby(null)} style={{ marginLeft: 10, background: "transparent", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>← Back</button>
+            )}
+          </div>
 
-          {/* Guide */}
-          <button
-            onClick={() => setShowGuide(true)}
-            title="How it works"
-            style={{
-              width: 30, height: 30, borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
-              background: "transparent", color: "rgba(255,255,255,0.35)", fontSize: 13,
-              fontWeight: 700, cursor: "pointer", marginRight: 8, fontFamily: "inherit",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.15s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}
-          >?</button>
+          <div className="desktop-only" style={{ flex: 1 }} />
 
-          {/* Credits */}
+          {/* Guide button */}
+          <button onClick={() => setShowGuide(true)} title="How it works" className="desktop-only" style={{
+            width: 28, height: 28, borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
+            background: "transparent", color: "rgba(255,255,255,0.35)", fontSize: 13,
+            fontWeight: 700, cursor: "pointer", marginRight: 8, fontFamily: "inherit",
+            alignItems: "center", justifyContent: "center",
+          }}>?</button>
+
+          {/* Credits HUD */}
           <CreditsHUD onTopUp={() => handleTabChange("developer")} />
 
-          {/* Build CTA */}
+          {/* Build CTA (desktop only) */}
+          <a href="/build" className="desktop-only" style={{
+            alignItems: "center", gap: 5, color: "#818cf8", fontSize: 12, fontWeight: 700,
+            textDecoration: "none", padding: "5px 12px",
+            background: "rgba(129,140,248,0.1)", border: "1px solid rgba(129,140,248,0.25)",
+            borderRadius: 8, marginLeft: 8, fontFamily: "inherit",
+          }}>
+            <span style={{ fontSize: 11 }}>+</span> Build
+          </a>
+        </nav>
+
+        {/* ── Mobile bottom tab bar ─────────────────────────────────────────── */}
+        <nav className="mobile-only" style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
+          background: "rgba(10,10,15,0.97)", borderTop: "1px solid rgba(255,255,255,0.08)",
+          backdropFilter: "blur(16px)", height: 60, alignItems: "center",
+          justifyContent: "space-around", padding: "0 4px",
+        }}>
+          {NAV.map(n => {
+            const active = tab === n.id;
+            return (
+              <button key={n.id} onClick={() => handleTabChange(n.id)} style={{
+                flex: 1, height: "100%", background: "none", border: "none",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: 3, cursor: "pointer", fontFamily: "inherit",
+                color: active ? "#818cf8" : "rgba(255,255,255,0.3)",
+              }}>
+                <span style={{ fontSize: 18 }}>{n.icon}</span>
+                <span style={{ fontSize: 9, fontWeight: active ? 700 : 400 }}>{n.label}</span>
+              </button>
+            );
+          })}
           <a href="/build" style={{
-            display: "flex", alignItems: "center", gap: 6,
-            color: "#818cf8", fontSize: 12, fontWeight: 700,
-            textDecoration: "none", padding: "6px 14px",
-            background: "rgba(129,140,248,0.1)",
-            border: "1px solid rgba(129,140,248,0.25)",
-            borderRadius: 8, marginLeft: 10,
-            transition: "all 0.15s",
-            fontFamily: "inherit",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(129,140,248,0.18)"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "rgba(129,140,248,0.1)"; }}
-          >
-            <span style={{ fontSize: 11 }}>+</span>
-            Build
+            flex: 1, height: "100%", display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 3,
+            textDecoration: "none", color: "#818cf8",
+          }}>
+            <span style={{ fontSize: 18 }}>+</span>
+            <span style={{ fontSize: 9, fontWeight: 700 }}>Build</span>
           </a>
         </nav>
 
         {/* ── Content ───────────────────────────────────────────────────────── */}
         <ErrorBoundary key={`${tab}-${activeLobby?.id}`}>
-          <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+          <div className="main-content" style={{ flex: 1, overflow: "hidden", position: "relative" }}>
             {tab === "playground"  && <Playground />}
             {tab === "city" && activeLobby === null && (
               <LobbySelect onEnter={setActiveLobby} />
