@@ -301,15 +301,33 @@ function ApiKeyManager({ token }) {
 
 /* ── Agent registration form ──────────────────────────────────────────────── */
 
-const CATS = ["trading", "analysis", "data", "risk", "composite"];
+const CATS = ["trading", "analysis", "data", "risk", "composite", "productivity", "automation", "creative", "research", "web", "experimental"];
 const EMPTY = { name: "", description: "", category: "trading", endpoint: "", price_per_request: "0.001", health_endpoint: "", owner_wallet: "" };
 
 function RegisterForm({ token, onDone }) {
-  const [form, setForm] = useState(EMPTY);
-  const [busy, setBusy] = useState(false);
-  const [err,  setErr]  = useState("");
-  const [ok,   setOk]   = useState("");
+  const [form,     setForm]     = useState(EMPTY);
+  const [busy,     setBusy]     = useState(false);
+  const [testing,  setTesting]  = useState(false);
+  const [testRes,  setTestRes]  = useState(null);  // { ok, body }
+  const [err,      setErr]      = useState("");
+  const [ok,       setOk]       = useState("");
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const testEndpoint = async () => {
+    if (!form.endpoint.trim()) { setErr("Enter an endpoint URL first."); return; }
+    setTesting(true); setTestRes(null); setErr("");
+    try {
+      const res = await fetch(form.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ _probe: true, input: "test" }),
+      });
+      const body = await res.json().catch(() => null);
+      setTestRes({ ok: res.ok, status: res.status, body });
+    } catch (e) {
+      setTestRes({ ok: false, status: 0, body: null, error: e.message });
+    } finally { setTesting(false); }
+  };
 
   const submit = async () => {
     if (!form.name.trim() || !form.endpoint.trim()) { setErr("Name and Endpoint are required."); return; }
@@ -318,12 +336,12 @@ function RegisterForm({ token, onDone }) {
       const headers = token
         ? { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
         : { "Content-Type": "application/json" };
-      const endpoint = token ? `${API}/developer/agents` : `${API}/agents`;
-      const res = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify({ ...form, price_per_request: parseFloat(form.price_per_request) || 0 }) });
+      const url = token ? `${API}/developer/agents` : `${API}/agents`;
+      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify({ ...form, price_per_request: parseFloat(form.price_per_request) || 0 }) });
       if (!res.ok) throw new Error((await res.json()).detail || "Failed");
       const d = await res.json();
-      setOk(`Agent registered (${d.status ?? "active"}). It will appear in the city shortly.`);
-      setForm(EMPTY);
+      setOk(`Live! Agent deployed as "${d.name}" (${d.status ?? "active"}). It will appear in the marketplace and city immediately.`);
+      setForm(EMPTY); setTestRes(null);
       onDone?.();
     } catch (e) { setErr(e.message); }
     finally { setBusy(false); }
@@ -331,26 +349,48 @@ function RegisterForm({ token, onDone }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ color: "#9aabb8", fontSize: 12, marginBottom: 4 }}>
+        Any HTTP endpoint becomes a monetizable agent. Paste your URL, test it, then deploy — it will appear in the marketplace, Playground, and Agent City instantly.
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <div style={{ gridColumn: "1/-1" }}><Label>Agent Name *</Label><input value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Momentum Trader" style={FIELD} /></div>
+        <div style={{ gridColumn: "1/-1" }}><Label>Agent Name *</Label><input value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Article Summarizer" style={FIELD} /></div>
         <div><Label>Category</Label>
           <select value={form.category} onChange={e => set("category", e.target.value)} style={{ ...FIELD, appearance: "none" }}>
             {CATS.map(c => <option key={c} value={c}>{c[0].toUpperCase() + c.slice(1)}</option>)}
           </select>
         </div>
         <div><Label>Price / Call ($)</Label><input type="number" step="0.001" min="0" value={form.price_per_request} onChange={e => set("price_per_request", e.target.value)} style={FIELD} /></div>
-        <div style={{ gridColumn: "1/-1" }}><Label>Endpoint URL *</Label><input value={form.endpoint} onChange={e => set("endpoint", e.target.value)} placeholder="https://your-agent.example.com/run" style={FIELD} /></div>
-        <div style={{ gridColumn: "1/-1" }}><Label>Health Endpoint (optional)</Label><input value={form.health_endpoint} onChange={e => set("health_endpoint", e.target.value)} placeholder="https://your-agent.example.com/health" style={FIELD} /></div>
-        <div style={{ gridColumn: "1/-1" }}><Label>Description</Label><textarea rows={2} value={form.description} onChange={e => set("description", e.target.value)} placeholder="What does this agent do?" style={{ ...FIELD, resize: "vertical" }} /></div>
         <div style={{ gridColumn: "1/-1" }}>
-          <Label>Base Wallet Address (optional — enables x402 payments)</Label>
-          <input value={form.owner_wallet} onChange={e => set("owner_wallet", e.target.value)} placeholder="0x… your Base network address" style={FIELD} />
-          <div style={{ color: "#9aabb8", fontSize: 10, marginTop: 3 }}>Callers pay you directly in USDC on Base. Leave blank to use the internal credit system.</div>
+          <Label>Endpoint URL * — where AgentVerse sends POST requests</Label>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input value={form.endpoint} onChange={e => { set("endpoint", e.target.value); setTestRes(null); }} placeholder="https://your-agent.example.com/run" style={{ ...FIELD, flex: 1 }} />
+            <button onClick={testEndpoint} disabled={testing || !form.endpoint.trim()} style={{ ...BTN("#374151", testing || !form.endpoint.trim()), padding: "7px 14px", fontSize: 11, flexShrink: 0, border: "1px solid #4b5563" }}>
+              {testing ? "Testing…" : "Test ↗"}
+            </button>
+          </div>
+          {testRes && (
+            <div style={{ marginTop: 6, padding: "8px 12px", borderRadius: 8, background: testRes.ok ? "#064e3b20" : "#450a0a30", border: `1px solid ${testRes.ok ? "#34d39940" : "#ef444440"}`, fontSize: 11 }}>
+              <div style={{ color: testRes.ok ? "#34d399" : "#f87171", fontWeight: 700, marginBottom: 4 }}>
+                {testRes.ok ? `✓ Endpoint responded (${testRes.status})` : testRes.status === 0 ? "✗ Could not reach endpoint" : `⚠ Responded with ${testRes.status}`}
+              </div>
+              {testRes.body && <pre style={{ color: "#9aabb8", margin: 0, fontSize: 10, whiteSpace: "pre-wrap", maxHeight: 80, overflow: "auto" }}>{JSON.stringify(testRes.body, null, 2)}</pre>}
+              {testRes.error && <div style={{ color: "#f87171", fontSize: 10 }}>{testRes.error}</div>}
+            </div>
+          )}
+        </div>
+        <div style={{ gridColumn: "1/-1" }}><Label>Description</Label><textarea rows={2} value={form.description} onChange={e => set("description", e.target.value)} placeholder="What does this agent do? What input does it expect?" style={{ ...FIELD, resize: "vertical" }} /></div>
+        <div style={{ gridColumn: "1/-1" }}><Label>Health Endpoint (optional)</Label><input value={form.health_endpoint} onChange={e => set("health_endpoint", e.target.value)} placeholder="https://your-agent.example.com/health" style={FIELD} /></div>
+        <div style={{ gridColumn: "1/-1" }}>
+          <Label>ETH Wallet Address (optional — enables on-chain USDC payments)</Label>
+          <input value={form.owner_wallet} onChange={e => set("owner_wallet", e.target.value)} placeholder="0x… your EVM-compatible address" style={FIELD} />
+          <div style={{ color: "#9aabb8", fontSize: 10, marginTop: 3 }}>Callers pay you directly in USDC on World Chain / Base. Leave blank to use the internal credit system.</div>
         </div>
       </div>
       {err && <div style={{ color: "#fca5a5", fontSize: 11, background: "#450a0a", border: "1px solid #ef4444", borderRadius: 7, padding: "6px 10px" }}>{err}</div>}
       {ok  && <div style={{ color: "#6ee7b7", fontSize: 11, background: "#064e3b20", border: "1px solid #064e3b80", borderRadius: 7, padding: "6px 10px" }}>{ok}</div>}
-      <button onClick={submit} disabled={busy} style={{ ...BTN("#6366f1", busy), alignSelf: "flex-end" }}>{busy ? "Registering…" : "Register Agent"}</button>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button onClick={submit} disabled={busy} style={BTN("#6366f1", busy)}>{busy ? "Deploying…" : "Deploy Agent →"}</button>
+      </div>
     </div>
   );
 }
@@ -551,6 +591,17 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
       {agent.description && (
         <div style={{ color: "#9aabb8", fontSize: 12, lineHeight: 1.6, padding: "10px 14px", background: "#1a1a2e", borderRadius: 8, marginTop: 10 }}>{agent.description}</div>
       )}
+
+      {/* Call from outside snippet */}
+      <div style={{ marginTop: 20, background: "#0a0e1a", border: "1px solid #1e3a5f", borderRadius: 10, padding: "12px 16px" }}>
+        <div style={{ color: "#60a5fa", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700, marginBottom: 8 }}>Call this agent from anywhere</div>
+        <pre style={{ margin: 0, fontSize: 10, color: "#94a3b8", whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{`curl -X POST ${API}/call-agent/${agent.id} \\
+  -H "Content-Type: application/json" \\
+  -d '{"input": "your input here"}'`}</pre>
+        <div style={{ marginTop: 8, color: "#64748b", fontSize: 10 }}>
+          Returns: <span style={{ color: "#94a3b8" }}>&#123; result, metadata, _tx &#125;</span> · Billed at <span style={{ color: "#E6C36B" }}>${agent.price_per_request}/call</span>
+        </div>
+      </div>
 
       <div style={{ marginTop: 20 }}>
         <div style={{ color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 }}>Recent Calls</div>
@@ -1871,7 +1922,7 @@ export default function DeveloperView() {
     { id: "market",    label: "Agent Market" },
     { id: "jobs",      label: "Pipeline Jobs" },
     { id: "guide",     label: "Deploy Guide" },
-    { id: "register",  label: auth ? "+ New Agent" : "Sign In / Register" },
+    { id: "register",  label: auth ? "Import Agent" : "Sign In / Register" },
     ...(auth ? [{ id: "keys", label: "API Keys" }] : []),
   ];
 
@@ -2009,7 +2060,8 @@ export default function DeveloperView() {
       )}
       {tab === "register" && auth && (
         <div style={{ background: "#111827", borderRadius: 16, padding: "20px 22px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)", marginBottom: 20 }}>
-          <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14, marginBottom: 14 }}>Register New Agent</div>
+          <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14, marginBottom: 4 }}>Import & Deploy Agent</div>
+          <div style={{ color: "#9aabb8", fontSize: 11, marginBottom: 14 }}>Any HTTP endpoint — finance, productivity, creative, automation — becomes a live agent in 60 seconds.</div>
           <RegisterForm token={auth.token} onDone={() => { loadAgents(); setTab("agents"); }} />
         </div>
       )}

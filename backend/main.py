@@ -666,9 +666,19 @@ def _mock_response(agent_name: str, category: str, payload: dict) -> dict:
         sh = round(random.uniform(0.8, 2.8), 2)
         return {"market": market, "optimal_allocation_pct": round(random.uniform(5, 25), 1),
                 "sharpe_ratio": sh, "rebalance": random.choice(["BUY", "HOLD", "TRIM"])}
-    # Generic fallback for user-registered agents
-    return {"market": market, "status": "ok", "confidence": round(random.uniform(0.6, 0.9), 2),
-            "signal": random.choice(["BUY", "SELL", "HOLD"]), "_mock": True}
+    # Category-aware fallback for non-finance agents
+    if category in ("productivity", "analysis"):
+        return {"status": "ok", "result": "Task processed successfully.", "summary": "Agent completed the request.", "confidence": round(random.uniform(0.7, 0.95), 2), "_mock": True}
+    if category == "research":
+        return {"status": "ok", "result": "Research complete.", "findings": ["Finding A", "Finding B", "Finding C"], "sources": random.randint(3, 12), "_mock": True}
+    if category == "creative":
+        return {"status": "ok", "result": "Content generated.", "output": "Here is your generated content…", "tokens_used": random.randint(120, 800), "_mock": True}
+    if category == "automation":
+        return {"status": "ok", "result": "Workflow triggered.", "steps_completed": random.randint(1, 5), "next_action": "none", "_mock": True}
+    if category == "web":
+        return {"status": "ok", "result": "Scrape complete.", "items_found": random.randint(5, 40), "changed": random.choice([True, False]), "_mock": True}
+    # Generic fallback
+    return {"status": "ok", "result": "Agent responded.", "confidence": round(random.uniform(0.6, 0.9), 2), "_mock": True}
 
 
 def _seed_if_empty():
