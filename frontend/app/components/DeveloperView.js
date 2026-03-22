@@ -594,9 +594,14 @@ function AgentDetail({ agent, metrics, pipelines, token, onHealthCheck, onDelete
         <div style={{ color: "#9aabb8", fontSize: 12, lineHeight: 1.6, padding: "10px 14px", background: "#1a1a2e", borderRadius: 8, marginTop: 10 }}>{agent.description}</div>
       )}
 
-      {/* Call from outside snippet */}
+      {/* Public page + call snippet */}
       <div style={{ marginTop: 20, background: "#0a0e1a", border: "1px solid #1e3a5f", borderRadius: 10, padding: "12px 16px" }}>
-        <div style={{ color: "#60a5fa", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700, marginBottom: 8 }}>Call this agent from anywhere</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ color: "#60a5fa", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700 }}>Call this agent from anywhere</div>
+          <a href={`/agents/${agent.id}`} target="_blank" rel="noopener noreferrer" style={{ color: "#818cf8", fontSize: 11, fontWeight: 700, textDecoration: "none", background: "#818cf810", border: "1px solid #818cf830", borderRadius: 6, padding: "2px 10px" }}>
+            View public page ↗
+          </a>
+        </div>
         <pre style={{ margin: 0, fontSize: 10, color: "#94a3b8", whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{`curl -X POST ${API}/call-agent/${agent.id} \\
   -H "Content-Type: application/json" \\
   -d '{"input": "your input here"}'`}</pre>
@@ -689,7 +694,10 @@ function Leaderboard({ agents, metrics }) {
               </div>
               <div style={{ color: "#9aabb8", fontSize: 10 }}>{m.requests || 0} calls · {(a.reputation || 0).toFixed(1)}★</div>
             </div>
-            <div style={{ color: c.border, fontWeight: 800, fontSize: 13 }}>${(m.earnings || 0).toFixed(4)}</div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+              <div style={{ color: c.border, fontWeight: 800, fontSize: 13 }}>${(m.earnings || 0).toFixed(4)}</div>
+              <a href={`/agents/${a.id}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: "#6b7280", fontSize: 9, textDecoration: "none" }}>page ↗</a>
+            </div>
           </div>
         );
       })}
