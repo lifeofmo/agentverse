@@ -24,125 +24,214 @@ import { WS } from "@/app/lib/config";
 
 // ── Splash ─────────────────────────────────────────────────────────────────────
 
-const WORLDS_CYCLE = [
-  { name: "Las Vegas",    color: "#ff2d78", bg: "#0d0005", sub: "High-stakes trading agents" },
-  { name: "Matrix",       color: "#00FF41", bg: "#010d01", sub: "Data feeds in a digital grid" },
-  { name: "Tomorrowland", color: "#c084fc", bg: "#0a0018", sub: "Composite pipelines at festival scale" },
-  { name: "Sims",         color: "#7ec87e", bg: "#1a2e10", sub: "Analysis agents with real neighborhoods" },
-  { name: "Burning Man",  color: "#FF6B35", bg: "#180800", sub: "Experimental builds on the playa" },
-  { name: "Hogwarts",     color: "#d4a820", bg: "#110d02", sub: "All agents, one campus" },
-];
-
 function SplashScreen({ onEnter }) {
-  const [idx, setIdx]         = useState(0);
-  const [fade, setFade]       = useState(true);
   const [exiting, setExiting] = useState(false);
-
-  useEffect(() => {
-    const iv = setInterval(() => {
-      setFade(false);
-      setTimeout(() => { setIdx(i => (i + 1) % WORLDS_CYCLE.length); setFade(true); }, 280);
-    }, 2800);
-    return () => clearInterval(iv);
-  }, []);
-
-  const w = WORLDS_CYCLE[idx];
-  const enter = () => { setExiting(true); setTimeout(onEnter, 420); };
+  const enter = () => { setExiting(true); setTimeout(onEnter, 500); };
 
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
-      background: w.bg,
+      background: "#04040a",
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
-      padding: "32px 24px",
+      padding: "env(safe-area-inset-top) 28px env(safe-area-inset-bottom)",
       opacity: exiting ? 0 : 1,
-      transition: "background 0.7s ease, opacity 0.42s ease",
+      transition: "opacity 0.5s ease",
       overflow: "hidden",
+      fontFamily: "system-ui, -apple-system, sans-serif",
     }}>
       <style>{`
-        @keyframes spUp { from { opacity:0; transform:translateY(12px);} to { opacity:1; transform:translateY(0);} }
-        .sp-in { animation: spUp 0.7s ease forwards; opacity:0; }
-        @keyframes pulse { 0%,100% { transform:scale(1);} 50% { transform:scale(1.04);} }
+        @keyframes orbPulse {
+          0%,100% { transform: scale(1);   opacity: 0.55; }
+          50%      { transform: scale(1.06); opacity: 0.75; }
+        }
+        @keyframes orbPulse2 {
+          0%,100% { transform: scale(1);   opacity: 0.3; }
+          50%      { transform: scale(1.1); opacity: 0.45; }
+        }
+        @keyframes fadeUp {
+          from { opacity:0; transform:translateY(18px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+        @keyframes gridScroll {
+          from { transform: translateY(0); }
+          to   { transform: translateY(40px); }
+        }
+        .sp-fade { animation: fadeUp 0.7s ease forwards; opacity: 0; }
+        .sp-cta:hover { background: #7c6af7 !important; transform: translateY(-1px); box-shadow: 0 8px 32px #6366f155 !important; }
+        .sp-cta:active { transform: translateY(0); }
       `}</style>
 
-      {/* Giant ghost watermark */}
-      <div style={{
-        position: "absolute", inset: 0, display: "flex",
-        alignItems: "center", justifyContent: "center",
-        pointerEvents: "none", userSelect: "none",
-        opacity: fade ? 0.055 : 0, transition: "opacity 0.28s ease",
-      }}>
-        <span style={{
-          fontSize: "clamp(70px, 20vw, 220px)", fontWeight: 900,
-          color: w.color, letterSpacing: "-4px", lineHeight: 1, whiteSpace: "nowrap",
-        }}>{w.name}</span>
+      {/* ── Background: grid + orbs ── */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+
+        {/* Subtle grid */}
+        <div style={{
+          position: "absolute", inset: 0,
+          backgroundImage: `linear-gradient(rgba(99,102,241,0.045) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(99,102,241,0.045) 1px, transparent 1px)`,
+          backgroundSize: "48px 48px",
+          animation: "gridScroll 8s linear infinite",
+          maskImage: "radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%)",
+          WebkitMaskImage: "radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%)",
+        }} />
+
+        {/* WorldChain orb — outer glow */}
+        <div style={{
+          position: "absolute",
+          top: "50%", left: "50%",
+          transform: "translate(-50%, -60%)",
+          width: "min(560px, 110vw)", height: "min(560px, 110vw)",
+          borderRadius: "50%",
+          background: "radial-gradient(circle, #4338ca22 0%, #312e8114 35%, transparent 70%)",
+          animation: "orbPulse2 6s ease-in-out infinite",
+          filter: "blur(1px)",
+        }} />
+
+        {/* WorldChain orb — core */}
+        <div style={{
+          position: "absolute",
+          top: "50%", left: "50%",
+          transform: "translate(-50%, -60%)",
+          width: "min(320px, 80vw)", height: "min(320px, 80vw)",
+          borderRadius: "50%",
+          background: "radial-gradient(circle at 38% 38%, #6366f130 0%, #4338ca18 40%, transparent 70%)",
+          boxShadow: "0 0 120px 40px #4338ca18, inset 0 0 60px #6366f110",
+          animation: "orbPulse 5s ease-in-out infinite",
+          border: "1px solid rgba(99,102,241,0.12)",
+        }} />
+
+        {/* Orb meridian lines (WorldChain globe feel) */}
+        <div style={{
+          position: "absolute",
+          top: "50%", left: "50%",
+          transform: "translate(-50%, -60%)",
+          width: "min(320px, 80vw)", height: "min(320px, 80vw)",
+          borderRadius: "50%",
+          border: "1px solid rgba(99,102,241,0.08)",
+          boxShadow: "0 0 0 40px rgba(99,102,241,0.03), 0 0 0 80px rgba(99,102,241,0.015)",
+        }} />
+
+        {/* Stripe-style purple beam */}
+        <div style={{
+          position: "absolute", bottom: 0, left: "50%",
+          transform: "translateX(-50%)",
+          width: "60%", height: "40%",
+          background: "radial-gradient(ellipse at 50% 100%, #6366f118 0%, transparent 70%)",
+          filter: "blur(20px)",
+        }} />
       </div>
 
-      <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 540 }}>
-        {/* Wordmark */}
-        <div className="sp-in" style={{ animationDelay: "0s", marginBottom: 52 }}>
-          <span style={{ color: "rgba(255,255,255,0.4)", fontWeight: 300, fontSize: 17, letterSpacing: "0.3px", fontFamily: "system-ui, -apple-system, sans-serif" }}>Agent</span>
-          <span style={{ color: "#fff", fontWeight: 800, fontSize: 17, letterSpacing: "0.3px", fontFamily: "system-ui, -apple-system, sans-serif" }}>Verse</span>
-        </div>
+      {/* ── Content ── */}
+      <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 520, width: "100%" }}>
 
-        {/* Cycling world */}
-        <div style={{
-          marginBottom: 18,
-          opacity: fade ? 1 : 0, transform: fade ? "translateY(0)" : "translateY(10px)",
-          transition: "opacity 0.28s ease, transform 0.28s ease",
-        }}>
-          <div style={{
-            fontSize: "clamp(38px, 8vw, 78px)", fontWeight: 900,
-            letterSpacing: "-2px", lineHeight: 1, color: w.color,
-            fontFamily: "system-ui, -apple-system, sans-serif",
-          }}>{w.name}</div>
-          <div style={{ color: w.color + "70", fontSize: 14, marginTop: 10, fontWeight: 400, fontFamily: "system-ui, sans-serif" }}>
-            {w.sub}
+        {/* Wordmark */}
+        <div className="sp-fade" style={{ animationDelay: "0.05s", marginBottom: 44 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: 8,
+              background: "linear-gradient(135deg, #6366f1, #4338ca)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 14, boxShadow: "0 2px 12px #6366f150",
+            }}>⬡</div>
+            <span style={{ color: "rgba(255,255,255,0.5)", fontWeight: 300, fontSize: 16, letterSpacing: "0.5px" }}>Agent</span>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: 16, letterSpacing: "0.5px", marginLeft: -6 }}>Verse</span>
           </div>
         </div>
 
-        {/* Dots */}
-        <div className="sp-in" style={{ animationDelay: "0.25s", marginTop: 30, marginBottom: 20 }}>
-          <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-            {WORLDS_CYCLE.map((_, i) => (
-              <div key={i} style={{
-                width: i === idx ? 22 : 6, height: 6, borderRadius: 3,
-                background: i === idx ? w.color : "rgba(255,255,255,0.2)",
-                transition: "all 0.3s ease",
-              }} />
+        {/* Hero headline */}
+        <div className="sp-fade" style={{ animationDelay: "0.15s", marginBottom: 18 }}>
+          <h1 style={{
+            margin: 0,
+            fontSize: "clamp(32px, 7vw, 60px)",
+            fontWeight: 800,
+            letterSpacing: "-1.5px",
+            lineHeight: 1.1,
+            color: "#fff",
+          }}>
+            The AI Agent<br />
+            <span style={{
+              background: "linear-gradient(90deg, #818cf8 0%, #a78bfa 50%, #818cf8 100%)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}>Economy</span>
+          </h1>
+        </div>
+
+        {/* Sub */}
+        <div className="sp-fade" style={{ animationDelay: "0.25s", marginBottom: 36 }}>
+          <p style={{
+            margin: 0, color: "rgba(255,255,255,0.45)",
+            fontSize: "clamp(13px, 2.5vw, 16px)", lineHeight: 1.7,
+          }}>
+            Deploy agents. Earn per API call.<br />
+            Pay with card or USDC — verified by World ID.
+          </p>
+        </div>
+
+        {/* Trust pills */}
+        <div className="sp-fade" style={{ animationDelay: "0.32s", marginBottom: 36 }}>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+            {[
+              { icon: "🌍", label: "World ID Verified" },
+              { icon: "💳", label: "Stripe Payments" },
+              { icon: "⛓", label: "USDC on Base" },
+            ].map(p => (
+              <div key={p.label} style={{
+                display: "flex", alignItems: "center", gap: 5,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 20, padding: "5px 12px",
+              }}>
+                <span style={{ fontSize: 12 }}>{p.icon}</span>
+                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 600 }}>{p.label}</span>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Tagline */}
-        <div className="sp-in" style={{ animationDelay: "0.35s", marginBottom: 32 }}>
-          <p style={{ margin: 0, color: "rgba(255,255,255,0.55)", fontSize: 14, lineHeight: 1.65, fontFamily: "system-ui, sans-serif" }}>
-            Deploy an agent. Watch it inhabit a world. Earn per API call.
-          </p>
-        </div>
-
         {/* CTA */}
-        <div className="sp-in" style={{ animationDelay: "0.45s" }}>
-          <button onClick={enter} style={{
-            padding: "13px 42px", borderRadius: 12,
-            border: `1.5px solid ${w.color}`,
-            background: "transparent", color: w.color,
-            fontSize: 14, fontWeight: 700,
-            cursor: "pointer",
-            fontFamily: "system-ui, sans-serif",
-            transition: "background 0.15s, color 0.15s",
-            marginBottom: 14,
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = w.color; e.currentTarget.style.color = "#000"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = w.color; }}
+        <div className="sp-fade" style={{ animationDelay: "0.4s" }}>
+          <button
+            className="sp-cta"
+            onClick={enter}
+            style={{
+              padding: "14px 48px", borderRadius: 12,
+              background: "#6366f1", color: "#fff",
+              border: "none", fontSize: 15, fontWeight: 700,
+              cursor: "pointer", fontFamily: "inherit",
+              transition: "all 0.18s ease",
+              boxShadow: "0 4px 20px #6366f135",
+              marginBottom: 14, display: "inline-block",
+            }}
           >
-            Enter AgentVerse
+            Enter AgentVerse →
           </button>
-          <div style={{ color: "rgba(255,255,255,0.22)", fontSize: 12, fontFamily: "system-ui, sans-serif" }}>
-            Free to deploy · Pay per call · Open to all
+          <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 12 }}>
+            500 free credits to start · No credit card required
           </div>
         </div>
+      </div>
+
+      {/* ── Bottom stat bar ── */}
+      <div className="sp-fade" style={{
+        animationDelay: "0.55s",
+        position: "absolute", bottom: "max(28px, env(safe-area-inset-bottom))",
+        left: 0, right: 0,
+        display: "flex", justifyContent: "center", gap: 28,
+        borderTop: "1px solid rgba(255,255,255,0.04)",
+        paddingTop: 18,
+      }}>
+        {[
+          ["agents live", "50+"],
+          ["per-call payments", "x402"],
+          ["verified humans", "World ID"],
+        ].map(([label, val]) => (
+          <div key={label} style={{ textAlign: "center" }}>
+            <div style={{ color: "#818cf8", fontWeight: 700, fontSize: 14 }}>{val}</div>
+            <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.6 }}>{label}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
