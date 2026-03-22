@@ -27,6 +27,23 @@ const BTN = (color = "#6366f1", disabled = false) => ({
   cursor: disabled ? "default" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.6 : 1,
 });
 
+/* ── Reputation tier ──────────────────────────────────────────────────────── */
+
+const REP_TIER = (r) =>
+  r >= 4.5 ? { label: "Elite",  color: "#f59e0b" } :
+  r >= 3.5 ? { label: "Pro",    color: "#818cf8" } :
+  r >= 2.5 ? { label: "Active", color: "#34d399" } :
+             { label: "New",    color: "#9aabb8" };
+
+function RepBadge({ reputation }) {
+  const tier = REP_TIER(reputation || 0);
+  return (
+    <span style={{ padding: "1px 7px", borderRadius: 20, background: `${tier.color}22`, color: tier.color, fontSize: 9, fontWeight: 800, border: `1px solid ${tier.color}44`, letterSpacing: 0.4 }}>
+      {tier.label}
+    </span>
+  );
+}
+
 /* ── Tiny helpers ─────────────────────────────────────────────────────────── */
 
 function Label({ children }) {
@@ -345,7 +362,10 @@ function AgentRow({ agent, metrics, selected, onClick }) {
       <CatDot category={agent.category} size={30} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ color: "#f3f4f6", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{agent.name}</div>
-        <div style={{ color: "#9aabb8", fontSize: 10, marginTop: 1 }}>${agent.price_per_request} / call</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+          <span style={{ color: "#9aabb8", fontSize: 10 }}>${agent.price_per_request} / call</span>
+          {agent.reputation != null && <RepBadge reputation={agent.reputation} />}
+        </div>
       </div>
       <div style={{ textAlign: "right", flexShrink: 0 }}>
         <div style={{ color: "#f3f4f6", fontWeight: 700, fontSize: 12 }}>{m.requests || 0}</div>
@@ -604,8 +624,11 @@ function Leaderboard({ agents, metrics }) {
             <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, background: RANK[i] ?? "#d0ccc8", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9, fontWeight: 800 }}>{i + 1}</div>
             <CatDot category={a.category} size={26} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: "#f3f4f6", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
-              <div style={{ color: "#9aabb8", fontSize: 10 }}>{m.requests || 0} calls</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ color: "#f3f4f6", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+                {a.reputation != null && <RepBadge reputation={a.reputation} />}
+              </div>
+              <div style={{ color: "#9aabb8", fontSize: 10 }}>{m.requests || 0} calls · {(a.reputation || 0).toFixed(1)}★</div>
             </div>
             <div style={{ color: c.border, fontWeight: 800, fontSize: 13 }}>${(m.earnings || 0).toFixed(4)}</div>
           </div>
@@ -869,6 +892,304 @@ app.listen(3001);`}</CodeBlock>
           </a>
         </div>
       </GuideSection>
+    </div>
+  );
+}
+
+/* ── Agent Jobs Marketplace ───────────────────────────────────────────────── */
+
+const AJOB_CATEGORIES = ["", "trading", "analysis", "data", "risk", "composite"];
+
+function fmtAgo(ts) {
+  if (!ts) return "—";
+  const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+function AgentJobsMarket({ auth, myAgents }) {
+  const [view,      setView]      = useState("browse");  // browse | post | mine | claims
+  const [jobs,      setJobs]      = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [catFilter, setCatFilter] = useState("");
+  const [busy,      setBusy]      = useState(null);
+  const [msg,       setMsg]       = useState(null);
+
+  // post form
+  const [form, setForm] = useState({
+    title: "", description: "", required_category: "", required_min_rep: "0",
+    bounty_credits: "", deadline_hours: "24",
+  });
+
+  const load = () => {
+    const qs = catFilter ? `?status=open&category=${catFilter}&limit=50` : "?status=open&limit=50";
+    setLoading(true);
+    fetch(`${API}/agent-jobs${qs}`).then(r => r.json())
+      .then(d => { setJobs(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+
+  const loadAll = () => {
+    setLoading(true);
+    fetch(`${API}/agent-jobs?limit=100`).then(r => r.json())
+      .then(d => { setJobs(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (view === "browse") load();
+    else loadAll();
+  }, [view, catFilter]); // eslint-disable-line
+
+  const claimJob = async (jobId, agentId) => {
+    if (!auth) return;
+    setBusy(jobId);
+    const r = await fetch(`${API}/agent-jobs/${jobId}/claim?agent_id=${agentId}`, {
+      method: "POST", headers: { Authorization: `Bearer ${auth.token}` },
+    });
+    const d = await r.json().catch(() => ({}));
+    setBusy(null);
+    if (!r.ok) { setMsg({ type: "err", text: d.detail || "Claim failed" }); return; }
+    setMsg({ type: "ok", text: "Job claimed! Deliver result to complete it." });
+    load();
+  };
+
+  const completeJob = async (jobId) => {
+    if (!auth) return;
+    const summary = prompt("Result summary (optional):");
+    if (summary === null) return;
+    setBusy(jobId);
+    const r = await fetch(`${API}/agent-jobs/${jobId}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({ output_data: {}, result_summary: summary || "" }),
+    });
+    const d = await r.json().catch(() => ({}));
+    setBusy(null);
+    if (!r.ok) { setMsg({ type: "err", text: d.detail || "Complete failed" }); return; }
+    setMsg({ type: "ok", text: `Job completed! Bounty paid out.` });
+    loadAll();
+  };
+
+  const cancelJob = async (jobId) => {
+    if (!auth || !confirm("Cancel this job and get a full refund?")) return;
+    setBusy(jobId);
+    const r = await fetch(`${API}/agent-jobs/${jobId}`, {
+      method: "DELETE", headers: { Authorization: `Bearer ${auth.token}` },
+    });
+    setBusy(null);
+    if (!r.ok) { setMsg({ type: "err", text: "Cancel failed" }); return; }
+    setMsg({ type: "ok", text: "Job cancelled — credits refunded." });
+    loadAll();
+  };
+
+  const postJob = async () => {
+    if (!auth) return;
+    if (!form.title.trim()) { setMsg({ type: "err", text: "Title required" }); return; }
+    if (!form.bounty_credits || parseFloat(form.bounty_credits) <= 0) { setMsg({ type: "err", text: "Bounty must be > 0" }); return; }
+    setBusy("post");
+    const r = await fetch(`${API}/agent-jobs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({
+        title: form.title.trim(),
+        description: form.description.trim(),
+        required_category: form.required_category,
+        required_min_rep: parseFloat(form.required_min_rep) || 0,
+        bounty_credits: parseFloat(form.bounty_credits),
+        deadline_hours: parseInt(form.deadline_hours) || 24,
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    setBusy(null);
+    if (!r.ok) { setMsg({ type: "err", text: d.detail || "Post failed" }); return; }
+    setMsg({ type: "ok", text: "Job posted! Bounty escrowed." });
+    setForm({ title: "", description: "", required_category: "", required_min_rep: "0", bounty_credits: "", deadline_hours: "24" });
+    setView("mine");
+  };
+
+  const openJobs   = jobs.filter(j => j.status === "open");
+  const myPosted   = jobs.filter(j => j.poster_name === auth?.username);
+  const myClaimed  = auth && myAgents ? jobs.filter(j => myAgents.some(a => a.id === j.claimer_agent_id)) : [];
+
+  const VIEWS = [
+    { id: "browse", label: "Browse Open" },
+    ...(auth ? [{ id: "post",   label: "+ Post Job" }] : []),
+    ...(auth ? [{ id: "mine",   label: `My Jobs (${myPosted.filter(j => j.status !== "cancelled").length})` }] : []),
+    ...(auth && myAgents?.length ? [{ id: "claims", label: `My Claims (${myClaimed.filter(j => j.status === "claimed").length})` }] : []),
+  ];
+
+  const JobCard = ({ j }) => {
+    const tier = REP_TIER(j.required_min_rep || 0);
+    const canClaim = auth && myAgents?.length > 0 && j.status === "open";
+    const canComplete = auth && j.status === "claimed" && myAgents?.some(a => a.id === j.claimer_agent_id);
+    const canCancel = auth && j.poster_name === auth.username && (j.status === "open" || j.status === "claimed");
+    return (
+      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 12, padding: "14px 18px", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ color: "#f3f4f6", fontWeight: 700, fontSize: 13 }}>{j.title}</span>
+              {j.required_category && <CatDot category={j.required_category} size={18} />}
+              {j.required_min_rep > 0 && (
+                <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: `${tier.color}22`, color: tier.color, border: `1px solid ${tier.color}44`, fontWeight: 700 }}>
+                  ≥{j.required_min_rep}★
+                </span>
+              )}
+              <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20,
+                background: j.status === "open" ? "#064e3b30" : j.status === "claimed" ? "#451a0330" : j.status === "completed" ? "#064e3b30" : "#1f2937",
+                color: j.status === "open" ? "#34d399" : j.status === "claimed" ? "#fbbf24" : j.status === "completed" ? "#6BCF8B" : "#9aabb8",
+                fontWeight: 700 }}>
+                {j.status}
+              </span>
+            </div>
+            {j.description && <div style={{ color: "#9aabb8", fontSize: 11, marginTop: 4, lineHeight: 1.5 }}>{j.description}</div>}
+            <div style={{ color: "#6b7280", fontSize: 10, marginTop: 5 }}>
+              by @{j.poster_name} · {fmtAgo(j.created_at)}
+              {j.claimer_agent_id && <span> · claimed by {j.claimer_agent_id.slice(0, 8)}…</span>}
+            </div>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ color: "#E6C36B", fontWeight: 800, fontSize: 16 }}>${j.bounty_credits?.toFixed(2)}</div>
+            <div style={{ color: "#9aabb8", fontSize: 9 }}>bounty</div>
+          </div>
+        </div>
+
+        {(canClaim || canComplete || canCancel) && (
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            {canClaim && myAgents.length === 1 && (
+              <button disabled={busy === j.id} onClick={() => claimJob(j.id, myAgents[0].id)} style={{ ...BTN("#6366f1", busy === j.id), padding: "5px 14px", fontSize: 11 }}>
+                {busy === j.id ? "Claiming…" : `Claim with ${myAgents[0].name}`}
+              </button>
+            )}
+            {canClaim && myAgents.length > 1 && (
+              <select onChange={e => e.target.value && claimJob(j.id, e.target.value)} defaultValue="" style={{ ...FIELD, width: "auto", fontSize: 11, padding: "4px 10px" }}>
+                <option value="">Claim with agent…</option>
+                {myAgents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            )}
+            {canComplete && (
+              <button disabled={busy === j.id} onClick={() => completeJob(j.id)} style={{ ...BTN("#34d399", busy === j.id), padding: "5px 14px", fontSize: 11 }}>
+                {busy === j.id ? "Completing…" : "Mark Complete"}
+              </button>
+            )}
+            {canCancel && (
+              <button disabled={busy === j.id} onClick={() => cancelJob(j.id)} style={{ background: "none", border: "1px solid #374151", borderRadius: 8, padding: "5px 14px", fontSize: 11, cursor: "pointer", color: "#9aabb8", fontFamily: "inherit" }}>
+                Cancel
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ background: "#111827", borderRadius: 16, padding: "20px 22px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)", marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 14 }}>Agent Job Market</div>
+          <div style={{ color: "#9aabb8", fontSize: 11, marginTop: 2 }}>Agents post bounties. Other agents claim and complete them. Payouts are automatic.</div>
+        </div>
+      </div>
+
+      {/* Sub-nav */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
+        {VIEWS.map(v => (
+          <button key={v.id} onClick={() => { setView(v.id); setMsg(null); }} style={{ padding: "5px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, background: view === v.id ? "#818cf818" : "transparent", color: view === v.id ? "#818cf8" : "#9aabb8", boxShadow: view === v.id ? "inset 0 0 0 1px #818cf840" : "none", fontFamily: "inherit" }}>
+            {v.label}
+          </button>
+        ))}
+      </div>
+
+      {msg && (
+        <div style={{ padding: "8px 14px", borderRadius: 8, marginBottom: 14, background: msg.type === "ok" ? "#064e3b30" : "#450a0a30", color: msg.type === "ok" ? "#34d399" : "#f87171", fontSize: 12 }}>
+          {msg.text}
+        </div>
+      )}
+
+      {/* Browse */}
+      {view === "browse" && (
+        <div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center" }}>
+            <select value={catFilter} onChange={e => setCatFilter(e.target.value)} style={{ ...FIELD, width: "auto", fontSize: 11, padding: "4px 10px" }}>
+              {AJOB_CATEGORIES.map(c => <option key={c} value={c}>{c || "All categories"}</option>)}
+            </select>
+            <button onClick={load} style={{ background: "none", border: "1px solid #374151", borderRadius: 8, padding: "4px 12px", fontSize: 11, cursor: "pointer", color: "#9ca3af", fontFamily: "inherit" }}>Refresh</button>
+          </div>
+          {loading ? (
+            <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic" }}>Loading…</div>
+          ) : openJobs.length === 0 ? (
+            <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic", padding: "20px 0" }}>No open jobs right now. {auth ? <span style={{ color: "#818cf8", cursor: "pointer" }} onClick={() => setView("post")}>Post the first one →</span> : "Sign in to post a job."}</div>
+          ) : openJobs.map(j => <JobCard key={j.id} j={j} />)}
+        </div>
+      )}
+
+      {/* Post form */}
+      {view === "post" && auth && (
+        <div style={{ maxWidth: 480 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Label>Job title</Label>
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Analyze BTC sentiment for next 4 hours" style={FIELD} />
+            </div>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Label>Description</Label>
+              <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="What does the agent need to do? What inputs will be provided?" rows={3} style={{ ...FIELD, resize: "vertical" }} />
+            </div>
+            <div>
+              <Label>Required category</Label>
+              <select value={form.required_category} onChange={e => setForm(f => ({ ...f, required_category: e.target.value }))} style={FIELD}>
+                {AJOB_CATEGORIES.map(c => <option key={c} value={c}>{c || "Any"}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>Min reputation ★</Label>
+              <input type="number" min="0" max="5" step="0.5" value={form.required_min_rep} onChange={e => setForm(f => ({ ...f, required_min_rep: e.target.value }))} style={FIELD} />
+            </div>
+            <div>
+              <Label>Bounty (credits $)</Label>
+              <input type="number" min="0.01" step="0.01" value={form.bounty_credits} onChange={e => setForm(f => ({ ...f, bounty_credits: e.target.value }))} placeholder="e.g. 5.00" style={FIELD} />
+            </div>
+            <div>
+              <Label>Deadline (hours)</Label>
+              <select value={form.deadline_hours} onChange={e => setForm(f => ({ ...f, deadline_hours: e.target.value }))} style={FIELD}>
+                {[1, 4, 8, 24, 48, 72, 168].map(h => <option key={h} value={h}>{h < 24 ? `${h}h` : `${h / 24}d`}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 11, color: "#60a5fa" }}>
+            Bounty will be escrowed from your credits. 90% paid to claimer on completion, 10% platform fee.
+          </div>
+          <button disabled={busy === "post"} onClick={postJob} style={BTN("#6366f1", busy === "post")}>
+            {busy === "post" ? "Posting…" : "Post Job & Escrow Bounty"}
+          </button>
+        </div>
+      )}
+
+      {/* My posted jobs */}
+      {view === "mine" && auth && (
+        <div>
+          {loading ? (
+            <div style={{ color: "#9aabb8", fontSize: 12 }}>Loading…</div>
+          ) : myPosted.length === 0 ? (
+            <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic" }}>You haven&apos;t posted any jobs yet. <span style={{ color: "#818cf8", cursor: "pointer" }} onClick={() => setView("post")}>Post one →</span></div>
+          ) : myPosted.map(j => <JobCard key={j.id} j={j} />)}
+        </div>
+      )}
+
+      {/* My claims */}
+      {view === "claims" && auth && (
+        <div>
+          {loading ? (
+            <div style={{ color: "#9aabb8", fontSize: 12 }}>Loading…</div>
+          ) : myClaimed.length === 0 ? (
+            <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic" }}>Your agents haven&apos;t claimed any jobs yet. <span style={{ color: "#818cf8", cursor: "pointer" }} onClick={() => setView("browse")}>Browse open jobs →</span></div>
+          ) : myClaimed.map(j => <JobCard key={j.id} j={j} />)}
+        </div>
+      )}
     </div>
   );
 }
@@ -1541,7 +1862,8 @@ export default function DeveloperView() {
     ...(auth ? [{ id: "mine",      label: `My Agents (${myAgents.length})` }] : []),
     ...(auth ? [{ id: "analytics", label: "Analytics" }] : []),
     ...(auth ? [{ id: "schedules", label: "Schedules" }] : []),
-    { id: "jobs",      label: "Jobs" },
+    { id: "market",    label: "Agent Market" },
+    { id: "jobs",      label: "Pipeline Jobs" },
     { id: "guide",     label: "Deploy Guide" },
     { id: "register",  label: auth ? "+ New Agent" : "Sign In / Register" },
     ...(auth ? [{ id: "keys", label: "API Keys" }] : []),
@@ -1660,6 +1982,7 @@ export default function DeveloperView() {
       {/* Jobs tab */}
       {tab === "analytics" && auth && <AnalyticsPanel agents={myAgents} metrics={metrics} />}
       {tab === "schedules" && auth && <SchedulesPanel token={auth.token} />}
+      {tab === "market" && <AgentJobsMarket auth={auth} myAgents={myAgents} />}
       {tab === "jobs" && <JobsPanel />}
 
       {/* Deploy Guide tab */}
