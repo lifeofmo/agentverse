@@ -315,17 +315,19 @@ function RegisterForm({ token, onDone }) {
 
   const testEndpoint = async () => {
     if (!form.endpoint.trim()) { setErr("Enter an endpoint URL first."); return; }
+    if (!token) { setErr("Sign in first to test an endpoint."); return; }
     setTesting(true); setTestRes(null); setErr("");
     try {
-      const res = await fetch(form.endpoint, {
+      // Proxy through backend to avoid CORS restrictions
+      const res = await fetch(`${API}/developer/test-endpoint`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ _probe: true, input: "test" }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: form.endpoint }),
       });
-      const body = await res.json().catch(() => null);
-      setTestRes({ ok: res.ok, status: res.status, body });
+      const d = await res.json().catch(() => ({ ok: false, error: "Invalid response from server" }));
+      setTestRes(d);
     } catch (e) {
-      setTestRes({ ok: false, status: 0, body: null, error: e.message });
+      setTestRes({ ok: false, status: 0, error: e.message });
     } finally { setTesting(false); }
   };
 

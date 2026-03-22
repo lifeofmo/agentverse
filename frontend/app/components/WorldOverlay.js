@@ -430,7 +430,7 @@ function VegasPanel() {
   const token = typeof window !== "undefined" ? localStorage.getItem("av_token") : null;
 
   const load = () => {
-    fetch(`${API}/economy/stats`).then(r => r.json()).then(setEcon).catch(() => {});
+    fetch(`${API}/economy/stats`).then(r => r.ok ? r.json() : null).then(d => d && setEcon(d)).catch(() => {});
     fetch(`${API}/agent-jobs?status=open&limit=10`).then(r => r.json()).then(d => setJobs(Array.isArray(d) ? d : [])).catch(() => {});
   };
 

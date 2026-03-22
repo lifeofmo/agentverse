@@ -666,6 +666,22 @@ def _mock_response(agent_name: str, category: str, payload: dict) -> dict:
         sh = round(random.uniform(0.8, 2.8), 2)
         return {"market": market, "optimal_allocation_pct": round(random.uniform(5, 25), 1),
                 "sharpe_ratio": sh, "rebalance": random.choice(["BUY", "HOLD", "TRIM"])}
+    # Name-based fallback for new template agents
+    if "search" in n:
+        return {"status": "ok", "query": payload.get("input", "test"), "results": [{"title": f"Result {i+1}", "url": f"https://example.com/{i+1}", "snippet": "Relevant content found."} for i in range(random.randint(3, 6))], "_mock": True}
+    if "summar" in n:
+        return {"status": "ok", "summary": "Key points: (1) Main finding. (2) Supporting evidence. (3) Conclusion.", "word_count": random.randint(80, 200), "_mock": True}
+    if "writer" in n or "copy" in n:
+        return {"status": "ok", "output": "Your content has been generated with engaging tone and clear structure.", "tokens_used": random.randint(150, 600), "_mock": True}
+    if "reader" in n:
+        return {"status": "ok", "title": "Page Title", "content": "Extracted text content from the URL.", "word_count": random.randint(400, 2000), "_mock": True}
+    if "scraper" in n:
+        return {"status": "ok", "items": [{"text": f"Item {i+1}", "href": f"#item{i+1}"} for i in range(random.randint(4, 12))], "changed": random.choice([True, False]), "_mock": True}
+    if "diff" in n:
+        changed = random.choice([True, False])
+        return {"status": "ok", "changed": changed, "changes": random.randint(1, 8) if changed else 0, "summary": "3 new items, 1 removed." if changed else "No changes detected.", "_mock": True}
+    if "alert" in n:
+        return {"status": "ok", "triggered": True, "message": "Alert condition met. Notification sent.", "_mock": True}
     # Category-aware fallback for non-finance agents
     if category in ("productivity", "analysis"):
         return {"status": "ok", "result": "Task processed successfully.", "summary": "Agent completed the request.", "confidence": round(random.uniform(0.7, 0.95), 2), "_mock": True}
@@ -744,6 +760,59 @@ def _seed_if_empty():
     conn.commit()
     conn.close()
     print("✓ AgentVerse: seeded 12 demo agents, 4 pipelines, 3 challenges")
+
+
+def _seed_new_agents():
+    """Add new category agents if they don't exist yet (safe to run on every startup)."""
+    AGENT_SERVER = os.environ.get("AGENT_SERVER_URL", "http://127.0.0.1:8001")
+    conn = get_db()
+    now = _now()
+
+    NEW_AGENTS = [
+        ("SearchAgent",      "research",     f"{AGENT_SERVER}/search/run",      0.002, "Searches the web and returns ranked results with summaries for any query.",           "AgentVerse", "#38bdf8"),
+        ("SummarizerAgent",  "productivity", f"{AGENT_SERVER}/summarize/run",   0.003, "Condenses long documents, articles, or text into clear bullet-point summaries.",      "AgentVerse", "#a78bfa"),
+        ("WriterAgent",      "productivity", f"{AGENT_SERVER}/writer/run",      0.004, "Generates structured written content — reports, briefs, emails — from input context.", "AgentVerse", "#a78bfa"),
+        ("ReaderAgent",      "data",         f"{AGENT_SERVER}/reader/run",      0.002, "Fetches and parses content from any URL, returning clean text for downstream agents.", "AgentVerse", "#5DADE2"),
+        ("CopywriterAgent",  "creative",     f"{AGENT_SERVER}/copywriter/run",  0.005, "Creates engaging marketing copy, tweets, captions, and ad text from a brief.",        "AgentVerse", "#fb923c"),
+        ("ScraperAgent",     "web",          f"{AGENT_SERVER}/scraper/run",     0.003, "Scrapes structured data from any public webpage. Returns JSON-formatted items.",       "AgentVerse", "#4ade80"),
+        ("DiffAgent",        "automation",   f"{AGENT_SERVER}/diff/run",        0.002, "Compares two versions of content and highlights what changed. Used in monitoring.",    "AgentVerse", "#f472b6"),
+        ("AlertAgent",       "automation",   f"{AGENT_SERVER}/alert/run",       0.001, "Sends structured alerts when triggered conditions are met. Outputs alert payload.",    "AgentVerse", "#f472b6"),
+    ]
+
+    name_to_id = {}
+    for name, cat, ep, price, desc, dev_name, dev_color in NEW_AGENTS:
+        existing = conn.execute("SELECT id FROM agents WHERE name = ?", (name,)).fetchone()
+        if existing:
+            name_to_id[name] = existing["id"]
+            continue
+        aid = str(uuid.uuid4())
+        name_to_id[name] = aid
+        conn.execute(
+            """INSERT INTO agents (id, name, description, endpoint, schema_endpoint, health_endpoint,
+               category, price_per_request, owner_wallet, created_at, status, reputation,
+               developer_name, developer_color)
+               VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, NULL, ?, 'active', 4.8, ?, ?)""",
+            (aid, name, desc, ep, cat, price, now, dev_name, dev_color)
+        )
+        print(f"  + seeded {name}")
+
+    # Seed new pipelines if they don't exist
+    NEW_PIPELINES = [
+        ("ResearchSummary",  ["SearchAgent", "SummarizerAgent", "WriterAgent"]),
+        ("ContentCreator",   ["ReaderAgent", "SummarizerAgent", "CopywriterAgent"]),
+        ("SiteMonitor",      ["ScraperAgent", "DiffAgent", "AlertAgent"]),
+    ]
+    for pname, agents in NEW_PIPELINES:
+        if conn.execute("SELECT 1 FROM pipelines WHERE name = ?", (pname,)).fetchone():
+            continue
+        ids = [name_to_id[a] for a in agents if a in name_to_id]
+        if ids:
+            conn.execute("INSERT INTO pipelines VALUES (?, ?, ?)",
+                         (str(uuid.uuid4()), pname, json.dumps(ids)))
+            print(f"  + seeded pipeline {pname}")
+
+    conn.commit()
+    conn.close()
 
 
 # ── Startup handled by @app.on_event("startup") at bottom of file ─────────────
@@ -2823,6 +2892,31 @@ async def developer_validate_agent(agent_id: str, request: Request):
     return {"agent_id": agent_id, "status": status, "latency_ms": latency_ms, "endpoint": agent["health_endpoint"] or agent["endpoint"]}
 
 
+@app.post("/developer/test-endpoint", tags=["developer"])
+async def test_external_endpoint(body: dict, user: dict = Depends(_require_auth)):
+    """Proxy-test an external agent endpoint server-side (avoids CORS in the browser)."""
+    url = body.get("url", "").strip()
+    if not url:
+        raise HTTPException(400, "url is required")
+    _validate_public_url(url, "url")  # SSRF prevention
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            start = time.monotonic()
+            r = await client.post(url, json={"_probe": True, "input": "test"})
+            latency_ms = round((time.monotonic() - start) * 1000, 1)
+            try:
+                resp_body = r.json()
+            except Exception:
+                resp_body = {"raw": r.text[:500]}
+            return {"ok": r.status_code < 400, "status": r.status_code, "latency_ms": latency_ms, "body": resp_body}
+    except httpx.TimeoutException:
+        return {"ok": False, "status": 0, "latency_ms": 8000, "error": "Timeout — endpoint did not respond within 8s"}
+    except httpx.ConnectError as e:
+        return {"ok": False, "status": 0, "latency_ms": 0, "error": f"Could not connect: {str(e)[:100]}"}
+    except Exception as e:
+        return {"ok": False, "status": 0, "latency_ms": 0, "error": str(e)[:200]}
+
+
 # =============================================================================
 # AGENT HEALTH MONITORING
 # =============================================================================
@@ -2938,6 +3032,7 @@ async def _schedule_loop():
 async def _startup():
     init_db()
     _seed_if_empty()
+    _seed_new_agents()
     asyncio.create_task(_health_loop())
     asyncio.create_task(_schedule_loop())
     logger.info("AgentVerse API started", extra={"status": "ok"})
