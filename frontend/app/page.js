@@ -195,10 +195,8 @@ function SplashScreen({ onEnter }) {
               background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.22)",
               borderRadius: 10, padding: "8px 14px",
             }}>
-              <img src="/x402-logo.svg" width="44" height="20" alt="x402" style={{ flexShrink: 0 }} />
-              <div style={{ textAlign: "left" }}>
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9 }}>HTTP micropayments</div>
-              </div>
+              <img src="/x402-logo.svg" width="52" height="19" alt="x402" style={{ flexShrink: 0, display: "block" }} />
+              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9 }}>HTTP micropayments</div>
             </div>
 
             {/* World ID */}

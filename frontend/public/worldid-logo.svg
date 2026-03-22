@@ -1,16 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="24" height="24">
-  <!-- Outer ring -->
-  <circle cx="50" cy="50" r="48" fill="none" stroke="#fff" stroke-width="4"/>
-  <!-- Mid ring -->
-  <circle cx="50" cy="50" r="32" fill="none" stroke="#fff" stroke-width="2.5" stroke-opacity="0.6"/>
-  <!-- Inner ring -->
-  <circle cx="50" cy="50" r="17" fill="none" stroke="#fff" stroke-width="2" stroke-opacity="0.35"/>
-  <!-- Pupil -->
-  <circle cx="50" cy="50" r="7" fill="#fff"/>
-  <!-- Latitude line -->
-  <path d="M2 50 Q50 35 98 50" fill="none" stroke="#fff" stroke-width="1.5" stroke-opacity="0.25"/>
-  <path d="M2 50 Q50 65 98 50" fill="none" stroke="#fff" stroke-width="1.5" stroke-opacity="0.25"/>
-  <!-- Meridian line -->
-  <path d="M50 2 Q35 50 50 98" fill="none" stroke="#fff" stroke-width="1.5" stroke-opacity="0.25"/>
-  <path d="M50 2 Q65 50 50 98" fill="none" stroke="#fff" stroke-width="1.5" stroke-opacity="0.25"/>
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M15.9593 14.6148C18.5369 14.6148 20.6265 12.5252 20.6265 9.94754C20.6265 7.36988 18.5369 5.28027 15.9593 5.28027C13.3816 5.28027 11.292 7.36988 11.292 9.94754C11.292 12.5252 13.3816 14.6148 15.9593 14.6148Z" stroke="white" stroke-width="2.67524" stroke-miterlimit="10"/>
+<path d="M26.6271 26.6164H5.29102C5.29102 25.9044 5.41037 25.2211 5.63057 24.5832C5.80754 24.0646 6.05037 23.5769 6.35082 23.1283C6.60806 22.7393 6.90851 22.3813 7.24394 22.0561C8.45192 20.8893 10.1188 20.167 11.9585 20.167H19.9596C22.2767 20.167 24.3182 21.3091 25.5138 23.046C25.8307 23.5049 26.0879 24.007 26.2752 24.542C26.5036 25.1923 26.6271 25.8899 26.6271 26.6164Z" stroke="white" stroke-width="2.67524" stroke-miterlimit="10"/>
 </svg>
