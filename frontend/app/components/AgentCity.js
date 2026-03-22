@@ -3081,7 +3081,7 @@ function HUD({ selected, metrics, lastOutputs, onClose }) {
   if (!selected) return null;
   const c = cat(selected.category), m = metrics[selected.id] || {}, out = lastOutputs[selected.id];
   return (
-    <div style={{
+    <div className="ac-hud" style={{
       position: "absolute", right: 20, top: 20, width: 240,
       background: "rgba(255,255,255,0.96)", border: `2px solid ${c.primary}`,
       borderRadius: 16, padding: "16px 14px", zIndex: 100,
@@ -3261,7 +3261,7 @@ function LiveEventBoard({ worldEvent, activePipelineCount, boardEvents }) {
   if (!worldEvent && activePipelineCount === 0 && boardEvents.length === 0) return null;
 
   return (
-    <div style={{
+    <div className="ac-live-board" style={{
       position: "absolute", left: 14, bottom: 60, zIndex: 100,
       width: 220, display: "flex", flexDirection: "column", gap: 8,
       pointerEvents: "none",
@@ -3347,7 +3347,7 @@ function AgentLeaderboardPanel({ agents, metrics, onClose }) {
   );
 
   return (
-    <div style={{
+    <div className="ac-leaderboard" style={{
       position: "absolute", top: "50%", right: 14, transform: "translateY(-50%)",
       background: "#fff", borderRadius: 18, padding: "20px 22px",
       boxShadow: "0 8px 40px rgba(0,0,0,0.16)",
@@ -3478,7 +3478,7 @@ function w2m(x, z) {
 
 function MiniMap({ agents, positions, metrics, lobbyColor, onTeleport }) {
   return (
-    <div style={{
+    <div className="ac-minimap" style={{
       position: "absolute", top: 54, left: 14, zIndex: 100,
       width: MINIMAP_SIZE,
       background: "rgba(5,10,20,0.82)", backdropFilter: "blur(8px)",
@@ -3780,7 +3780,7 @@ function LobbyChat({ lobbyId, lobbyColor, onClose }) {
   const statusLabel = connState === "open" ? "connected" : connState === "connecting" ? "connecting…" : "disconnected";
 
   return (
-    <div style={{
+    <div className="ac-chat" style={{
       position: "absolute", bottom: 20, right: 20, zIndex: 200,
       width: 300, height: 390,
       background: "rgba(10,16,26,0.93)", backdropFilter: "blur(12px)",
@@ -4230,12 +4230,40 @@ export default function AgentCity({ lobbyId = "all", lobbyCategories = null, lob
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative", background: T.bgStyle }}>
+      <style>{`
+        /* ── AgentCity mobile overrides ── */
+        @media (max-width: 640px) {
+          .ac-minimap   { display: none !important; }
+          .ac-live-board { display: none !important; }
+          .ac-hud {
+            top: auto !important; right: 0 !important; left: 0 !important;
+            bottom: 0 !important; width: 100% !important;
+            border-radius: 16px 16px 0 0 !important;
+            max-height: 55vh; overflow-y: auto;
+          }
+          .ac-top-btns { gap: 5px !important; }
+          .ac-top-btn  { padding: 7px 10px !important; font-size: 11px !important; }
+          .ac-top-btn-text { display: none !important; }
+          .ac-leaderboard {
+            top: auto !important; right: 0 !important; left: 0 !important; transform: none !important;
+            bottom: 0 !important; width: 100% !important;
+            border-radius: 16px 16px 0 0 !important; max-height: 60vh;
+          }
+          .ac-chat {
+            width: 100% !important; right: 0 !important; left: 0 !important;
+            bottom: 0 !important; height: 55vh !important;
+            border-radius: 16px 16px 0 0 !important;
+          }
+          .ac-share-btn { right: 14px !important; bottom: 14px !important; }
+          .ac-lobby-badge { font-size: 10px !important; padding: 4px 8px !important; }
+        }
+      `}</style>
       <Toast msg={toast} />
       <WorldEventBanner event={worldEvent} />
       <HUD selected={selected} metrics={metrics} lastOutputs={lastOutputs} onClose={() => setSelected(null)} />
 
       {/* Lobby label badge */}
-      <div style={{
+      <div className="ac-lobby-badge" style={{
         position: "absolute", top: 14, left: 14, zIndex: 100,
         display: "flex", alignItems: "center", gap: 7,
         background: `${lobbyColor}18`, border: `1px solid ${lobbyColor}50`,
@@ -4248,7 +4276,7 @@ export default function AgentCity({ lobbyId = "all", lobbyCategories = null, lob
         </span>
       </div>
 
-      {/* Mini-map — only visible when not in full map view */}
+      {/* Mini-map — hidden on mobile via .ac-minimap */}
       {!mapMode && (
         <MiniMap
           agents={agents}
@@ -4260,25 +4288,25 @@ export default function AgentCity({ lobbyId = "all", lobbyCategories = null, lob
       )}
 
       {/* Top-right controls */}
-      <div style={{
+      <div className="ac-top-btns" style={{
         position: "absolute", top: 14, right: 14, zIndex: 100,
         display: "flex", gap: 8,
       }}>
-        <button onClick={() => setShowLeaderboard(s => !s)} style={{
+        <button className="ac-top-btn" onClick={() => setShowLeaderboard(s => !s)} style={{
           background: showLeaderboard ? "#FFD700" : "rgba(255,255,255,0.9)",
           color: showLeaderboard ? "#7a5a00" : "#9aabb8",
           border: `2px solid ${showLeaderboard ? "#FFD700" : "#e6d6bd"}`,
           borderRadius: 10, padding: "6px 14px", fontSize: 12, fontWeight: 700,
           cursor: "pointer", fontFamily: "monospace",
-        }}>🏆 Ranks</button>
-        <button onClick={() => setShowChat(s => !s)} style={{
+        }}>🏆<span className="ac-top-btn-text"> Ranks</span></button>
+        <button className="ac-top-btn" onClick={() => setShowChat(s => !s)} style={{
           background: showChat ? lobbyColor : "rgba(255,255,255,0.9)",
           color: showChat ? "#0a1018" : "#9aabb8",
           border: `2px solid ${showChat ? lobbyColor : "#e6d6bd"}`,
           borderRadius: 10, padding: "6px 14px", fontSize: 12, fontWeight: 700,
           cursor: "pointer", fontFamily: "monospace",
-        }}>💬 Chat</button>
-        <button onClick={() => {
+        }}>💬<span className="ac-top-btn-text"> Chat</span></button>
+        <button className="ac-top-btn" onClick={() => {
           fetch(`${API}/pipelines`).then(r => r.json()).then(setPipelines).catch(() => {});
           setShowBattleSetup(true);
         }} style={{
@@ -4287,15 +4315,15 @@ export default function AgentCity({ lobbyId = "all", lobbyCategories = null, lob
           border: `2px solid ${activeBattle ? "#FF4D6D" : "#e6d6bd"}`,
           borderRadius: 10, padding: "6px 14px", fontSize: 12, fontWeight: 700,
           cursor: "pointer", fontFamily: "monospace",
-        }}>⚔ Battle</button>
-        <button onClick={() => setMapMode(m => !m)} style={{
+        }}>⚔<span className="ac-top-btn-text"> Battle</span></button>
+        <button className="ac-top-btn" onClick={() => setMapMode(m => !m)} style={{
           background: mapMode ? "#4DA6FF" : "rgba(255,255,255,0.9)",
           color: mapMode ? "#fff" : "#4DA6FF",
           border: "2px solid #4DA6FF", borderRadius: 10,
           padding: "6px 16px", fontSize: 12, fontWeight: 700,
           cursor: "pointer", fontFamily: "monospace",
           boxShadow: "0 2px 10px rgba(77,166,255,0.25)",
-        }}>{mapMode ? "⬡ Plaza View" : "▦ Map View"}</button>
+        }}>{mapMode ? "⬡" : "▦"}<span className="ac-top-btn-text"> {mapMode ? "Plaza" : "Map"}</span></button>
         <button onClick={() => setSpectatorMode(s => !s)} style={{
           background: spectatorMode ? "#BB8FCE" : "rgba(255,255,255,0.9)",
           color: spectatorMode ? "#fff" : "#BB8FCE",
@@ -4307,7 +4335,7 @@ export default function AgentCity({ lobbyId = "all", lobbyCategories = null, lob
         }}>▶ {spectatorMode ? "Stop" : "Watch"}</button>
       </div>
 
-      <button onClick={() => setShowShare(true)} style={{
+      <button className="ac-share-btn" onClick={() => setShowShare(true)} style={{
         position: "absolute", bottom: 20, right: showChat ? 330 : 20, zIndex: 100,
         background: "#4DA6FF", color: "#fff",
         border: "none", borderRadius: 10,
