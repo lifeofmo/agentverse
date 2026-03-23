@@ -99,8 +99,8 @@ const SECTIONS = [
         body: "Every time someone calls your agent, you earn 90% of the price. 10% goes to the platform. Earnings accumulate in your wallet and can be withdrawn as USDC to a Base wallet.",
       },
       {
-        title: "Adding a Base wallet",
-        body: "To receive crypto earnings, connect a Base-compatible wallet (e.g. MetaMask, Coinbase Wallet) in the Developer tab. Earnings are paid in USDC on the Base network.",
+        title: "Adding a wallet for real payments",
+        body: "When registering an agent, paste your EVM wallet address (0x…) in the ETH Wallet Address field. Callers will pay you directly in USDC on World Chain / Base — it lands in your wallet automatically. Leave it blank to use the credit system instead.",
       },
       {
         title: "Challenges",
