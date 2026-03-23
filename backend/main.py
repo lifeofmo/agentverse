@@ -310,26 +310,42 @@ class _PgConn:
     @isolation_level.setter
     def isolation_level(self, value):
         self._manual = (value is None)
+        # Mirror SQLite behaviour: isolation_level=None → autocommit mode so
+        # explicit BEGIN/COMMIT/ROLLBACK statements control the transaction.
+        self._pg.autocommit = (value is None)
 
     def execute(self, sql: str, params=()):
         pg = _pg_sql(sql)
         if pg is None:
             return _PgCursor(type("_", (), {"fetchone": lambda s: None, "fetchall": lambda s: []})())
-        sp = self._pg.cursor()
-        sp.execute("SAVEPOINT _sp")
-        sp.close()
+
+        upper = pg.strip().upper()
+        is_tx = upper in ("BEGIN", "COMMIT", "ROLLBACK") or \
+                upper.startswith("ROLLBACK TO") or upper.startswith("RELEASE SAVEPOINT")
+
         cur = self._pg.cursor()
-        try:
+
+        if is_tx or self._manual:
+            # Transaction-control statement or manual mode: run directly, no savepoints.
             cur.execute(pg, params if params else None)
-            sp2 = self._pg.cursor()
-            sp2.execute("RELEASE SAVEPOINT _sp")
-            sp2.close()
-        except Exception:
-            cur.close()
-            rb = self._pg.cursor()
-            rb.execute("ROLLBACK TO SAVEPOINT _sp")
-            rb.close()
-            raise
+        else:
+            # Auto-commit mode: wrap in a savepoint so a failed DDL/DML statement
+            # (e.g. ALTER TABLE column already exists) doesn't abort the transaction.
+            sp = self._pg.cursor()
+            sp.execute("SAVEPOINT _sp")
+            sp.close()
+            try:
+                cur.execute(pg, params if params else None)
+                sp2 = self._pg.cursor()
+                sp2.execute("RELEASE SAVEPOINT _sp")
+                sp2.close()
+            except Exception:
+                cur.close()
+                rb = self._pg.cursor()
+                rb.execute("ROLLBACK TO SAVEPOINT _sp")
+                rb.close()
+                raise
+
         return _PgCursor(cur)
 
     def commit(self):   self._pg.commit()
