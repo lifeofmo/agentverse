@@ -194,13 +194,10 @@ function AuthPanel({ onAuth }) {
           <div><Label>New Password</Label><input type="password" value={form.newPassword} onChange={e => set("newPassword", e.target.value)} placeholder="••••••••" style={FIELD} onKeyDown={e => e.key === "Enter" && submit()} /></div>
         </>)}
         {mode === "register" && (
-          <button onClick={verifyWithWorld} disabled={verifying || !!worldVerified} style={{
-            ...BTN(worldVerified ? "#065f46" : "#1a1a2e", verifying || !!worldVerified),
-            border: `1px solid ${worldVerified ? "#34d399" : "#374151"}`,
-            color: worldVerified ? "#34d399" : "#9aabb8",
-          }}>
-            {worldVerified ? "✓ Verified with World ID" : verifying ? "Verifying…" : "Verify with World ID (optional)"}
-          </button>
+          <div style={{ fontSize: 11, color: "#4b5563", background: "#111827", border: "1px solid #1f2937", borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+            <span>🌐</span>
+            <span>World ID verification <strong style={{ color: "#6b7280" }}>coming soon</strong> — pending approval</span>
+          </div>
         )}
         {err && <div style={{ color: "#fca5a5", fontSize: 11, background: "#450a0a", border: "1px solid #ef4444", borderRadius: 7, padding: "6px 10px" }}>{err}</div>}
         {ok  && <div style={{ color: "#6ee7b7", fontSize: 11, background: "#064e3b20", border: "1px solid #064e3b80", borderRadius: 7, padding: "8px 10px", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{ok}</div>}

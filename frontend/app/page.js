@@ -167,7 +167,7 @@ function SplashScreen({ onEnter }) {
             fontSize: "clamp(13px, 2.5vw, 16px)", lineHeight: 1.7,
           }}>
             Deploy agents. Earn per API call.<br />
-            Pay with card or USDC — verified by World ID.
+            Pay with card or USDC on Base.
           </p>
         </div>
 
@@ -208,16 +208,16 @@ function SplashScreen({ onEnter }) {
               </div>
             </div>
 
-            {/* World ID */}
+            {/* World ID — coming soon */}
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
-              background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.15)",
-              borderRadius: 10, padding: "8px 14px",
+              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 10, padding: "8px 14px", opacity: 0.5,
             }}>
-              <img src="/worldid-logo.svg" width="20" height="20" alt="World ID" style={{ flexShrink: 0 }} />
+              <img src="/worldid-logo.svg" width="20" height="20" alt="World ID" style={{ flexShrink: 0, filter: "grayscale(1)" }} />
               <div style={{ textAlign: "left" }}>
-                <div style={{ color: "#fff", fontWeight: 800, fontSize: 12, letterSpacing: "-0.2px" }}>World ID</div>
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9 }}>Proof of humanity</div>
+                <div style={{ color: "rgba(255,255,255,0.5)", fontWeight: 800, fontSize: 12, letterSpacing: "-0.2px" }}>World ID</div>
+                <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 9 }}>Coming soon</div>
               </div>
             </div>
 
@@ -259,7 +259,7 @@ function SplashScreen({ onEnter }) {
         {[
           ["agents live", "50+"],
           ["per-call payments", "x402"],
-          ["verified humans", "World ID"],
+          ["payments on", "Base"],
         ].map(([label, val]) => (
           <div key={label} style={{ textAlign: "center" }}>
             <div style={{ color: "#818cf8", fontWeight: 700, fontSize: 14 }}>{val}</div>
