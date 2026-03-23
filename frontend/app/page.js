@@ -271,90 +271,163 @@ function SplashScreen({ onEnter }) {
   );
 }
 
-// ── Guide overlay ──────────────────────────────────────────────────────────────
+// ── Chat-bubble onboarding guide ───────────────────────────────────────────────
 
 const GUIDE_STEPS = [
   {
-    icon: "◉",
+    icon: "👋",
     color: "#818cf8",
-    title: "Browse the Store",
-    body: "Discover AI agents built by the community. Each agent does one job — price feeds, sentiment analysis, risk scoring, and more. Try any agent live before using it.",
-    action: "marketplace",
-    cta: "Open Store →",
+    from: "AgentVerse",
+    msg: "Welcome! AgentVerse is a live marketplace where AI agents earn real money per API call. You've got 500 free credits ($5) to explore.",
+    cta: null,
+    action: null,
   },
   {
-    icon: "◈",
+    icon: "🤖",
     color: "#34d399",
-    title: "Build a Pipeline",
-    body: "Chain multiple agents together in the Pipeline Builder. The output of each step becomes the input for the next — combine a price feed → sentiment → momentum for a full trading signal.",
-    action: "build",
-    cta: "Open Builder →",
+    from: "AgentVerse",
+    msg: "Browse the Store — AI agents for trading signals, sentiment, price feeds, and more. Built-in agents run on simulated demo data. Deploy your own to connect real sources.",
+    cta: "Open Store →",
+    action: "marketplace",
   },
   {
-    icon: "⬡",
+    icon: "⚡",
     color: "#f59e0b",
-    title: "Watch agents live in a World",
-    body: "Each World is a real-time visualization of agents running. Las Vegas shows trading agents, the Matrix shows data pipelines, Hogwarts hosts all agents at once.",
-    action: "city",
-    cta: "Enter a World →",
+    from: "AgentVerse",
+    msg: "Chain agents together in the Playground. Wire a price feed → sentiment → signal and run it live. Each step costs a fraction of a cent.",
+    cta: "Open Playground →",
+    action: "playground",
   },
   {
-    icon: "⚙",
+    icon: "🌍",
     color: "#a78bfa",
-    title: "Deploy your own agent",
-    body: "Have an API? Register it as an agent in under 60 seconds. Set a price per call in USDC — you earn 90% of every call, platform takes 10%. Verified with World ID for Sybil resistance.",
-    action: "developer",
-    cta: "Developer Dashboard →",
+    from: "AgentVerse",
+    msg: "Enter a World to see agents running live in 3D — Las Vegas tracks earnings, the Matrix shows data pipelines, Hogwarts runs all agents at once.",
+    cta: "Enter a World →",
+    action: "city",
   },
   {
-    icon: "◆",
+    icon: "💸",
     color: "#e6c36b",
-    title: "Enter Missions & win rewards",
-    body: "Challenges ask you to build the best-scoring pipeline for a specific goal. Submit your pipeline, run it, and climb the leaderboard. Top scores share the reward pool.",
-    action: "challenges",
-    cta: "See Missions →",
+    from: "AgentVerse",
+    msg: "Have an API? Deploy it as an agent in 60 seconds. Set a price per call — you earn 90% of every request. Add a Base wallet to receive USDC directly.",
+    cta: "Deploy an Agent →",
+    action: "developer",
   },
 ];
 
+const GUIDE_KEY = "av_guide_v1";
+
 function GuideModal({ onClose, onGoTo }) {
-  const [step, setStep] = useState(0);
+  const [step, setStep]       = useState(0);
+  const [visible, setVisible] = useState(false);
+
+  // Animate in
+  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
+
   const s = GUIDE_STEPS[step];
+  const isLast = step === GUIDE_STEPS.length - 1;
+
+  const dismiss = () => {
+    localStorage.setItem(GUIDE_KEY, "done");
+    onClose();
+  };
+
+  const next = () => {
+    if (isLast) { dismiss(); return; }
+    setStep(s => s + 1);
+  };
+
+  const go = () => {
+    if (s.action) onGoTo(s.action);
+    dismiss();
+  };
 
   return (
-    <div
-      style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 22, width: "100%", maxWidth: 440, padding: "32px 28px", boxShadow: "0 40px 100px rgba(0,0,0,0.8)", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-        {/* Progress dots */}
-        <div style={{ display: "flex", gap: 5, marginBottom: 28 }}>
-          {GUIDE_STEPS.map((_, i) => (
-            <div key={i} onClick={() => setStep(i)} style={{ flex: i === step ? 2 : 1, height: 3, borderRadius: 2, background: i === step ? s.color : i < step ? `${s.color}50` : "rgba(255,255,255,0.1)", cursor: "pointer", transition: "all 0.3s" }} />
-          ))}
+    <div style={{
+      position: "fixed",
+      bottom: "calc(80px + env(safe-area-inset-bottom))",
+      right: 16, zIndex: 10000,
+      width: "min(340px, calc(100vw - 32px))",
+      transform: visible ? "translateY(0)" : "translateY(20px)",
+      opacity: visible ? 1 : 0,
+      transition: "all 0.35s cubic-bezier(0.34,1.56,0.64,1)",
+      fontFamily: "system-ui, -apple-system, sans-serif",
+    }}>
+      {/* Bubble tail */}
+      <div style={{
+        position: "absolute", bottom: -8, right: 28,
+        width: 16, height: 16,
+        background: "#1e293b",
+        clipPath: "polygon(0 0, 100% 0, 50% 100%)",
+      }} />
+
+      <div style={{
+        background: "#1e293b",
+        border: "1px solid rgba(255,255,255,0.1)",
+        borderRadius: 20,
+        boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+        overflow: "hidden",
+      }}>
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "14px 16px 10px",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+        }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+            background: `${s.color}20`, border: `1px solid ${s.color}40`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 16,
+          }}>{s.icon}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: s.color, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>{s.from}</div>
+          </div>
+          {/* Progress dots */}
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            {GUIDE_STEPS.map((_, i) => (
+              <div key={i} onClick={() => setStep(i)} style={{
+                width: i === step ? 16 : 5, height: 5, borderRadius: 3,
+                background: i === step ? s.color : i < step ? `${s.color}60` : "rgba(255,255,255,0.15)",
+                transition: "all 0.3s", cursor: "pointer",
+              }} />
+            ))}
+          </div>
+          <button onClick={dismiss} style={{
+            background: "none", border: "none", color: "rgba(255,255,255,0.25)",
+            fontSize: 18, cursor: "pointer", lineHeight: 1, padding: "0 0 0 4px",
+            WebkitTapHighlightColor: "transparent",
+          }}>×</button>
         </div>
 
-        {/* Icon */}
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: `${s.color}15`, border: `1px solid ${s.color}35`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: s.color, marginBottom: 20 }}>{s.icon}</div>
-
-        {/* Content */}
-        <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: 20, letterSpacing: "-0.3px", marginBottom: 10 }}>{s.title}</div>
-        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, lineHeight: 1.7, marginBottom: 28 }}>{s.body}</div>
+        {/* Message */}
+        <div style={{ padding: "14px 16px 6px" }}>
+          <p style={{
+            margin: 0, color: "rgba(255,255,255,0.82)",
+            fontSize: 13, lineHeight: 1.65,
+          }}>{s.msg}</p>
+        </div>
 
         {/* Actions */}
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button
-            onClick={() => { onGoTo(s.action); onClose(); }}
-            style={{ flex: 1, padding: "12px 0", borderRadius: 10, border: "none", background: s.color, color: "#000", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-          >{s.cta}</button>
-          {step < GUIDE_STEPS.length - 1 ? (
-            <button onClick={() => setStep(step + 1)} style={{ padding: "12px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Next</button>
-          ) : (
-            <button onClick={onClose} style={{ padding: "12px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Done</button>
+        <div style={{ display: "flex", gap: 8, padding: "10px 16px 14px" }}>
+          {s.cta && (
+            <button onClick={go} style={{
+              flex: 1, padding: "9px 0", borderRadius: 10, border: "none",
+              background: s.color, color: "#000",
+              fontSize: 12, fontWeight: 700, cursor: "pointer",
+              fontFamily: "inherit", WebkitTapHighlightColor: "transparent",
+            }}>{s.cta}</button>
           )}
+          <button onClick={next} style={{
+            flex: s.cta ? "0 0 auto" : 1,
+            padding: "9px 16px", borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "transparent", color: "rgba(255,255,255,0.55)",
+            fontSize: 12, fontWeight: 600, cursor: "pointer",
+            fontFamily: "inherit", WebkitTapHighlightColor: "transparent",
+          }}>{isLast ? "Got it ✓" : "Next →"}</button>
         </div>
-
-        {/* Step counter */}
-        <div style={{ marginTop: 16, textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 11 }}>{step + 1} of {GUIDE_STEPS.length}</div>
       </div>
     </div>
   );
@@ -405,14 +478,16 @@ function CreditsHUD({ onTopUp }) {
 export default function App() {
   const [tab,         setTab]         = useState("playground");
   const [activeLobby, setActiveLobby] = useState(null);
-  const [showSplash,  setShowSplash]  = useState(false);
+  const [showSplash,  setShowSplash]  = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("av_entered") !== "v4"
+  );
   const [showGuide,   setShowGuide]   = useState(false);
+  const [navHidden,   setNavHidden]   = useState(false);
+  const navPeekTimer = useRef(null);
   const { show: showToast, ToastContainer } = useToast();
   const wsRef = useRef(null);
 
-  useEffect(() => {
-    if (localStorage.getItem("av_entered") !== "v4") setShowSplash(true);
-  }, []);
+
 
   // ── Global WebSocket notifications ─────────────────────────────────────────
   useEffect(() => {
@@ -449,6 +524,9 @@ export default function App() {
   const handleEnter = () => {
     localStorage.setItem("av_entered", "v4");
     setShowSplash(false);
+    if (!localStorage.getItem(GUIDE_KEY)) {
+      setTimeout(() => setShowGuide(true), 800);
+    }
   };
 
   const handleTabChange = (id) => {
@@ -459,7 +537,21 @@ export default function App() {
 
   const inCity = tab === "city" && activeLobby !== null;
 
+  // Auto-hide bottom nav when entering a world on mobile
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (inCity) { setNavHidden(true); }
+    else { setNavHidden(false); clearTimeout(navPeekTimer.current); }
+  }, [inCity]);
+
+  const peekNav = () => {
+    setNavHidden(false);
+    clearTimeout(navPeekTimer.current);
+    navPeekTimer.current = setTimeout(() => setNavHidden(true), 3500);
+  };
+
   return (
+
     <>
       <ToastContainer />
       {showSplash && <SplashScreen onEnter={handleEnter} />}
@@ -483,14 +575,17 @@ export default function App() {
           .nav-tab { transition: all 0.15s; }
           .nav-tab:hover { background: rgba(255,255,255,0.05) !important; }
           @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+          @keyframes pillFade { from { opacity:0; transform:translateX(-50%) translateY(8px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
           .desktop-only { display: flex; }
           .mobile-only  { display: none; }
+          .bottom-nav   { transition: transform 0.3s ease; }
+          .world-pill   { animation: pillFade 0.3s ease forwards; }
           @media (max-width: 640px) {
             .desktop-only { display: none !important; }
             .mobile-only  { display: flex !important; }
             .nav-tabs-desktop { display: none !important; }
-            /* bottom-tab height (60px) + iPhone home indicator */
             .main-content { padding-bottom: calc(60px + env(safe-area-inset-bottom)) !important; }
+            .main-content.in-world { padding-bottom: 0 !important; }
           }
         `}</style>
 
@@ -560,6 +655,15 @@ export default function App() {
 
           <div className="desktop-only" style={{ flex: 1 }} />
 
+          {/* Docs link */}
+          <a href="/docs" title="Documentation" className="desktop-only" style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            color: "rgba(255,255,255,0.35)", fontSize: 12, fontWeight: 600,
+            textDecoration: "none", marginRight: 4, fontFamily: "inherit",
+            padding: "5px 10px", borderRadius: 8,
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}>Docs</a>
+
           {/* Guide button */}
           <button onClick={() => setShowGuide(true)} title="How it works" className="desktop-only" style={{
             width: 28, height: 28, borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
@@ -583,8 +687,9 @@ export default function App() {
         </nav>
 
         {/* ── Mobile bottom tab bar ─────────────────────────────────────────── */}
-        <nav className="mobile-only" style={{
+        <nav className="bottom-nav mobile-only" style={{
           position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
+          transform: navHidden ? "translateY(100%)" : "translateY(0)",
           background: "rgba(10,10,15,0.97)", borderTop: "1px solid rgba(255,255,255,0.08)",
           backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
           /* height = 60px tabs + iPhone home indicator safe area */
@@ -620,9 +725,34 @@ export default function App() {
           </a>
         </nav>
 
+        {/* ── Floating world pill (mobile, world-mode only) ─────────────────── */}
+        {inCity && navHidden && (
+          <div className="world-pill mobile-only" style={{
+            position: "fixed", bottom: "calc(16px + env(safe-area-inset-bottom))",
+            left: "50%", zIndex: 300,
+            background: "rgba(10,10,15,0.92)", border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 24, padding: "8px 6px",
+            display: "flex", gap: 4, alignItems: "center",
+          }}>
+            <button onClick={() => setActiveLobby(null)} style={{
+              background: "transparent", border: "none",
+              color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 600,
+              cursor: "pointer", padding: "4px 12px", borderRadius: 16,
+              fontFamily: "inherit", WebkitTapHighlightColor: "transparent",
+            }}>← Worlds</button>
+            <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.12)" }} />
+            <button onClick={peekNav} style={{
+              background: "transparent", border: "none",
+              color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 600,
+              cursor: "pointer", padding: "4px 12px", borderRadius: 16,
+              fontFamily: "inherit", WebkitTapHighlightColor: "transparent",
+            }}>≡ Menu</button>
+          </div>
+        )}
+
         {/* ── Content ───────────────────────────────────────────────────────── */}
         <ErrorBoundary key={`${tab}-${activeLobby?.id}`}>
-          <div className="main-content" style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+          <div className={`main-content${inCity ? " in-world" : ""}`} style={{ flex: 1, overflow: "hidden", position: "relative" }}>
             {tab === "playground"  && <Playground />}
             {tab === "city" && activeLobby === null && (
               <LobbySelect onEnter={setActiveLobby} />

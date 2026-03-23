@@ -69,6 +69,7 @@ app.add_middleware(
 # ─────────────────────────────────────────────────────────────────────────────
 
 DB_PATH         = os.environ.get("DB_PATH", "../database/agents.db")
+DATABASE_URL    = os.environ.get("DATABASE_URL", "")   # Postgres on Railway
 PLATFORM_WALLET = "platform"
 DEMO_WALLET     = "demo"
 PLATFORM_FEE    = 0.10   # 10 % to platform, 90 % to agent creator
@@ -81,7 +82,10 @@ X402_FACILITATOR  = os.environ.get("X402_FACILITATOR", "https://x402.org/facilit
 X402_API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
 
 # ── Stripe payments ────────────────────────────────────────────────────────────
-import stripe as _stripe_lib
+try:
+    import stripe as _stripe_lib
+except ImportError:
+    _stripe_lib = None  # type: ignore
 STRIPE_SECRET_KEY      = os.environ.get("STRIPE_SECRET_KEY", "")
 
 # ── Email / SMTP ───────────────────────────────────────────────────────────────
@@ -117,7 +121,7 @@ def _send_email(to: str, subject: str, body_html: str) -> bool:
         return False
 STRIPE_WEBHOOK_SECRET  = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 FRONTEND_URL           = os.environ.get("FRONTEND_URL", "https://agentverse-puce.vercel.app")
-if STRIPE_SECRET_KEY:
+if STRIPE_SECRET_KEY and _stripe_lib is not None:
     _stripe_lib.api_key = STRIPE_SECRET_KEY
 
 # USDC contract addresses (6 decimals)
@@ -241,7 +245,82 @@ MAX_USDC_DEPOSIT        = 10_000.0   # USD cap per single deposit
 _rate_store: dict[str, list[float]] = defaultdict(list)
 _pipeline_semaphore = asyncio.Semaphore(MAX_CONCURRENT_PIPELINES)
 
+def _pg_sql(sql: str) -> str | None:
+    """Translate SQLite SQL to Postgres. Returns None to skip the statement."""
+    upper = sql.strip().upper()
+    if upper.startswith("PRAGMA"):
+        return None
+    if "BEGIN IMMEDIATE" in upper:
+        return "BEGIN"
+    # INSERT OR REPLACE → INSERT ... ON CONFLICT (id) DO UPDATE SET …
+    if upper.startswith("INSERT OR REPLACE INTO"):
+        m = re.match(
+            r'INSERT OR REPLACE INTO (\w+)\s*\(([^)]+)\)\s*VALUES\s*(.+)',
+            sql.strip(), re.IGNORECASE | re.DOTALL,
+        )
+        if m:
+            table, cols_str, vals_str = m.group(1), m.group(2), m.group(3).strip()
+            cols = [c.strip() for c in cols_str.split(",")]
+            updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c.lower() != "id")
+            return (
+                f"INSERT INTO {table} ({cols_str}) VALUES {vals_str.replace('?', '%s')} "
+                f"ON CONFLICT (id) DO UPDATE SET {updates}"
+            )
+    return sql.replace("?", "%s")
+
+
+class _PgRow(dict):
+    """dict subclass that also supports integer indexing, like sqlite3.Row."""
+    def keys(self):
+        return list(super().keys())
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(self.values())[key]
+        return super().__getitem__(key)
+
+
+class _PgCursor:
+    def __init__(self, cur):
+        self._cur = cur
+    def fetchone(self):
+        row = self._cur.fetchone()
+        return _PgRow(row) if row else None
+    def fetchall(self):
+        return [_PgRow(r) for r in (self._cur.fetchall() or [])]
+
+
+class _PgConn:
+    """Psycopg2 connection wrapper that mimics the sqlite3 conn interface."""
+    def __init__(self, dsn: str):
+        import psycopg2, psycopg2.extras
+        self._pg = psycopg2.connect(dsn, cursor_factory=psycopg2.extras.RealDictCursor)
+        self._pg.autocommit = False
+        self._manual = False  # True after isolation_level = None
+
+    @property
+    def isolation_level(self):
+        return None if self._manual else "deferred"
+
+    @isolation_level.setter
+    def isolation_level(self, value):
+        self._manual = (value is None)
+
+    def execute(self, sql: str, params=()):
+        pg = _pg_sql(sql)
+        if pg is None:
+            return _PgCursor(type("_", (), {"fetchone": lambda s: None, "fetchall": lambda s: []})())
+        cur = self._pg.cursor()
+        cur.execute(pg, params if params else None)
+        return _PgCursor(cur)
+
+    def commit(self):   self._pg.commit()
+    def rollback(self): self._pg.rollback()
+    def close(self):    self._pg.close()
+
+
 def get_db():
+    if DATABASE_URL:
+        return _PgConn(DATABASE_URL)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -1598,10 +1677,11 @@ async def call_agent(agent_id: str, payload: dict, request: Request):
         billing_wallet = DEMO_WALLET
 
     # ── x402 payment gate ─────────────────────────────────────────────────────
-    # Activated when: x402 is globally enabled AND the agent has an on-chain
-    # wallet address (0x…) AND the request is not an internal probe.
+    # Activated for external callers only: x402 enabled + on-chain wallet + has
+    # a price + not a probe + NOT an authenticated platform user (they pay with
+    # credits, not x402).
     is_onchain_wallet = owner_wallet.startswith("0x") and len(owner_wallet) == 42
-    if X402_ENABLED and is_onchain_wallet and price > 0 and not payload.get("_probe"):
+    if X402_ENABLED and is_onchain_wallet and price > 0 and not payload.get("_probe") and not auth_user:
         payment_header = request.headers.get("X-Payment")
         if not payment_header:
             # No payment — respond 402 with requirements
@@ -2206,7 +2286,7 @@ async def create_stripe_session(
     wallet_id: str, body: StripeSessionCreate, user: dict = Depends(_require_auth)
 ):
     """Create a Stripe Checkout session. Returns {url, session_id}."""
-    if not STRIPE_SECRET_KEY:
+    if not STRIPE_SECRET_KEY or _stripe_lib is None:
         raise HTTPException(503, "Card payments not configured on this server")
     if body.amount_usd < 1 or body.amount_usd > 10_000:
         raise HTTPException(400, "Amount must be between $1 and $10,000")
@@ -2251,7 +2331,7 @@ async def create_stripe_session(
 @app.post("/stripe/webhook")
 async def stripe_webhook(request: Request):
     """Stripe sends checkout.session.completed here → credit the wallet."""
-    if not STRIPE_WEBHOOK_SECRET:
+    if not STRIPE_WEBHOOK_SECRET or _stripe_lib is None:
         raise HTTPException(503, "Stripe webhook not configured")
 
     payload   = await request.body()

@@ -17,3 +17,6 @@ arq==0.26.1
 
 # Stripe payments
 stripe>=9.0.0
+
+# PostgreSQL (production on Railway)
+psycopg2-binary>=2.9.9

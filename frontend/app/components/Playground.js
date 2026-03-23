@@ -5,7 +5,7 @@ import ReactFlow, {
   Background, Controls,
   addEdge, useNodesState, useEdgesState,
   Handle, Position, ReactFlowProvider,
-  getBezierPath, useViewport,
+  getBezierPath, useViewport, ConnectionMode,
 } from "reactflow";
 import "reactflow/dist/style.css";
 
@@ -70,6 +70,16 @@ const GLOBAL_CSS = `
   100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
 }
 .agent-node-active { animation: nodePulse 0.9s ease-out infinite; }
+.react-flow__handle {
+  width: 14px !important;
+  height: 14px !important;
+  border-width: 2px !important;
+}
+.react-flow__handle::after {
+  content: '';
+  position: absolute;
+  inset: -10px;
+}
 `;
 
 // ── Canvas dot grid ───────────────────────────────────────────────────────────
@@ -177,7 +187,7 @@ const AgentNode = memo(({ data, selected }) => {
     <NodeShell color={c.color} selected={selected}
       active={data.active} revenueFlash={data.revenueFlash}>
       <Handle type="target" position={Position.Left}
-        style={{ background: c.color, border: "2px solid #111827", width: 10, height: 10, left: -6 }} />
+        style={{ background: c.color, border: "2px solid #111827", width: 14, height: 14, left: -8 }} />
 
       {/* Icon + category */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -225,7 +235,7 @@ const AgentNode = memo(({ data, selected }) => {
       )}
 
       <Handle type="source" position={Position.Right}
-        style={{ background: c.color, border: "2px solid #111827", width: 10, height: 10, right: -6 }} />
+        style={{ background: c.color, border: "2px solid #111827", width: 14, height: 14, right: -8 }} />
     </NodeShell>
   );
 });
@@ -238,7 +248,7 @@ const CompositeNode = memo(({ data, selected }) => {
   return (
     <NodeShell color={c.color} selected={selected} active={data.active} minW={175}>
       <Handle type="target" position={Position.Left}
-        style={{ background: c.color, border: "2px solid #111827", width: 10, height: 10, left: -6 }} />
+        style={{ background: c.color, border: "2px solid #111827", width: 14, height: 14, left: -8 }} />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <div style={{ width: 32, height: 32, background: c.pill, borderRadius: 8,
           display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{c.icon}</div>
@@ -252,7 +262,7 @@ const CompositeNode = memo(({ data, selected }) => {
         </div>
       )}
       <Handle type="source" position={Position.Right}
-        style={{ background: c.color, border: "2px solid #111827", width: 10, height: 10, right: -6 }} />
+        style={{ background: c.color, border: "2px solid #111827", width: 14, height: 14, right: -8 }} />
     </NodeShell>
   );
 });
@@ -261,7 +271,7 @@ CompositeNode.displayName = "CompositeNode";
 const PipelineNode = memo(({ data, selected }) => (
   <NodeShell color="#8b5cf6" selected={selected} minW={200}>
     <Handle type="target" position={Position.Left}
-      style={{ background: "#8b5cf6", border: "2px solid #111827", width: 10, height: 10, left: -6 }} />
+      style={{ background: "#8b5cf6", border: "2px solid #111827", width: 14, height: 14, left: -8 }} />
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
       <div style={{ width: 32, height: 32, background: "#2e1065", borderRadius: 8,
         display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🔗</div>
@@ -283,7 +293,7 @@ const PipelineNode = memo(({ data, selected }) => (
       </div>
     )}
     <Handle type="source" position={Position.Right}
-      style={{ background: "#8b5cf6", border: "2px solid #111827", width: 10, height: 10, right: -6 }} />
+      style={{ background: "#8b5cf6", border: "2px solid #111827", width: 14, height: 14, right: -8 }} />
   </NodeShell>
 ));
 PipelineNode.displayName = "PipelineNode";
@@ -389,6 +399,8 @@ function QuickStartBar({ onSelect, running }) {
       background: "rgba(15,23,42,0.92)", border: "1px solid rgba(255,255,255,0.12)",
       borderRadius: 16, padding: "10px 14px",
       backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+      maxWidth: "calc(100vw - 24px)", overflowX: "auto",
+      WebkitOverflowScrolling: "touch", scrollbarWidth: "none",
     }}>
       <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, fontWeight: 600, marginRight: 2, whiteSpace: "nowrap" }}>
         Try instantly →
@@ -768,7 +780,7 @@ function GuideTooltip() {
       {/* Re-open button */}
       {!visible && (
         <button onClick={reopen} style={{
-          position: "absolute", bottom: 90, left: 256, zIndex: 200,
+          position: "absolute", bottom: 90, left: 16, zIndex: 200,
           background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.15)",
           borderRadius: 20, padding: "6px 14px",
           fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)",
@@ -783,8 +795,7 @@ function GuideTooltip() {
       {/* Guide bubble */}
       {visible && open && (
         <div style={{
-          position: "absolute", bottom: 90, left: 256, zIndex: 200,
-          width: 280,
+          position: "absolute", bottom: 90, left: 16, right: 16, maxWidth: 280, zIndex: 200,
           background: "#111827", border: "1px solid #1f2937",
           borderRadius: 16, padding: "18px",
           boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
@@ -838,7 +849,7 @@ function OnboardingHints() {
       <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginBottom: 24 }}>
         Drag agents from the left → connect them → hit Run
       </div>
-      <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", maxWidth: "min(420px, calc(100vw - 48px))" }}>
         {[
           ["①", "Live Price Feed", "drag from left panel"],
           ["②", "Trading Signal", "connect the two"],
@@ -846,7 +857,7 @@ function OnboardingHints() {
         ].map(([num, title, sub]) => (
           <div key={num} style={{
             background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: 14, padding: "16px 14px", minWidth: 120,
+            borderRadius: 14, padding: "16px 14px", minWidth: 100,
             backdropFilter: "blur(8px)",
           }}>
             <div style={{ color: "#3b82f6", fontSize: 20, fontWeight: 800, marginBottom: 8 }}>{num}</div>
@@ -865,7 +876,7 @@ function ResultsPanel({ results, totalCost, running, onClose }) {
   if (!results.length && !running) return null;
   return (
     <div style={{
-      position: "absolute", right: 16, top: 16, width: 248,
+      position: "absolute", right: 16, top: 16, width: "min(248px, calc(100vw - 32px))",
       background: "#111827", border: "1px solid #1f2937",
       borderTop: "3px solid #10b981",
       borderRadius: 16, padding: "14px", zIndex: 50,
@@ -944,7 +955,7 @@ function Inspector({ node, onCall, onClose, lastOutput }) {
   const p = agentPurpose(node.data.label);
   return (
     <div style={{
-      position: "absolute", right: 16, top: 16, width: 248,
+      position: "absolute", right: 16, top: 16, width: "min(248px, calc(100vw - 32px))",
       background: "#111827", border: "1px solid #1f2937",
       borderTop: `3px solid ${c.color}`,
       borderRadius: 16, padding: "16px 14px", zIndex: 51,
@@ -1022,6 +1033,8 @@ function Toolbar({ pipelineName, setPipelineName, onSave, onRun, onRegister, onC
       borderRadius: 16, padding: "10px 16px",
       backdropFilter: "blur(20px)",
       boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+      maxWidth: "calc(100vw - 24px)", overflowX: "auto",
+      WebkitOverflowScrolling: "touch", scrollbarWidth: "none",
     }}>
       {demoName && (
         <TBtn onClick={onDemoRun} disabled={running} variant="primary">
@@ -1080,6 +1093,7 @@ let dropId = 0;
 
 function PlaygroundCanvas() {
   const wrapperRef = useRef(null);
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 640;
   const [rf, setRf]                            = useState(null);
   const [allAgents, setAllAgents]              = useState([]);
   const [allPipelines, setAllPipelines]        = useState([]);
@@ -1087,7 +1101,7 @@ function PlaygroundCanvas() {
   const [edges, setEdges, onEdgesChange]       = useEdgesState([]);
   const [selected, setSelected]                = useState(null);
   const [lastOutput, setLastOutput]            = useState({});
-  const [libOpen, setLibOpen]                  = useState(true);
+  const [libOpen, setLibOpen]                  = useState(!isMobile);
   const [toast, setToast]                      = useState(null);
   const [running, setRunning]                  = useState(false);
   const [wsRetry,  setWsRetry]                 = useState(0);
@@ -1593,6 +1607,7 @@ function PlaygroundCanvas() {
         fitView fitViewOptions={{ padding: 0.4 }}
         minZoom={0.2} maxZoom={2.5}
         snapToGrid snapGrid={[24, 24]}
+        connectionMode={ConnectionMode.Loose}
         style={{ background: "transparent" }}
       >
         <Background color="transparent" gap={0} />

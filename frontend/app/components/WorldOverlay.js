@@ -1721,9 +1721,10 @@ function DeployHereButton({ worldId, color }) {
 }
 
 export default function WorldOverlay({ worldId, onWorldSwitch }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 640;
+  const [collapsed, setCollapsed] = useState(isMobile);
 
-  const PANEL_WIDTH = 340;
+  const PANEL_WIDTH = isMobile ? Math.min(320, window.innerWidth - 20) : 340;
   const COLLAPSED_WIDTH = 36;
 
   const worldConfig = {

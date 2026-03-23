@@ -366,6 +366,7 @@ function AgentCard({ agent, onTry }) {
   const [hov, setHov] = useState(false);
   const [tryHov, setTryHov] = useState(false);
   const verified = !!(agent.health_endpoint || agent.status === "active");
+  const isDemo   = !agent.health_endpoint && agent.status !== "active";
 
   return (
     <div
@@ -387,14 +388,24 @@ function AgentCard({ agent, onTry }) {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
         <div style={{ position: "relative", display: "inline-block" }}>
           <CatIcon category={agent.category} size={44} />
-          {verified && (
-            <div title="Active agent" style={{
+          {verified && !isDemo && (
+            <div title="Live agent" style={{
               position: "absolute", bottom: -2, right: -2,
               width: 14, height: 14, borderRadius: "50%",
               background: "#10b981", border: "2px solid #111827",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <span style={{ color: "#fff", fontSize: 7, fontWeight: 900 }}>✓</span>
+            </div>
+          )}
+          {isDemo && (
+            <div title="Simulated demo data" style={{
+              position: "absolute", bottom: -2, right: -2,
+              width: 14, height: 14, borderRadius: "50%",
+              background: "#f59e0b", border: "2px solid #111827",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <span style={{ color: "#000", fontSize: 7, fontWeight: 900 }}>D</span>
             </div>
           )}
         </div>
@@ -534,7 +545,7 @@ export default function MarketplaceView() {
     <div style={{ height: "100%", overflowY: "auto", background: "#0a0a0f", fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
       {/* Hero */}
-      <div style={{ background: "#0a0a0f", padding: "32px 40px", borderBottom: "1px solid #1a1a2e" }}>
+      <div style={{ background: "#0a0a0f", padding: "clamp(16px,5vw,32px) clamp(14px,5vw,40px)", borderBottom: "1px solid #1a1a2e" }}>
         {!backendOk && (
           <div style={{ marginBottom: 16, background: "#7f1d1d20", border: "1px solid #7f1d1d60", borderRadius: 10, padding: "10px 16px", color: "#f87171", fontSize: 12, fontWeight: 600 }}>
             Backend offline — agents unavailable right now.
@@ -605,8 +616,23 @@ export default function MarketplaceView() {
         </div>
       </div>
 
+      {/* Demo notice */}
+      <div style={{ padding: "0 clamp(14px,5vw,40px) 0", maxWidth: 1200, margin: "0 auto", background: "#0a0a0f", paddingTop: 16 }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          background: "#451a0320", border: "1px solid #f59e0b30",
+          borderRadius: 10, padding: "10px 14px",
+          fontFamily: "system-ui, -apple-system, sans-serif",
+        }}>
+          <span style={{ fontSize: 14 }}>🧪</span>
+          <span style={{ fontSize: 12, color: "#d97706", lineHeight: 1.5 }}>
+            <strong>Demo agents</strong> — built-in agents return simulated data for testing. Agents marked <span style={{ background: "#f59e0b", color: "#000", fontWeight: 800, borderRadius: 4, padding: "1px 5px", fontSize: 10 }}>D</span> are demos. Deploy your own agent to connect real data sources.
+          </span>
+        </div>
+      </div>
+
       {/* Content */}
-      <div style={{ padding: "32px 40px", maxWidth: 1200, margin: "0 auto", background: "#0a0a0f" }}>
+      <div style={{ padding: "clamp(16px,5vw,32px) clamp(14px,5vw,40px)", maxWidth: 1200, margin: "0 auto", background: "#0a0a0f" }}>
 
         <FeaturedWorkflows />
 

@@ -1309,9 +1309,9 @@ function JobsPanel() {
       ) : jobs.length === 0 ? (
         <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic" }}>No jobs yet. Run a pipeline from the Pipeline Builder.</div>
       ) : (
-        <div>
+        <div className="dv-jobs-table">
           {/* Header row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 80px 80px", gap: 8, padding: "6px 10px", borderBottom: "1px solid #1f2937", color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 80px 80px", gap: 8, padding: "6px 10px", borderBottom: "1px solid #1f2937", color: "#9aabb8", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700, minWidth: 480 }}>
             <div>Pipeline</div><div>Status</div><div>Created</div><div>Duration</div><div>Steps</div>
           </div>
           {jobs.map(j => {
@@ -1324,7 +1324,7 @@ function JobsPanel() {
               <div key={j.job_id}>
                 <div
                   onClick={() => toggleExpand(j.job_id)}
-                  style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 80px 80px", gap: 8, padding: "9px 10px", borderBottom: "1px solid #1f2937", cursor: "pointer", fontSize: 12, alignItems: "center", background: isOpen ? "#1a1a2e" : "transparent" }}
+                  style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 80px 80px", gap: 8, padding: "9px 10px", borderBottom: "1px solid #1f2937", cursor: "pointer", fontSize: 12, alignItems: "center", background: isOpen ? "#1a1a2e" : "transparent", minWidth: 480 }}
                 >
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600, color: "#e5e7eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.pipeline_name || j.pipeline_id.slice(0, 8)}</div>
@@ -1419,10 +1419,16 @@ function CreditsPanel({ auth }) {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("stripe_success")) {
-      setOk("Payment successful! Credits will appear in a few seconds.");
-      setTimeout(() => { load(); setOk(""); }, 4000);
+      setOk("Payment successful! Updating your credits…");
       const clean = window.location.pathname + window.location.hash;
       window.history.replaceState({}, "", clean);
+      // Poll up to 5× (every 3s) to catch slow webhook delivery
+      let polls = 0;
+      const poll = setInterval(() => {
+        polls++;
+        load();
+        if (polls >= 5) { clearInterval(poll); setOk(""); }
+      }, 3000);
     } else if (params.get("stripe_cancel")) {
       setOk("Payment cancelled.");
       setTimeout(() => setOk(""), 3000);
@@ -1973,16 +1979,25 @@ export default function DeveloperView() {
   ];
 
   return (
-    <div style={{ height: "100%", overflowY: "auto", WebkitOverflowScrolling: "touch", background: "#0a0a0f", padding: "28px 20px", fontFamily: "var(--font-nunito), Nunito, system-ui, sans-serif" }}>
+    <div style={{ height: "100%", overflowY: "auto", WebkitOverflowScrolling: "touch", background: "#0a0a0f", padding: "clamp(16px,4vw,28px) clamp(12px,4vw,20px)", fontFamily: "var(--font-nunito), Nunito, system-ui, sans-serif" }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .dv-header { flex-wrap: wrap !important; gap: 10px !important; }
+          .dv-header-actions { flex-wrap: wrap !important; gap: 6px !important; }
+          .dv-mine-grid { grid-template-columns: 1fr !important; }
+          .dv-mine-inner { grid-template-columns: 1fr !important; }
+          .dv-jobs-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        }
+      `}</style>
 
       {/* Header */}
-      <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+      <div className="dv-header" style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
           <div style={{ color: "#f9fafb", fontSize: 22, fontWeight: 800, letterSpacing: "-0.3px" }}>Developer Hub</div>
           <div style={{ color: "#9aabb8", fontSize: 13, marginTop: 4 }}>Monitor agents, manage API keys, track revenue.</div>
         </div>
         {auth ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="dv-header-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ background: "#818cf818", border: "1px solid #818cf840", borderRadius: 20, padding: "4px 14px", color: "#818cf8", fontSize: 12, fontWeight: 700 }}>@{auth.username}</div>
             <button onClick={() => setTab("mine")} style={{ background: "none", border: "1px solid #6BCF8B40", color: "#6BCF8B", borderRadius: 8, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>My Agents</button>
             <button onClick={handleLogout} style={{ background: "none", border: "1px solid #374151", color: "#9aabb8", borderRadius: 8, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
@@ -2065,8 +2080,8 @@ export default function DeveloperView() {
 
       {/* My Agents tab */}
       {tab === "mine" && auth && (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) min(280px,100%)", gap: 16, alignItems: "start" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "min(280px,100%) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+        <div className="dv-mine-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) min(280px,100%)", gap: 16, alignItems: "start" }}>
+          <div className="dv-mine-inner" style={{ display: "grid", gridTemplateColumns: "min(280px,100%) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
             <div style={{ background: "#111827", borderRadius: 16, padding: "14px 8px", border: "1px solid #1f2937", boxShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>
               {myAgents.length === 0 ? (
                 <div style={{ color: "#9aabb8", fontSize: 12, fontStyle: "italic", textAlign: "center", padding: "24px 16px" }}>

@@ -442,12 +442,12 @@ export default function ChallengesView() {
   return (
     <div style={{
       height: "100%", overflowY: "auto",
-      background: "#0a0a0f", padding: "32px 40px",
+      background: "#0a0a0f", padding: "clamp(16px,5vw,32px) clamp(14px,5vw,40px)",
       fontFamily: "inherit",
     }}>
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 14 }}>
           <PlazaTree size={36} />
           <div>
