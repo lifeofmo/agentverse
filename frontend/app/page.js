@@ -127,15 +127,17 @@ function SplashScreen({ onEnter }) {
 
         {/* Wordmark */}
         <div className="sp-fade" style={{ animationDelay: "0.05s", marginBottom: 44 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: 8,
-              background: "linear-gradient(135deg, #6366f1, #4338ca)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 14, boxShadow: "0 2px 12px #6366f150",
-            }}>⬡</div>
-            <span style={{ color: "rgba(255,255,255,0.5)", fontWeight: 300, fontSize: 16, letterSpacing: "0.5px" }}>Agent</span>
-            <span style={{ color: "#fff", fontWeight: 800, fontSize: 16, letterSpacing: "0.5px", marginLeft: -6 }}>Verse</span>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 0 }}>
+            <span style={{
+              color: "#fff", fontWeight: 700, fontSize: 18,
+              letterSpacing: "-0.5px",
+            }}>Agent</span>
+            <span style={{
+              background: "linear-gradient(90deg, #818cf8, #a78bfa)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              fontWeight: 700, fontSize: 18, letterSpacing: "-0.5px",
+            }}>Verse</span>
           </div>
         </div>
 
@@ -195,8 +197,15 @@ function SplashScreen({ onEnter }) {
               background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.22)",
               borderRadius: 10, padding: "8px 14px",
             }}>
-              <img src="/x402-logo.svg" width="52" height="19" alt="x402" style={{ flexShrink: 0, display: "block" }} />
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9 }}>HTTP micropayments</div>
+              <span style={{
+                fontFamily: "'SF Mono', ui-monospace, Menlo, monospace",
+                fontWeight: 700, fontSize: 15, color: "#34d399",
+                letterSpacing: "-0.5px", lineHeight: 1, flexShrink: 0,
+              }}>x402</span>
+              <div style={{ textAlign: "left" }}>
+                <div style={{ color: "#34d399", fontWeight: 800, fontSize: 12, letterSpacing: "-0.2px" }}>Protocol</div>
+                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9 }}>HTTP micropayments</div>
+              </div>
             </div>
 
             {/* World ID */}
