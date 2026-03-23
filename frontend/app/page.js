@@ -476,7 +476,11 @@ function CreditsHUD({ onTopUp }) {
 // ── App ────────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [tab,         setTab]         = useState("playground");
+  const [tab,         setTab]         = useState(() => {
+    if (typeof window === "undefined") return "playground";
+    const p = new URLSearchParams(window.location.search).get("tab");
+    return ["playground","marketplace","city","developer","challenges"].includes(p) ? p : "playground";
+  });
   const [activeLobby, setActiveLobby] = useState(null);
   const [showSplash,  setShowSplash]  = useState(() =>
     typeof window !== "undefined" && localStorage.getItem("av_entered") !== "v4"

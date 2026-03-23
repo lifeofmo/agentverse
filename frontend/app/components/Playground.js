@@ -646,8 +646,7 @@ function AgentLibrary({ agents, pipelines, collapsed, onToggle }) {
           {agents.length === 0 && (
             <div style={{ color: "#9ca3af", fontSize: 11, padding: "20px 4px",
               textAlign: "center", lineHeight: 1.6 }}>
-              Loading agents…<br />
-              <span style={{ fontSize: 10 }}>Server may be restarting.</span>
+              Loading agents…
             </div>
           )}
 
@@ -1542,7 +1541,7 @@ function PlaygroundCanvas() {
           display: "flex", alignItems: "center", gap: 8,
         }}>
           <span style={{ fontSize: 14 }}>⚠</span>
-          Agents offline — the server is restarting. Try again in a moment.
+          Agents unavailable — try again in a moment.
         </div>
       )}
 
