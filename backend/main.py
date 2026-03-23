@@ -1790,8 +1790,12 @@ async def call_agent(agent_id: str, payload: dict, request: Request):
         owner_wallet_id=row["owner_wallet"] if "owner_wallet" in row.keys() else None,
     )
     agent_earn = round(price * (1 - PLATFORM_FEE), 6)
-    record_metrics(agent_id, latency_ms, price, earnings=agent_earn, error=False)
-    metrics = get_metrics(agent_id)
+    metrics = {}
+    try:
+        record_metrics(agent_id, latency_ms, price, earnings=agent_earn, error=False)
+        metrics = get_metrics(agent_id)
+    except Exception as e:
+        logger.warning("record_metrics failed", extra={"agent_id": agent_id, "error": str(e)})
 
     # ── Write call log ────────────────────────────────────────────────────────
     try:
@@ -1808,14 +1812,17 @@ async def call_agent(agent_id: str, payload: dict, request: Request):
     except Exception:
         pass
 
-    await manager.broadcast({
-        "type":        "agent_call_done",
-        "agent_id":    agent_id,
-        "agent_name":  row["name"],
-        "result":      result,
-        "metrics":     metrics,
-        "transaction": tx,
-    })
+    try:
+        await manager.broadcast({
+            "type":        "agent_call_done",
+            "agent_id":    agent_id,
+            "agent_name":  row["name"],
+            "result":      result,
+            "metrics":     metrics,
+            "transaction": tx,
+        })
+    except Exception:
+        pass
 
     return {**result, "_tx": tx}
 
