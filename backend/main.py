@@ -310,7 +310,13 @@ class _PgConn:
         if pg is None:
             return _PgCursor(type("_", (), {"fetchone": lambda s: None, "fetchall": lambda s: []})())
         cur = self._pg.cursor()
-        cur.execute(pg, params if params else None)
+        cur.execute("SAVEPOINT _sp")
+        try:
+            cur.execute(pg, params if params else None)
+            cur.execute("RELEASE SAVEPOINT _sp")
+        except Exception:
+            cur.execute("ROLLBACK TO SAVEPOINT _sp")
+            raise
         return _PgCursor(cur)
 
     def commit(self):   self._pg.commit()
