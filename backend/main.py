@@ -283,10 +283,16 @@ class _PgCursor:
     def __init__(self, cur):
         self._cur = cur
     def fetchone(self):
-        row = self._cur.fetchone()
-        return _PgRow(row) if row else None
+        try:
+            row = self._cur.fetchone()
+            return _PgRow(row) if row else None
+        except Exception:
+            return None
     def fetchall(self):
-        return [_PgRow(r) for r in (self._cur.fetchall() or [])]
+        try:
+            return [_PgRow(r) for r in (self._cur.fetchall() or [])]
+        except Exception:
+            return []
 
 
 class _PgConn:
@@ -309,13 +315,20 @@ class _PgConn:
         pg = _pg_sql(sql)
         if pg is None:
             return _PgCursor(type("_", (), {"fetchone": lambda s: None, "fetchall": lambda s: []})())
+        sp = self._pg.cursor()
+        sp.execute("SAVEPOINT _sp")
+        sp.close()
         cur = self._pg.cursor()
-        cur.execute("SAVEPOINT _sp")
         try:
             cur.execute(pg, params if params else None)
-            cur.execute("RELEASE SAVEPOINT _sp")
+            sp2 = self._pg.cursor()
+            sp2.execute("RELEASE SAVEPOINT _sp")
+            sp2.close()
         except Exception:
-            cur.execute("ROLLBACK TO SAVEPOINT _sp")
+            cur.close()
+            rb = self._pg.cursor()
+            rb.execute("ROLLBACK TO SAVEPOINT _sp")
+            rb.close()
             raise
         return _PgCursor(cur)
 
